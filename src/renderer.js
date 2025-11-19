@@ -162,3 +162,59 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
     }
   }
 }
+
+/**
+ * Render the player's drawn path
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Set<string>} drawnCells - Set of "row,col" strings for drawn cells
+ * @param {Map<string, Set<string>>} connections - Map of cell connections
+ * @param {number} cellSize - Size of each cell in pixels
+ */
+export function renderPlayerPath(ctx, drawnCells, connections, cellSize) {
+  if (!drawnCells || drawnCells.size === 0) return;
+
+  const PLAYER_COLOR = '#E24A4A'; // Red
+
+  // Draw connections as lines
+  const drawnConnections = new Set();
+
+  for (const [cellKey, connectedCells] of connections) {
+    const [row, col] = cellKey.split(',').map(Number);
+    const x1 = col * cellSize + cellSize / 2;
+    const y1 = row * cellSize + cellSize / 2;
+
+    for (const connectedKey of connectedCells) {
+      // Avoid drawing same connection twice
+      const connectionId = [cellKey, connectedKey].sort().join('-');
+      if (drawnConnections.has(connectionId)) continue;
+      drawnConnections.add(connectionId);
+
+      const [r2, c2] = connectedKey.split(',').map(Number);
+      const x2 = c2 * cellSize + cellSize / 2;
+      const y2 = r2 * cellSize + cellSize / 2;
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.strokeStyle = PLAYER_COLOR;
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+  }
+
+  // Draw dots for cells with 0 connections
+  for (const cellKey of drawnCells) {
+    const connectionCount = connections.get(cellKey)?.size || 0;
+    if (connectionCount === 0) {
+      const [row, col] = cellKey.split(',').map(Number);
+      const x = col * cellSize + cellSize / 2;
+      const y = row * cellSize + cellSize / 2;
+
+      ctx.beginPath();
+      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = PLAYER_COLOR;
+      ctx.fill();
+    }
+  }
+}

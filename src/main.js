@@ -2,7 +2,7 @@
  * Loop Puzzle Game - Main Entry Point
  */
 
-import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells } from './renderer.js';
+import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath } from './renderer.js';
 import { generateSolutionPath } from './generator.js';
 
 // Game configuration
@@ -19,6 +19,124 @@ let cellSize = 0;
 let solutionPath = [];
 let hintCells = new Set();
 let hintMode = 'partial'; // 'none' | 'partial' | 'all'
+
+// Player path state
+let playerDrawnCells = new Set();      // Set of "row,col" strings
+let playerConnections = new Map();      // Map of "row,col" -> Set of connected "row,col"
+let lastTappedCell = null;              // "row,col" string or null
+
+/**
+ * Check if two cells are adjacent (Manhattan distance = 1)
+ */
+function isAdjacent(r1, c1, r2, c2) {
+  return Math.abs(r1 - r2) + Math.abs(c1 - c2) === 1;
+}
+
+/**
+ * Try to connect two cells if possible
+ */
+function tryConnect(cellKeyA, cellKeyB) {
+  const [r1, c1] = cellKeyA.split(',').map(Number);
+  const [r2, c2] = cellKeyB.split(',').map(Number);
+
+  // Check adjacency
+  if (!isAdjacent(r1, c1, r2, c2)) return;
+
+  // Check if already connected
+  if (playerConnections.get(cellKeyA)?.has(cellKeyB)) return;
+
+  // Check connection limits (max 2 per cell)
+  const connectionsA = playerConnections.get(cellKeyA)?.size || 0;
+  const connectionsB = playerConnections.get(cellKeyB)?.size || 0;
+
+  if (connectionsA >= 2 || connectionsB >= 2) return;
+
+  // Make the connection
+  if (!playerConnections.has(cellKeyA)) {
+    playerConnections.set(cellKeyA, new Set());
+  }
+  if (!playerConnections.has(cellKeyB)) {
+    playerConnections.set(cellKeyB, new Set());
+  }
+
+  playerConnections.get(cellKeyA).add(cellKeyB);
+  playerConnections.get(cellKeyB).add(cellKeyA);
+}
+
+/**
+ * Clear a player cell and its connections
+ */
+function clearPlayerCell(row, col) {
+  const cellKey = `${row},${col}`;
+
+  // Remove from drawn cells
+  playerDrawnCells.delete(cellKey);
+
+  // Remove all connections involving this cell
+  const connections = playerConnections.get(cellKey);
+  if (connections) {
+    for (const connectedCell of connections) {
+      playerConnections.get(connectedCell)?.delete(cellKey);
+    }
+    playerConnections.delete(cellKey);
+  }
+}
+
+/**
+ * Handle a cell tap
+ */
+function handleCellTap(row, col) {
+  const cellKey = `${row},${col}`;
+
+  if (playerDrawnCells.has(cellKey)) {
+    // Cell is already drawn
+    if (lastTappedCell === cellKey) {
+      // Second tap on same cell - clear it
+      clearPlayerCell(row, col);
+      lastTappedCell = null;
+    } else {
+      // Tapping a different drawn cell - try to connect from last
+      if (lastTappedCell && playerDrawnCells.has(lastTappedCell)) {
+        tryConnect(lastTappedCell, cellKey);
+      }
+      lastTappedCell = cellKey;
+    }
+  } else {
+    // New cell - draw it
+    playerDrawnCells.add(cellKey);
+
+    // Initialize connections for this cell
+    if (!playerConnections.has(cellKey)) {
+      playerConnections.set(cellKey, new Set());
+    }
+
+    // Try to connect from lastTappedCell
+    if (lastTappedCell && playerDrawnCells.has(lastTappedCell)) {
+      tryConnect(lastTappedCell, cellKey);
+    }
+
+    lastTappedCell = cellKey;
+  }
+
+  render();
+}
+
+/**
+ * Handle canvas click events
+ */
+function handleCanvasClick(event) {
+  const rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  const col = Math.floor(x / cellSize);
+  const row = Math.floor(y / cellSize);
+
+  // Check bounds
+  if (row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE) {
+    handleCellTap(row, col);
+  }
+}
 
 /**
  * Update checkbox visual state to match hintMode
@@ -105,6 +223,9 @@ function render() {
 
   // Render solution path
   renderPath(ctx, solutionPath, cellSize);
+
+  // Render player path on top
+  renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize);
 }
 
 /**
@@ -113,6 +234,12 @@ function render() {
 function generateNewPuzzle() {
   solutionPath = generateSolutionPath(GRID_SIZE);
   hintCells = generateHintCells(GRID_SIZE, 0.3);
+
+  // Clear player state
+  playerDrawnCells.clear();
+  playerConnections.clear();
+  lastTappedCell = null;
+
   render();
 }
 
@@ -131,6 +258,9 @@ function init() {
     e.preventDefault(); // Prevent default checkbox behavior
     cycleHintMode();
   });
+
+  // Set up canvas click handler for player drawing
+  canvas.addEventListener('click', handleCanvasClick);
 
   // Initial canvas setup (sets cellSize)
   resizeCanvas();
