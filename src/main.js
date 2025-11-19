@@ -47,7 +47,8 @@ function cycleHintMode() {
   } else {
     hintMode = 'none';
   }
-  updateCheckboxState();
+  // Use setTimeout to ensure our state is applied after browser default behavior
+  setTimeout(updateCheckboxState, 0);
   render();
 }
 
