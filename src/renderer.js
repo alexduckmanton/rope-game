@@ -45,30 +45,36 @@ export function clearCanvas(ctx, width, height) {
  * @param {number} cellSize - Size of each cell in pixels
  */
 export function renderPath(ctx, path, cellSize) {
-  if (!path || path.length < 2) return;
+  if (!path || path.length === 0) return;
 
   ctx.strokeStyle = '#4A90E2';
+  ctx.fillStyle = '#4A90E2';
   ctx.lineWidth = 4;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  ctx.beginPath();
-
-  // Start at center of first cell
-  const firstCell = path[0];
-  const startX = firstCell.col * cellSize + cellSize / 2;
-  const startY = firstCell.row * cellSize + cellSize / 2;
-  ctx.moveTo(startX, startY);
-
-  // Draw to each cell
-  for (let i = 1; i < path.length; i++) {
-    const cell = path[i];
+  // Draw circles at each cell center
+  for (const cell of path) {
     const x = cell.col * cellSize + cellSize / 2;
     const y = cell.row * cellSize + cellSize / 2;
-    ctx.lineTo(x, y);
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  // Close the loop
-  ctx.lineTo(startX, startY);
-  ctx.stroke();
+  // Draw lines connecting the path
+  if (path.length >= 2) {
+    ctx.beginPath();
+    const first = path[0];
+    ctx.moveTo(first.col * cellSize + cellSize / 2, first.row * cellSize + cellSize / 2);
+
+    for (let i = 1; i < path.length; i++) {
+      const cell = path[i];
+      ctx.lineTo(cell.col * cellSize + cellSize / 2, cell.row * cellSize + cellSize / 2);
+    }
+
+    // Close loop
+    ctx.lineTo(first.col * cellSize + cellSize / 2, first.row * cellSize + cellSize / 2);
+    ctx.stroke();
+  }
 }
