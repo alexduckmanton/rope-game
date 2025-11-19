@@ -87,7 +87,7 @@ export function renderPath(ctx, path, cellSize) {
  */
 export function renderCellNumbers(ctx, gridSize, cellSize) {
   ctx.fillStyle = '#2C3E50';
-  ctx.font = `bold ${Math.floor(cellSize * 0.4)}px sans-serif`;
+  ctx.font = `bold ${Math.floor(cellSize * 0.75)}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
