@@ -48,19 +48,9 @@ export function renderPath(ctx, path, cellSize) {
   if (!path || path.length === 0) return;
 
   ctx.strokeStyle = '#4A90E2';
-  ctx.fillStyle = '#4A90E2';
   ctx.lineWidth = 4;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-
-  // Draw circles at each cell center
-  for (const cell of path) {
-    const x = cell.col * cellSize + cellSize / 2;
-    const y = cell.row * cellSize + cellSize / 2;
-    ctx.beginPath();
-    ctx.arc(x, y, 6, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
   // Draw lines connecting the path
   if (path.length >= 2) {
