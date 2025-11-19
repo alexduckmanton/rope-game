@@ -2,17 +2,20 @@
  * Loop Puzzle Game - Main Entry Point
  */
 
-import { renderGrid, clearCanvas } from './renderer.js';
+import { renderGrid, clearCanvas, renderPath } from './renderer.js';
+import { generateSolutionPath } from './generator.js';
 
 // Game configuration
-const GRID_SIZE = 5;
+const GRID_SIZE = 6;
 
 // DOM elements
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
+const newBtn = document.getElementById('new-btn');
 
 // Game state
 let cellSize = 0;
+let solutionPath = [];
 
 /**
  * Calculate optimal cell size based on viewport
@@ -61,6 +64,17 @@ function render() {
 
   // Render grid
   renderGrid(ctx, GRID_SIZE, cellSize);
+
+  // Render solution path
+  renderPath(ctx, solutionPath, cellSize);
+}
+
+/**
+ * Generate a new puzzle
+ */
+function generateNewPuzzle() {
+  solutionPath = generateSolutionPath(GRID_SIZE);
+  render();
 }
 
 /**
@@ -70,8 +84,14 @@ function init() {
   // Set up resize handler
   window.addEventListener('resize', resizeCanvas);
 
-  // Initial setup
+  // Set up button handlers
+  newBtn.addEventListener('click', generateNewPuzzle);
+
+  // Initial canvas setup (sets cellSize)
   resizeCanvas();
+
+  // Generate initial puzzle
+  generateNewPuzzle();
 
   console.log('Loop Puzzle Game initialized');
 }
