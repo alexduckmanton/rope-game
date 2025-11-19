@@ -78,3 +78,86 @@ export function renderPath(ctx, path, cellSize) {
     ctx.stroke();
   }
 }
+
+/**
+ * Generate hint cells with random selection
+ * @param {number} gridSize - Grid size (e.g., 6 for 6x6)
+ * @param {number} probability - Probability (0-1) that each cell shows its hint
+ * @returns {Set<string>} Set of "row,col" strings for cells that should show hints
+ */
+export function generateHintCells(gridSize, probability = 0.3) {
+  const hintCells = new Set();
+
+  for (let row = 0; row < gridSize; row++) {
+    for (let col = 0; col < gridSize; col++) {
+      if (Math.random() < probability) {
+        hintCells.add(`${row},${col}`);
+      }
+    }
+  }
+
+  return hintCells;
+}
+
+/**
+ * Render numbers in each cell showing count of turns in adjacent cells
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {number} gridSize - Grid size (e.g., 6 for 6x6)
+ * @param {number} cellSize - Size of each cell in pixels
+ * @param {Array<{row: number, col: number}>} solutionPath - The solution path
+ * @param {Set<string>} hintCells - Set of cells that should show their hints
+ */
+export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells) {
+  if (!solutionPath || solutionPath.length === 0) return;
+
+  // Build a map of which cells have turns
+  const turnMap = new Map();
+  const pathLength = solutionPath.length;
+
+  for (let i = 0; i < pathLength; i++) {
+    const prev = solutionPath[(i - 1 + pathLength) % pathLength];
+    const current = solutionPath[i];
+    const next = solutionPath[(i + 1) % pathLength];
+
+    // Check if this is a straight path (no turn)
+    const isStraight =
+      (prev.row === current.row && current.row === next.row) ||
+      (prev.col === current.col && current.col === next.col);
+
+    turnMap.set(`${current.row},${current.col}`, !isStraight);
+  }
+
+  // Render the turn count for each cell
+  ctx.fillStyle = '#2C3E50';
+  ctx.font = `bold ${Math.floor(cellSize * 0.75)}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  for (let row = 0; row < gridSize; row++) {
+    for (let col = 0; col < gridSize; col++) {
+      // Skip if this cell shouldn't show its hint
+      if (!hintCells.has(`${row},${col}`)) continue;
+
+      // Count turns in adjacent cells
+      let turnCount = 0;
+      const adjacents = [
+        [row - 1, col], // up
+        [row + 1, col], // down
+        [row, col - 1], // left
+        [row, col + 1]  // right
+      ];
+
+      for (const [adjRow, adjCol] of adjacents) {
+        if (adjRow >= 0 && adjRow < gridSize && adjCol >= 0 && adjCol < gridSize) {
+          if (turnMap.get(`${adjRow},${adjCol}`)) {
+            turnCount++;
+          }
+        }
+      }
+
+      const x = col * cellSize + cellSize / 2;
+      const y = row * cellSize + cellSize / 2;
+      ctx.fillText(turnCount.toString(), x, y);
+    }
+  }
+}

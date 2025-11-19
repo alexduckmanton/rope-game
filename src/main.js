@@ -2,7 +2,7 @@
  * Loop Puzzle Game - Main Entry Point
  */
 
-import { renderGrid, clearCanvas, renderPath } from './renderer.js';
+import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells } from './renderer.js';
 import { generateSolutionPath } from './generator.js';
 
 // Game configuration
@@ -16,6 +16,7 @@ const newBtn = document.getElementById('new-btn');
 // Game state
 let cellSize = 0;
 let solutionPath = [];
+let hintCells = new Set();
 
 /**
  * Calculate optimal cell size based on viewport
@@ -65,6 +66,9 @@ function render() {
   // Render grid
   renderGrid(ctx, GRID_SIZE, cellSize);
 
+  // Render cell numbers (turn counts)
+  renderCellNumbers(ctx, GRID_SIZE, cellSize, solutionPath, hintCells);
+
   // Render solution path
   renderPath(ctx, solutionPath, cellSize);
 }
@@ -74,6 +78,7 @@ function render() {
  */
 function generateNewPuzzle() {
   solutionPath = generateSolutionPath(GRID_SIZE);
+  hintCells = generateHintCells(GRID_SIZE, 0.3);
   render();
 }
 
