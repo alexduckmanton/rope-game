@@ -6,7 +6,7 @@ import { renderGrid, clearCanvas, renderPath } from './renderer.js';
 import { generateSolutionPath } from './generator.js';
 
 // Game configuration
-const GRID_SIZE = 5;
+const GRID_SIZE = 6;
 
 // DOM elements
 const canvas = document.getElementById('game-canvas');
