@@ -1,0 +1,14 @@
+{
+  "name": "loop-puzzle",
+  "version": "0.1.0",
+  "description": "A minimalist path-drawing puzzle game",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}
