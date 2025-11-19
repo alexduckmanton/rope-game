@@ -65,8 +65,8 @@ function render() {
   // Render grid
   renderGrid(ctx, GRID_SIZE, cellSize);
 
-  // Render cell numbers
-  renderCellNumbers(ctx, GRID_SIZE, cellSize);
+  // Render cell numbers (turn counts)
+  renderCellNumbers(ctx, GRID_SIZE, cellSize, solutionPath);
 
   // Render solution path
   renderPath(ctx, solutionPath, cellSize);
