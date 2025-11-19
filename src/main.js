@@ -25,6 +25,12 @@ let playerDrawnCells = new Set();      // Set of "row,col" strings
 let playerConnections = new Map();      // Map of "row,col" -> Set of connected "row,col"
 let lastTappedCell = null;              // "row,col" string or null
 
+// Drag state
+let isDragging = false;
+let dragPath = [];                      // Cells visited during current drag (in order)
+let cellsAddedThisDrag = new Set();     // Cells that were newly added during this drag
+let hasDragMoved = false;               // Whether pointer moved to different cells during drag
+
 /**
  * Check if two cells are adjacent (Manhattan distance = 1)
  */
@@ -83,48 +89,9 @@ function clearPlayerCell(row, col) {
 }
 
 /**
- * Handle a cell tap
+ * Get cell coordinates from pointer event
  */
-function handleCellTap(row, col) {
-  const cellKey = `${row},${col}`;
-
-  if (playerDrawnCells.has(cellKey)) {
-    // Cell is already drawn
-    if (lastTappedCell === cellKey) {
-      // Second tap on same cell - clear it
-      clearPlayerCell(row, col);
-      lastTappedCell = null;
-    } else {
-      // Tapping a different drawn cell - try to connect from last
-      if (lastTappedCell && playerDrawnCells.has(lastTappedCell)) {
-        tryConnect(lastTappedCell, cellKey);
-      }
-      lastTappedCell = cellKey;
-    }
-  } else {
-    // New cell - draw it
-    playerDrawnCells.add(cellKey);
-
-    // Initialize connections for this cell
-    if (!playerConnections.has(cellKey)) {
-      playerConnections.set(cellKey, new Set());
-    }
-
-    // Try to connect from lastTappedCell
-    if (lastTappedCell && playerDrawnCells.has(lastTappedCell)) {
-      tryConnect(lastTappedCell, cellKey);
-    }
-
-    lastTappedCell = cellKey;
-  }
-
-  render();
-}
-
-/**
- * Handle canvas click events
- */
-function handleCanvasClick(event) {
+function getCellFromPointer(event) {
   const rect = canvas.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
@@ -132,10 +99,281 @@ function handleCanvasClick(event) {
   const col = Math.floor(x / cellSize);
   const row = Math.floor(y / cellSize);
 
-  // Check bounds
   if (row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE) {
-    handleCellTap(row, col);
+    return { row, col, key: `${row},${col}` };
   }
+  return null;
+}
+
+/**
+ * Check if two cells can be connected
+ */
+function canConnect(cellKeyA, cellKeyB) {
+  const [r1, c1] = cellKeyA.split(',').map(Number);
+  const [r2, c2] = cellKeyB.split(',').map(Number);
+
+  // Must be adjacent
+  if (!isAdjacent(r1, c1, r2, c2)) return false;
+
+  // Must not already be connected
+  if (playerConnections.get(cellKeyA)?.has(cellKeyB)) return false;
+
+  // Both cells must have < 2 connections
+  const connectionsA = playerConnections.get(cellKeyA)?.size || 0;
+  const connectionsB = playerConnections.get(cellKeyB)?.size || 0;
+
+  if (connectionsA >= 2 || connectionsB >= 2) return false;
+
+  return true;
+}
+
+/**
+ * Add a connection between two cells (assumes canConnect was checked)
+ */
+function addConnection(cellKeyA, cellKeyB) {
+  if (!playerConnections.has(cellKeyA)) {
+    playerConnections.set(cellKeyA, new Set());
+  }
+  if (!playerConnections.has(cellKeyB)) {
+    playerConnections.set(cellKeyB, new Set());
+  }
+
+  playerConnections.get(cellKeyA).add(cellKeyB);
+  playerConnections.get(cellKeyB).add(cellKeyA);
+}
+
+/**
+ * Remove a connection between two cells
+ */
+function removeConnection(cellKeyA, cellKeyB) {
+  playerConnections.get(cellKeyA)?.delete(cellKeyB);
+  playerConnections.get(cellKeyB)?.delete(cellKeyA);
+}
+
+/**
+ * Find path from one cell to another using BFS (for non-adjacent cells)
+ * Returns array of cell keys (not including start, but including end)
+ * Only paths through empty cells (for intermediates) are valid
+ */
+function findPathToCell(fromKey, toKey) {
+  const [fromRow, fromCol] = fromKey.split(',').map(Number);
+  const [toRow, toCol] = toKey.split(',').map(Number);
+
+  // If adjacent, just return the target
+  if (isAdjacent(fromRow, fromCol, toRow, toCol)) {
+    return [toKey];
+  }
+
+  // BFS to find shortest path
+  const queue = [[fromKey, []]];
+  const visited = new Set([fromKey]);
+
+  while (queue.length > 0) {
+    const [current, path] = queue.shift();
+    const [r, c] = current.split(',').map(Number);
+
+    // Get adjacent cells
+    const neighbors = [
+      [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]
+    ].filter(([nr, nc]) =>
+      nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE
+    );
+
+    for (const [nr, nc] of neighbors) {
+      const neighborKey = `${nr},${nc}`;
+      if (visited.has(neighborKey)) continue;
+
+      // Check if this is the target
+      if (neighborKey === toKey) {
+        // Target can have 0 or 1 connections
+        const targetConnections = playerConnections.get(toKey)?.size || 0;
+        if (targetConnections >= 2) continue;
+        return [...path, neighborKey];
+      }
+
+      // For intermediate cells, they must be empty (not already drawn)
+      // because they need 2 connections (entry and exit)
+      if (playerDrawnCells.has(neighborKey)) continue;
+
+      visited.add(neighborKey);
+      queue.push([neighborKey, [...path, neighborKey]]);
+    }
+  }
+
+  // No path found
+  return null;
+}
+
+
+/**
+ * Handle pointer down - start drag
+ */
+function handlePointerDown(event) {
+  event.preventDefault();
+
+  const cell = getCellFromPointer(event);
+  if (!cell) return;
+
+  // Capture pointer for smooth dragging
+  canvas.setPointerCapture(event.pointerId);
+
+  isDragging = true;
+  hasDragMoved = false;
+  dragPath = [cell.key];
+  cellsAddedThisDrag = new Set();
+
+  // If cell is not drawn, add it
+  if (!playerDrawnCells.has(cell.key)) {
+    playerDrawnCells.add(cell.key);
+    if (!playerConnections.has(cell.key)) {
+      playerConnections.set(cell.key, new Set());
+    }
+    cellsAddedThisDrag.add(cell.key);
+  }
+
+  render();
+}
+
+/**
+ * Handle pointer move - continue drag
+ */
+function handlePointerMove(event) {
+  if (!isDragging) return;
+  event.preventDefault();
+
+  const cell = getCellFromPointer(event);
+  if (!cell) return;
+
+  const currentCell = dragPath[dragPath.length - 1];
+  if (cell.key === currentCell) return; // Same cell, ignore
+
+  hasDragMoved = true;
+
+  // Check if backtracking (moving to a cell already in drag path)
+  const backtrackIndex = dragPath.indexOf(cell.key);
+  if (backtrackIndex !== -1 && backtrackIndex < dragPath.length - 1) {
+    // Backtracking! Remove connections and cells from backtrackIndex+1 onwards
+    for (let i = dragPath.length - 1; i > backtrackIndex; i--) {
+      const cellToRemove = dragPath[i];
+      const prevCell = dragPath[i - 1];
+
+      // Remove connection between these cells
+      removeConnection(prevCell, cellToRemove);
+
+      // If this cell was added during this drag and now has 0 connections, remove it
+      if (cellsAddedThisDrag.has(cellToRemove)) {
+        const connections = playerConnections.get(cellToRemove);
+        if (!connections || connections.size === 0) {
+          playerDrawnCells.delete(cellToRemove);
+          playerConnections.delete(cellToRemove);
+          cellsAddedThisDrag.delete(cellToRemove);
+        }
+      }
+    }
+
+    // Trim drag path
+    dragPath = dragPath.slice(0, backtrackIndex + 1);
+    render();
+    return;
+  }
+
+  // Moving forward - try to connect to the new cell
+  // Check if current cell can accept another connection
+  const currentConnections = playerConnections.get(currentCell)?.size || 0;
+  if (currentConnections >= 2) {
+    // Current cell is full, can't add more connections
+    return;
+  }
+
+  // Find path to the new cell (handles non-adjacent cells)
+  const path = findPathToCell(currentCell, cell.key);
+  if (path && path.length > 0) {
+    // Add all cells in path
+    let prevInDrag = currentCell;
+    for (const pathCell of path) {
+      // Add cell if not already drawn
+      if (!playerDrawnCells.has(pathCell)) {
+        playerDrawnCells.add(pathCell);
+        if (!playerConnections.has(pathCell)) {
+          playerConnections.set(pathCell, new Set());
+        }
+        cellsAddedThisDrag.add(pathCell);
+      }
+
+      // Try to connect
+      if (canConnect(prevInDrag, pathCell)) {
+        addConnection(prevInDrag, pathCell);
+        dragPath.push(pathCell);
+        prevInDrag = pathCell;
+      } else {
+        // Can't connect, stop here
+        break;
+      }
+    }
+    render();
+  }
+}
+
+/**
+ * Handle pointer up - end drag
+ */
+function handlePointerUp(event) {
+  if (!isDragging) return;
+
+  canvas.releasePointerCapture(event.pointerId);
+
+  const cell = getCellFromPointer(event);
+
+  // If it was just a tap (no movement to other cells), handle tap logic
+  if (!hasDragMoved && cell && dragPath.length === 1 && dragPath[0] === cell.key) {
+    // This was a tap on a single cell
+
+    // If cell existed before this drag (not added), check for double-tap
+    if (!cellsAddedThisDrag.has(cell.key)) {
+      if (lastTappedCell === cell.key) {
+        // Double-tap to delete
+        const [row, col] = cell.key.split(',').map(Number);
+        clearPlayerCell(row, col);
+        lastTappedCell = null;
+      } else {
+        // Single tap on existing cell - try to connect from lastTappedCell
+        if (lastTappedCell && playerDrawnCells.has(lastTappedCell)) {
+          tryConnect(lastTappedCell, cell.key);
+        }
+        lastTappedCell = cell.key;
+      }
+    } else {
+      // Cell was just added - try to connect from lastTappedCell
+      if (lastTappedCell && playerDrawnCells.has(lastTappedCell)) {
+        tryConnect(lastTappedCell, cell.key);
+      }
+      lastTappedCell = cell.key;
+    }
+  } else if (dragPath.length > 0) {
+    // Was a drag - update lastTappedCell to the end of the drag
+    lastTappedCell = dragPath[dragPath.length - 1];
+  }
+
+  // Reset drag state
+  isDragging = false;
+  dragPath = [];
+  cellsAddedThisDrag = new Set();
+  hasDragMoved = false;
+
+  render();
+}
+
+/**
+ * Handle pointer cancel - abort drag
+ */
+function handlePointerCancel(event) {
+  canvas.releasePointerCapture(event.pointerId);
+
+  // Keep changes made during drag, just reset state
+  isDragging = false;
+  dragPath = [];
+  cellsAddedThisDrag = new Set();
+  hasDragMoved = false;
 }
 
 /**
@@ -259,8 +497,11 @@ function init() {
     cycleHintMode();
   });
 
-  // Set up canvas click handler for player drawing
-  canvas.addEventListener('click', handleCanvasClick);
+  // Set up canvas pointer handlers for player drawing (supports touch and mouse)
+  canvas.addEventListener('pointerdown', handlePointerDown);
+  canvas.addEventListener('pointermove', handlePointerMove);
+  canvas.addEventListener('pointerup', handlePointerUp);
+  canvas.addEventListener('pointercancel', handlePointerCancel);
 
   // Initial canvas setup (sets cellSize)
   resizeCanvas();
