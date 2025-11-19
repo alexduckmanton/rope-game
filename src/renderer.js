@@ -78,3 +78,24 @@ export function renderPath(ctx, path, cellSize) {
     ctx.stroke();
   }
 }
+
+/**
+ * Render numbers in each cell
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {number} gridSize - Grid size (e.g., 6 for 6x6)
+ * @param {number} cellSize - Size of each cell in pixels
+ */
+export function renderCellNumbers(ctx, gridSize, cellSize) {
+  ctx.fillStyle = '#2C3E50';
+  ctx.font = `bold ${Math.floor(cellSize * 0.4)}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  for (let row = 0; row < gridSize; row++) {
+    for (let col = 0; col < gridSize; col++) {
+      const x = col * cellSize + cellSize / 2;
+      const y = row * cellSize + cellSize / 2;
+      ctx.fillText('1', x, y);
+    }
+  }
+}

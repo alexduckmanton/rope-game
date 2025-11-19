@@ -2,7 +2,7 @@
  * Loop Puzzle Game - Main Entry Point
  */
 
-import { renderGrid, clearCanvas, renderPath } from './renderer.js';
+import { renderGrid, clearCanvas, renderPath, renderCellNumbers } from './renderer.js';
 import { generateSolutionPath } from './generator.js';
 
 // Game configuration
@@ -64,6 +64,9 @@ function render() {
 
   // Render grid
   renderGrid(ctx, GRID_SIZE, cellSize);
+
+  // Render cell numbers
+  renderCellNumbers(ctx, GRID_SIZE, cellSize);
 
   // Render solution path
   renderPath(ctx, solutionPath, cellSize);
