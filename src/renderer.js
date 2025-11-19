@@ -80,13 +80,34 @@ export function renderPath(ctx, path, cellSize) {
 }
 
 /**
+ * Generate hint cells with random selection
+ * @param {number} gridSize - Grid size (e.g., 6 for 6x6)
+ * @param {number} probability - Probability (0-1) that each cell shows its hint
+ * @returns {Set<string>} Set of "row,col" strings for cells that should show hints
+ */
+export function generateHintCells(gridSize, probability = 0.3) {
+  const hintCells = new Set();
+
+  for (let row = 0; row < gridSize; row++) {
+    for (let col = 0; col < gridSize; col++) {
+      if (Math.random() < probability) {
+        hintCells.add(`${row},${col}`);
+      }
+    }
+  }
+
+  return hintCells;
+}
+
+/**
  * Render numbers in each cell showing count of turns in adjacent cells
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {number} gridSize - Grid size (e.g., 6 for 6x6)
  * @param {number} cellSize - Size of each cell in pixels
  * @param {Array<{row: number, col: number}>} solutionPath - The solution path
+ * @param {Set<string>} hintCells - Set of cells that should show their hints
  */
-export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath) {
+export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells) {
   if (!solutionPath || solutionPath.length === 0) return;
 
   // Build a map of which cells have turns
@@ -114,6 +135,9 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath) {
 
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
+      // Skip if this cell shouldn't show its hint
+      if (!hintCells.has(`${row},${col}`)) continue;
+
       // Count turns in adjacent cells
       let turnCount = 0;
       const adjacents = [
