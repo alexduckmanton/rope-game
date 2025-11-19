@@ -485,6 +485,30 @@ function generateNewPuzzle() {
  * Initialize the game
  */
 function init() {
+  // Prevent all forms of zooming on mobile devices
+
+  // Prevent Safari gesture events (pinch zoom)
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+  document.addEventListener('gesturechange', (e) => e.preventDefault());
+  document.addEventListener('gestureend', (e) => e.preventDefault());
+
+  // Prevent multi-touch zoom
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 1) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  // Prevent double-tap zoom by handling touchend
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) {
+      e.preventDefault();
+    }
+    lastTouchEnd = now;
+  }, { passive: false });
+
   // Set up resize handler
   window.addEventListener('resize', resizeCanvas);
 
