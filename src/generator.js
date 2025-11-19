@@ -1,5 +1,5 @@
 /**
- * Puzzle generation module using Warnsdorff's heuristic
+ * Puzzle generation module using backtracking with iteration limit
  */
 
 /**
@@ -20,7 +20,7 @@ export function generateSolutionPath(size) {
   shuffleArray(starts);
 
   for (const start of starts) {
-    const path = tryWarnsdorff(size, start.row, start.col, totalCells);
+    const path = tryBacktracking(size, start.row, start.col, totalCells);
     if (path) return path;
   }
 
@@ -29,47 +29,48 @@ export function generateSolutionPath(size) {
 }
 
 /**
- * Try to find Hamiltonian cycle using Warnsdorff's heuristic
+ * Try to find Hamiltonian cycle using backtracking with iteration limit
  */
-function tryWarnsdorff(size, startRow, startCol, totalCells) {
+function tryBacktracking(size, startRow, startCol, totalCells) {
   const visited = Array(size).fill(null).map(() => Array(size).fill(false));
   const path = [];
+  let iterations = 0;
+  const maxIterations = 50000;
 
-  let row = startRow;
-  let col = startCol;
+  function backtrack(row, col) {
+    if (iterations++ > maxIterations) return false;
 
-  for (let i = 0; i < totalCells; i++) {
     visited[row][col] = true;
     path.push({ row, col });
 
-    if (i === totalCells - 1) break;
+    if (path.length === totalCells) {
+      if (isAdjacent(row, col, startRow, startCol)) {
+        return true;
+      }
+      visited[row][col] = false;
+      path.pop();
+      return false;
+    }
 
-    // Get unvisited neighbors sorted by Warnsdorff's rule
+    // Get and shuffle neighbors for randomness
     const neighbors = getNeighbors(size, row, col)
-      .filter(n => !visited[n.row][n.col])
-      .map(n => ({
-        ...n,
-        degree: countUnvisitedNeighbors(size, n.row, n.col, visited)
-      }))
-      .sort((a, b) => a.degree - b.degree);
+      .filter(n => !visited[n.row][n.col]);
+    shuffleArray(neighbors);
 
-    if (neighbors.length === 0) return null; // Dead end
+    for (const next of neighbors) {
+      if (backtrack(next.row, next.col)) {
+        return true;
+      }
+    }
 
-    // Pick from neighbors with minimum degree (random tie-break)
-    const minDegree = neighbors[0].degree;
-    const candidates = neighbors.filter(n => n.degree === minDegree);
-    const next = candidates[Math.floor(Math.random() * candidates.length)];
-
-    row = next.row;
-    col = next.col;
+    visited[row][col] = false;
+    path.pop();
+    return false;
   }
 
-  // Check if we can close the loop
-  const lastCell = path[path.length - 1];
-  if (isAdjacent(lastCell.row, lastCell.col, startRow, startCol)) {
+  if (backtrack(startRow, startCol)) {
     return path;
   }
-
   return null;
 }
 
@@ -88,15 +89,6 @@ function getNeighbors(size, row, col) {
     }
   }
   return neighbors;
-}
-
-/**
- * Count unvisited neighbors of a cell
- */
-function countUnvisitedNeighbors(size, row, col, visited) {
-  return getNeighbors(size, row, col)
-    .filter(n => !visited[n.row][n.col])
-    .length;
 }
 
 /**
