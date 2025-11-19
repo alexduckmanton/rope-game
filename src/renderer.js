@@ -105,10 +105,12 @@ export function generateHintCells(gridSize, probability = 0.3) {
  * @param {number} gridSize - Grid size (e.g., 6 for 6x6)
  * @param {number} cellSize - Size of each cell in pixels
  * @param {Array<{row: number, col: number}>} solutionPath - The solution path
- * @param {Set<string>} hintCells - Set of cells that should show their hints
+ * @param {Set<string>} hintCells - Set of cells that should show their hints (the 30% subset)
+ * @param {string} hintMode - Display mode: 'none' | 'partial' | 'all'
  */
-export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells) {
+export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial') {
   if (!solutionPath || solutionPath.length === 0) return;
+  if (hintMode === 'none') return;
 
   // Build a map of which cells have turns
   const turnMap = new Map();
@@ -127,16 +129,25 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
     turnMap.set(`${current.row},${current.col}`, !isStraight);
   }
 
-  // Render the turn count for each cell
-  ctx.fillStyle = '#2C3E50';
+  // Set up text rendering
   ctx.font = `bold ${Math.floor(cellSize * 0.75)}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
-      // Skip if this cell shouldn't show its hint
-      if (!hintCells.has(`${row},${col}`)) continue;
+      const cellKey = `${row},${col}`;
+      const isInHintSet = hintCells.has(cellKey);
+
+      // Determine if we should render this cell
+      if (hintMode === 'partial' && !isInHintSet) continue;
+
+      // Set color based on whether cell is in the hint set
+      if (isInHintSet) {
+        ctx.fillStyle = '#2C3E50'; // Dark color for hint cells
+      } else {
+        ctx.fillStyle = '#C0C0C0'; // Light grey for extra cells in 'all' mode
+      }
 
       // Count turns in adjacent cells
       let turnCount = 0;
