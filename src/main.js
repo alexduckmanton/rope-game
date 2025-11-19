@@ -12,11 +12,44 @@ const GRID_SIZE = 6;
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 const newBtn = document.getElementById('new-btn');
+const hintsCheckbox = document.getElementById('hints-checkbox');
 
 // Game state
 let cellSize = 0;
 let solutionPath = [];
 let hintCells = new Set();
+let hintMode = 'partial'; // 'none' | 'partial' | 'all'
+
+/**
+ * Update checkbox visual state to match hintMode
+ */
+function updateCheckboxState() {
+  if (hintMode === 'none') {
+    hintsCheckbox.checked = false;
+    hintsCheckbox.indeterminate = false;
+  } else if (hintMode === 'partial') {
+    hintsCheckbox.checked = false;
+    hintsCheckbox.indeterminate = true;
+  } else if (hintMode === 'all') {
+    hintsCheckbox.checked = true;
+    hintsCheckbox.indeterminate = false;
+  }
+}
+
+/**
+ * Cycle through hint modes: none -> partial -> all -> none
+ */
+function cycleHintMode() {
+  if (hintMode === 'none') {
+    hintMode = 'partial';
+  } else if (hintMode === 'partial') {
+    hintMode = 'all';
+  } else {
+    hintMode = 'none';
+  }
+  updateCheckboxState();
+  render();
+}
 
 /**
  * Calculate optimal cell size based on viewport
@@ -67,7 +100,7 @@ function render() {
   renderGrid(ctx, GRID_SIZE, cellSize);
 
   // Render cell numbers (turn counts)
-  renderCellNumbers(ctx, GRID_SIZE, cellSize, solutionPath, hintCells);
+  renderCellNumbers(ctx, GRID_SIZE, cellSize, solutionPath, hintCells, hintMode);
 
   // Render solution path
   renderPath(ctx, solutionPath, cellSize);
@@ -92,11 +125,20 @@ function init() {
   // Set up button handlers
   newBtn.addEventListener('click', generateNewPuzzle);
 
+  // Set up hints toggle - use click on label to cycle through states
+  hintsCheckbox.addEventListener('click', (e) => {
+    e.preventDefault(); // Prevent default checkbox behavior
+    cycleHintMode();
+  });
+
   // Initial canvas setup (sets cellSize)
   resizeCanvas();
 
   // Generate initial puzzle
   generateNewPuzzle();
+
+  // Set initial checkbox state
+  updateCheckboxState();
 
   console.log('Loop Puzzle Game initialized');
 }
