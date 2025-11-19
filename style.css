@@ -4,12 +4,20 @@
   padding: 0;
 }
 
+html {
+  touch-action: none;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: #F5F5F5;
   min-height: 100vh;
   overflow: hidden;
   touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #app {
@@ -88,4 +96,6 @@ body {
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
