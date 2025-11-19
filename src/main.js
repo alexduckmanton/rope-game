@@ -435,11 +435,19 @@ function resizeCanvas() {
   cellSize = calculateCellSize();
   const totalSize = cellSize * GRID_SIZE;
 
-  // Set canvas dimensions
-  canvas.width = totalSize;
-  canvas.height = totalSize;
+  // Get device pixel ratio for high DPI display support
+  const dpr = window.devicePixelRatio || 1;
+
+  // Set canvas internal dimensions to account for DPR
+  canvas.width = totalSize * dpr;
+  canvas.height = totalSize * dpr;
+
+  // Set CSS dimensions to maintain visual size
   canvas.style.width = totalSize + 'px';
   canvas.style.height = totalSize + 'px';
+
+  // Scale context to handle DPR - all drawing operations will be scaled
+  ctx.scale(dpr, dpr);
 
   render();
 }
