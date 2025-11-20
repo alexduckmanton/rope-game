@@ -28,6 +28,7 @@ body {
 
 .top-bar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 16px;
   padding: 16px;
@@ -47,6 +48,7 @@ body {
   transition: transform 100ms ease, box-shadow 100ms ease;
   min-width: 48px;
   min-height: 48px;
+  flex-shrink: 0;
 }
 
 .btn:hover {
@@ -71,6 +73,7 @@ body {
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   user-select: none;
+  flex-shrink: 0;
 }
 
 .hint-toggle:hover {
@@ -97,6 +100,7 @@ body {
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   user-select: none;
+  flex-shrink: 0;
 }
 
 .solution-toggle:hover {
