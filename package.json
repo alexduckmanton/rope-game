@@ -1,7 +1,7 @@
 {
-  "name": "loop-puzzle",
+  "name": "loopy",
   "version": "0.1.0",
-  "description": "A minimalist path-drawing puzzle game",
+  "description": "A minimalist path-drawing puzzle game. Draw a continuous loop through the grid, visiting each cell exactly once.",
   "type": "module",
   "scripts": {
     "dev": "vite",
