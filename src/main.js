@@ -35,6 +35,7 @@ let isDragging = false;
 let dragPath = [];                      // Cells visited during current drag (in order)
 let cellsAddedThisDrag = new Set();     // Cells that were newly added during this drag
 let hasDragMoved = false;               // Whether pointer moved to different cells during drag
+let dragMode = 'draw';                  // 'draw' or 'erase' - determined by initial tap
 
 /**
  * Check if two cells are adjacent (Manhattan distance = 1)
@@ -301,6 +302,59 @@ function findPathToCell(fromKey, toKey) {
 }
 
 /**
+ * Find path from one cell to another through existing drawn cells (for erase mode)
+ * Returns array of cell keys (not including start, but including end)
+ * Only paths through drawn cells are valid
+ */
+function findErasePathToCell(fromKey, toKey) {
+  const [fromRow, fromCol] = fromKey.split(',').map(Number);
+  const [toRow, toCol] = toKey.split(',').map(Number);
+
+  // If adjacent, just return the target if it's drawn
+  if (isAdjacent(fromRow, fromCol, toRow, toCol)) {
+    if (playerDrawnCells.has(toKey)) {
+      return [toKey];
+    }
+    return null;
+  }
+
+  // BFS to find shortest path through drawn cells
+  const queue = [[fromKey, []]];
+  const visited = new Set([fromKey]);
+
+  while (queue.length > 0) {
+    const [current, path] = queue.shift();
+    const [r, c] = current.split(',').map(Number);
+
+    // Get adjacent cells
+    const neighbors = [
+      [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]
+    ].filter(([nr, nc]) =>
+      nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize
+    );
+
+    for (const [nr, nc] of neighbors) {
+      const neighborKey = `${nr},${nc}`;
+      if (visited.has(neighborKey)) continue;
+
+      // Only consider cells that are already drawn
+      if (!playerDrawnCells.has(neighborKey)) continue;
+
+      // Check if this is the target
+      if (neighborKey === toKey) {
+        return [...path, neighborKey];
+      }
+
+      visited.add(neighborKey);
+      queue.push([neighborKey, [...path, neighborKey]]);
+    }
+  }
+
+  // No path found
+  return null;
+}
+
+/**
  * Check if the player has won the game
  * Win conditions:
  * 1. All cells are covered
@@ -387,8 +441,13 @@ function handlePointerDown(event) {
   dragPath = [cell.key];
   cellsAddedThisDrag = new Set();
 
-  // If cell is not drawn, add it
-  if (!playerDrawnCells.has(cell.key)) {
+  // Determine drag mode based on whether cell is already drawn
+  if (playerDrawnCells.has(cell.key)) {
+    // Cell is already drawn - enter erase mode
+    dragMode = 'erase';
+  } else {
+    // Cell is not drawn - enter draw mode and add it
+    dragMode = 'draw';
     playerDrawnCells.add(cell.key);
     if (!playerConnections.has(cell.key)) {
       playerConnections.set(cell.key, new Set());
@@ -414,6 +473,23 @@ function handlePointerMove(event) {
 
   hasDragMoved = true;
 
+  // Handle erase mode
+  if (dragMode === 'erase') {
+    // Find path through drawn cells to erase
+    const path = findErasePathToCell(currentCell, cell.key);
+    if (path && path.length > 0) {
+      // Remove all cells in the path
+      for (const pathCell of path) {
+        const [row, col] = pathCell.split(',').map(Number);
+        clearPlayerCell(row, col);
+        dragPath.push(pathCell);
+      }
+      render();
+    }
+    return;
+  }
+
+  // Draw mode logic below
   // Check if backtracking (moving to a cell already in drag path)
   const backtrackIndex = dragPath.indexOf(cell.key);
   if (backtrackIndex !== -1 && backtrackIndex < dragPath.length - 1) {
@@ -531,6 +607,7 @@ function handlePointerUp(event) {
   dragPath = [];
   cellsAddedThisDrag = new Set();
   hasDragMoved = false;
+  dragMode = 'draw';
 
   render();
 }
@@ -546,6 +623,7 @@ function handlePointerCancel(event) {
   dragPath = [];
   cellsAddedThisDrag = new Set();
   hasDragMoved = false;
+  dragMode = 'draw';
 }
 
 /**
