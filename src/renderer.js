@@ -229,11 +229,12 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
  * @param {Set<string>} drawnCells - Set of "row,col" strings for drawn cells
  * @param {Map<string, Set<string>>} connections - Map of cell connections
  * @param {number} cellSize - Size of each cell in pixels
+ * @param {boolean} hasWon - Whether the player has won (uses green color)
  */
-export function renderPlayerPath(ctx, drawnCells, connections, cellSize) {
+export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false) {
   if (!drawnCells || drawnCells.size === 0) return;
 
-  const PLAYER_COLOR = '#E24A4A'; // Red
+  const PLAYER_COLOR = hasWon ? '#27AE60' : '#E24A4A'; // Green when won, Red otherwise
 
   // Draw connections as lines
   const drawnConnections = new Set();

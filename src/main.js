@@ -2,7 +2,7 @@
  * Loop Puzzle Game - Main Entry Point
  */
 
-import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath } from './renderer.js';
+import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap } from './renderer.js';
 import { generateSolutionPath } from './generator.js';
 
 // Game configuration
@@ -23,6 +23,7 @@ let solutionPath = [];
 let hintCells = new Set();
 let hintMode = 'partial'; // 'none' | 'partial' | 'all'
 let showSolution = false;
+let hasWon = false;
 
 // Player path state
 let playerDrawnCells = new Set();      // Set of "row,col" strings
@@ -208,12 +209,81 @@ function findPathToCell(fromKey, toKey) {
   return null;
 }
 
+/**
+ * Check if the player has won the game
+ * Win conditions:
+ * 1. All cells are covered
+ * 2. All cells have exactly 2 connections (forms a closed loop)
+ * 3. All hint cells are valid (expected turns === actual turns)
+ */
+function checkWin() {
+  const totalCells = gridSize * gridSize;
+
+  // Check if all cells are covered
+  if (playerDrawnCells.size !== totalCells) return false;
+
+  // Check if all cells have exactly 2 connections (closed loop requirement)
+  for (const cellKey of playerDrawnCells) {
+    const connections = playerConnections.get(cellKey);
+    if (!connections || connections.size !== 2) return false;
+  }
+
+  // Build turn maps for validation
+  const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
+
+  // Build solution turn map
+  const solutionTurnMap = new Map();
+  const pathLength = solutionPath.length;
+
+  for (let i = 0; i < pathLength; i++) {
+    const prev = solutionPath[(i - 1 + pathLength) % pathLength];
+    const current = solutionPath[i];
+    const next = solutionPath[(i + 1) % pathLength];
+
+    const isStraight =
+      (prev.row === current.row && current.row === next.row) ||
+      (prev.col === current.col && current.col === next.col);
+
+    solutionTurnMap.set(`${current.row},${current.col}`, !isStraight);
+  }
+
+  // Check all hint cells are valid
+  for (const cellKey of hintCells) {
+    const [row, col] = cellKey.split(',').map(Number);
+
+    // Count turns in adjacent cells
+    let expectedTurnCount = 0;
+    let actualTurnCount = 0;
+    const adjacents = [
+      [row - 1, col], // up
+      [row + 1, col], // down
+      [row, col - 1], // left
+      [row, col + 1]  // right
+    ];
+
+    for (const [adjRow, adjCol] of adjacents) {
+      if (adjRow >= 0 && adjRow < gridSize && adjCol >= 0 && adjCol < gridSize) {
+        const adjKey = `${adjRow},${adjCol}`;
+        if (solutionTurnMap.get(adjKey)) expectedTurnCount++;
+        if (playerTurnMap.get(adjKey)) actualTurnCount++;
+      }
+    }
+
+    if (expectedTurnCount !== actualTurnCount) return false;
+  }
+
+  return true;
+}
+
 
 /**
  * Handle pointer down - start drag
  */
 function handlePointerDown(event) {
   event.preventDefault();
+
+  // Disable input if player has won
+  if (hasWon) return;
 
   const cell = getCellFromPointer(event);
   if (!cell) return;
@@ -491,7 +561,16 @@ function render() {
   }
 
   // Render player path on top
-  renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize);
+  renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
+
+  // Check for win condition (only if not already won)
+  if (!hasWon && checkWin()) {
+    hasWon = true;
+    // Re-render with green path
+    renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
+    // Show win alert
+    alert('You win!');
+  }
 }
 
 /**
@@ -505,6 +584,7 @@ function generateNewPuzzle() {
   playerDrawnCells.clear();
   playerConnections.clear();
   lastTappedCell = null;
+  hasWon = false;
 
   render();
 }
@@ -517,6 +597,7 @@ function restartPuzzle() {
   playerDrawnCells.clear();
   playerConnections.clear();
   lastTappedCell = null;
+  hasWon = false;
 
   render();
 }
