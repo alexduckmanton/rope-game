@@ -569,9 +569,12 @@ function render() {
     // Re-render with green path
     renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
     // Show win alert after browser has painted the green path
-    setTimeout(() => {
-      alert('You win!');
-    }, 0);
+    // requestAnimationFrame runs before next paint, then setTimeout runs after paint completes
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        alert('You win!');
+      }, 0);
+    });
   }
 }
 
