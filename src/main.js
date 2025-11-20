@@ -156,6 +156,99 @@ function removeConnection(cellKeyA, cellKeyB) {
 }
 
 /**
+ * Determine which connection to break based on "opposite direction" priority.
+ * When drawing from cellA to cellB, we want to remove the connection from cellB
+ * that goes in the opposite direction from where we're coming.
+ *
+ * @param {string} targetCell - The cell that has 2 connections
+ * @param {string} comingFromCell - The cell we're drawing from
+ * @param {Set<string>} existingConnections - Set of cells connected to targetCell
+ * @returns {string} The cell key to disconnect from targetCell
+ */
+function determineConnectionToBreak(targetCell, comingFromCell, existingConnections) {
+  const [targetRow, targetCol] = targetCell.split(',').map(Number);
+  const [fromRow, fromCol] = comingFromCell.split(',').map(Number);
+
+  // Direction vector from comingFrom to target (the direction we're drawing)
+  const drawDirection = {
+    row: targetRow - fromRow,
+    col: targetCol - fromCol
+  };
+
+  // We want to remove the connection in the opposite direction
+  const oppositeDirection = {
+    row: -drawDirection.row,
+    col: -drawDirection.col
+  };
+
+  // Find which existing connection is in the opposite direction
+  for (const connectedKey of existingConnections) {
+    const [connRow, connCol] = connectedKey.split(',').map(Number);
+    const connectionDirection = {
+      row: connRow - targetRow,
+      col: connCol - targetCol
+    };
+
+    // Check if this connection is in the opposite direction
+    if (connectionDirection.row === oppositeDirection.row &&
+        connectionDirection.col === oppositeDirection.col) {
+      return connectedKey;
+    }
+  }
+
+  // Fallback: return first connection if no opposite found
+  return Array.from(existingConnections)[0];
+}
+
+/**
+ * Force a connection between two cells, breaking existing connections if necessary.
+ * This prioritizes the new connection being drawn and removes old connections
+ * based on "opposite direction" logic.
+ *
+ * @param {string} cellKeyA - First cell
+ * @param {string} cellKeyB - Second cell
+ * @returns {boolean} True if connection was made, false if not possible
+ */
+function forceConnection(cellKeyA, cellKeyB) {
+  const [r1, c1] = cellKeyA.split(',').map(Number);
+  const [r2, c2] = cellKeyB.split(',').map(Number);
+
+  // Must be adjacent
+  if (!isAdjacent(r1, c1, r2, c2)) return false;
+
+  // Must not already be connected
+  if (playerConnections.get(cellKeyA)?.has(cellKeyB)) return false;
+
+  // Initialize connection maps if needed
+  if (!playerConnections.has(cellKeyA)) {
+    playerConnections.set(cellKeyA, new Set());
+  }
+  if (!playerConnections.has(cellKeyB)) {
+    playerConnections.set(cellKeyB, new Set());
+  }
+
+  // Check if cellA has 2 connections - if so, break one
+  const connectionsA = playerConnections.get(cellKeyA);
+  if (connectionsA.size >= 2) {
+    const toBreak = determineConnectionToBreak(cellKeyA, cellKeyB, connectionsA);
+    removeConnection(cellKeyA, toBreak);
+  }
+
+  // Check if cellB has 2 connections - if so, break one
+  const connectionsB = playerConnections.get(cellKeyB);
+  if (connectionsB.size >= 2) {
+    const toBreak = determineConnectionToBreak(cellKeyB, cellKeyA, connectionsB);
+    removeConnection(cellKeyB, toBreak);
+  }
+
+  // Now make the new connection
+  playerConnections.get(cellKeyA).add(cellKeyB);
+  playerConnections.get(cellKeyB).add(cellKeyA);
+
+  return true;
+}
+
+/**
  * Find path from one cell to another using BFS (for non-adjacent cells)
  * Returns array of cell keys (not including start, but including end)
  * Only paths through empty cells (for intermediates) are valid
@@ -190,9 +283,7 @@ function findPathToCell(fromKey, toKey) {
 
       // Check if this is the target
       if (neighborKey === toKey) {
-        // Target can have 0 or 1 connections
-        const targetConnections = playerConnections.get(toKey)?.size || 0;
-        if (targetConnections >= 2) continue;
+        // With forceConnection, we can now connect to cells with 2 connections
         return [...path, neighborKey];
       }
 
@@ -331,9 +422,8 @@ function handlePointerMove(event) {
       const lastCell = dragPath[dragPath.length - 1];
       const firstCell = dragPath[0];
 
-      if (canConnect(lastCell, firstCell)) {
+      if (forceConnection(lastCell, firstCell)) {
         // Close the loop by connecting last cell to first
-        addConnection(lastCell, firstCell);
         dragPath.push(firstCell);
         render();
         return;
@@ -366,12 +456,7 @@ function handlePointerMove(event) {
   }
 
   // Moving forward - try to connect to the new cell
-  // Check if current cell can accept another connection
-  const currentConnections = playerConnections.get(currentCell)?.size || 0;
-  if (currentConnections >= 2) {
-    // Current cell is full, can't add more connections
-    return;
-  }
+  // With forceConnection, we no longer need to check if current cell is full
 
   // Find path to the new cell (handles non-adjacent cells)
   const path = findPathToCell(currentCell, cell.key);
@@ -388,13 +473,12 @@ function handlePointerMove(event) {
         cellsAddedThisDrag.add(pathCell);
       }
 
-      // Try to connect
-      if (canConnect(prevInDrag, pathCell)) {
-        addConnection(prevInDrag, pathCell);
+      // Force connection, breaking old connections if necessary
+      if (forceConnection(prevInDrag, pathCell)) {
         dragPath.push(pathCell);
         prevInDrag = pathCell;
       } else {
-        // Can't connect, stop here
+        // Can't connect (e.g., not adjacent), stop here
         break;
       }
     }
@@ -424,16 +508,16 @@ function handlePointerUp(event) {
         clearPlayerCell(row, col);
         lastTappedCell = null;
       } else {
-        // Single tap on existing cell - try to connect from lastTappedCell
+        // Single tap on existing cell - force connect from lastTappedCell
         if (lastTappedCell && playerDrawnCells.has(lastTappedCell)) {
-          tryConnect(lastTappedCell, cell.key);
+          forceConnection(lastTappedCell, cell.key);
         }
         lastTappedCell = cell.key;
       }
     } else {
-      // Cell was just added - try to connect from lastTappedCell
+      // Cell was just added - force connect from lastTappedCell
       if (lastTappedCell && playerDrawnCells.has(lastTappedCell)) {
-        tryConnect(lastTappedCell, cell.key);
+        forceConnection(lastTappedCell, cell.key);
       }
       lastTappedCell = cell.key;
     }
