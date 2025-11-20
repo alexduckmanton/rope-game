@@ -155,6 +155,30 @@ function removeConnection(cellKeyA, cellKeyB) {
 }
 
 /**
+ * Clean up orphaned cells (cells with 0 connections)
+ * Removes all cells that have no connections, repeating until no more orphans exist
+ * This handles cascading orphans (removing one orphan might create another)
+ */
+function cleanupOrphanedCells() {
+  let foundOrphan = true;
+
+  while (foundOrphan) {
+    foundOrphan = false;
+
+    for (const cellKey of playerDrawnCells) {
+      const connections = playerConnections.get(cellKey);
+      if (!connections || connections.size === 0) {
+        // Remove orphaned cell
+        playerDrawnCells.delete(cellKey);
+        playerConnections.delete(cellKey);
+        foundOrphan = true;
+        break; // Restart iteration since we modified the set
+      }
+    }
+  }
+}
+
+/**
  * Determine which connection to break based on "opposite direction" priority.
  * When drawing from cellA to cellB, we want to remove the connection from cellB
  * that goes in the opposite direction from where we're coming.
@@ -423,6 +447,7 @@ function handlePointerMove(event) {
       if (playerConnections.get(lastCell)?.has(firstCell) || forceConnection(lastCell, firstCell)) {
         // Close the loop by connecting last cell to first
         dragPath.push(firstCell);
+        cleanupOrphanedCells();
         render();
         return;
       }
@@ -449,6 +474,7 @@ function handlePointerMove(event) {
 
     // Trim drag path
     dragPath = dragPath.slice(0, backtrackIndex + 1);
+    cleanupOrphanedCells();
     render();
     return;
   }
@@ -485,6 +511,7 @@ function handlePointerMove(event) {
         break;
       }
     }
+    cleanupOrphanedCells();
     render();
   }
 }
@@ -516,6 +543,7 @@ function handlePointerUp(event) {
   cellsAddedThisDrag = new Set();
   hasDragMoved = false;
 
+  cleanupOrphanedCells();
   render();
 }
 
@@ -530,6 +558,8 @@ function handlePointerCancel(event) {
   dragPath = [];
   cellsAddedThisDrag = new Set();
   hasDragMoved = false;
+
+  cleanupOrphanedCells();
 }
 
 /**
