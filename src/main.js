@@ -28,14 +28,12 @@ let hasWon = false;
 // Player path state
 let playerDrawnCells = new Set();      // Set of "row,col" strings
 let playerConnections = new Map();      // Map of "row,col" -> Set of connected "row,col"
-let lastTappedCell = null;              // "row,col" string or null
 
 // Drag state
 let isDragging = false;
 let dragPath = [];                      // Cells visited during current drag (in order)
 let cellsAddedThisDrag = new Set();     // Cells that were newly added during this drag
 let hasDragMoved = false;               // Whether pointer moved to different cells during drag
-let dragMode = 'draw';                  // 'draw' or 'erase' - determined by initial tap
 
 /**
  * Check if two cells are adjacent (Manhattan distance = 1)
@@ -302,59 +300,6 @@ function findPathToCell(fromKey, toKey) {
 }
 
 /**
- * Find path from one cell to another through existing drawn cells (for erase mode)
- * Returns array of cell keys (not including start, but including end)
- * Only paths through drawn cells are valid
- */
-function findErasePathToCell(fromKey, toKey) {
-  const [fromRow, fromCol] = fromKey.split(',').map(Number);
-  const [toRow, toCol] = toKey.split(',').map(Number);
-
-  // If adjacent, just return the target if it's drawn
-  if (isAdjacent(fromRow, fromCol, toRow, toCol)) {
-    if (playerDrawnCells.has(toKey)) {
-      return [toKey];
-    }
-    return null;
-  }
-
-  // BFS to find shortest path through drawn cells
-  const queue = [[fromKey, []]];
-  const visited = new Set([fromKey]);
-
-  while (queue.length > 0) {
-    const [current, path] = queue.shift();
-    const [r, c] = current.split(',').map(Number);
-
-    // Get adjacent cells
-    const neighbors = [
-      [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]
-    ].filter(([nr, nc]) =>
-      nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize
-    );
-
-    for (const [nr, nc] of neighbors) {
-      const neighborKey = `${nr},${nc}`;
-      if (visited.has(neighborKey)) continue;
-
-      // Only consider cells that are already drawn
-      if (!playerDrawnCells.has(neighborKey)) continue;
-
-      // Check if this is the target
-      if (neighborKey === toKey) {
-        return [...path, neighborKey];
-      }
-
-      visited.add(neighborKey);
-      queue.push([neighborKey, [...path, neighborKey]]);
-    }
-  }
-
-  // No path found
-  return null;
-}
-
-/**
  * Check if the player has won the game
  * Win conditions:
  * 1. All cells are covered
@@ -441,11 +386,7 @@ function handlePointerDown(event) {
   dragPath = [cell.key];
   cellsAddedThisDrag = new Set();
 
-  // Start in draw mode by default
-  // Mode will be determined on first move based on connection existence
-  dragMode = 'draw';
-
-  // If cell is not already drawn, add it
+  // Always add cell if not already drawn (for continuous drawing)
   if (!playerDrawnCells.has(cell.key)) {
     playerDrawnCells.add(cell.key);
     if (!playerConnections.has(cell.key)) {
@@ -472,43 +413,6 @@ function handlePointerMove(event) {
 
   hasDragMoved = true;
 
-  // Determine mode on first move if not already in erase mode
-  if (dragPath.length === 1 && dragMode === 'draw') {
-    // Check if there's an existing connection from currentCell to target
-    const hasConnection = playerConnections.get(currentCell)?.has(cell.key);
-
-    if (hasConnection) {
-      // Moving along an existing connection → erase mode
-      dragMode = 'erase';
-    } else if (!isAdjacent(...currentCell.split(',').map(Number), ...cell.key.split(',').map(Number))) {
-      // Non-adjacent move: check if there's a path through existing cells
-      const erasePath = findErasePathToCell(currentCell, cell.key);
-      if (erasePath && erasePath.length > 0) {
-        // Valid erase path exists → erase mode
-        dragMode = 'erase';
-      }
-      // Otherwise stay in draw mode (default)
-    }
-    // If no connection and adjacent, stay in draw mode (default)
-  }
-
-  // Handle erase mode
-  if (dragMode === 'erase') {
-    // Find path through drawn cells to erase
-    const path = findErasePathToCell(currentCell, cell.key);
-    if (path && path.length > 0) {
-      // Remove all cells in the path
-      for (const pathCell of path) {
-        const [row, col] = pathCell.split(',').map(Number);
-        clearPlayerCell(row, col);
-        dragPath.push(pathCell);
-      }
-      render();
-    }
-    return;
-  }
-
-  // Draw mode logic below
   // Check if backtracking (moving to a cell already in drag path)
   const backtrackIndex = dragPath.indexOf(cell.key);
   if (backtrackIndex !== -1 && backtrackIndex < dragPath.length - 1) {
@@ -594,22 +498,12 @@ function handlePointerUp(event) {
   // If it was just a tap (no movement to other cells), handle tap logic
   if (!hasDragMoved && cell && dragPath.length === 1 && dragPath[0] === cell.key) {
     // This was a tap on a single cell
-
     if (!cellsAddedThisDrag.has(cell.key)) {
       // Cell existed before this tap - erase it
       const [row, col] = cell.key.split(',').map(Number);
       clearPlayerCell(row, col);
-      lastTappedCell = null;
-    } else {
-      // Cell was just added - try to connect from lastTappedCell
-      if (lastTappedCell && playerDrawnCells.has(lastTappedCell)) {
-        forceConnection(lastTappedCell, cell.key);
-      }
-      lastTappedCell = cell.key;
     }
-  } else if (dragPath.length > 0) {
-    // Was a drag - update lastTappedCell to the end of the drag
-    lastTappedCell = dragPath[dragPath.length - 1];
+    // If cell was just added during this tap, keep it (Option A behavior)
   }
 
   // Reset drag state
@@ -617,7 +511,6 @@ function handlePointerUp(event) {
   dragPath = [];
   cellsAddedThisDrag = new Set();
   hasDragMoved = false;
-  dragMode = 'draw';
 
   render();
 }
@@ -633,7 +526,6 @@ function handlePointerCancel(event) {
   dragPath = [];
   cellsAddedThisDrag = new Set();
   hasDragMoved = false;
-  dragMode = 'draw';
 }
 
 /**
@@ -760,7 +652,6 @@ function generateNewPuzzle() {
   // Clear player state
   playerDrawnCells.clear();
   playerConnections.clear();
-  lastTappedCell = null;
   hasWon = false;
 
   render();
@@ -773,7 +664,6 @@ function restartPuzzle() {
   // Clear player state but keep the same puzzle
   playerDrawnCells.clear();
   playerConnections.clear();
-  lastTappedCell = null;
   hasWon = false;
 
   render();
