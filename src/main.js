@@ -419,7 +419,8 @@ function handlePointerMove(event) {
       const lastCell = dragPath[dragPath.length - 1];
       const firstCell = dragPath[0];
 
-      if (forceConnection(lastCell, firstCell)) {
+      // Check if already connected or can make connection
+      if (playerConnections.get(lastCell)?.has(firstCell) || forceConnection(lastCell, firstCell)) {
         // Close the loop by connecting last cell to first
         dragPath.push(firstCell);
         render();
@@ -470,8 +471,13 @@ function handlePointerMove(event) {
         cellsAddedThisDrag.add(pathCell);
       }
 
-      // Force connection, breaking old connections if necessary
-      if (forceConnection(prevInDrag, pathCell)) {
+      // Try to connect or continue through existing connection
+      if (playerConnections.get(prevInDrag)?.has(pathCell)) {
+        // Already connected - continue drawing through it
+        dragPath.push(pathCell);
+        prevInDrag = pathCell;
+      } else if (forceConnection(prevInDrag, pathCell)) {
+        // Make new connection, breaking old ones if necessary
         dragPath.push(pathCell);
         prevInDrag = pathCell;
       } else {
