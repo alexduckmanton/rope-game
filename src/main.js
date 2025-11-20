@@ -255,6 +255,20 @@ function handlePointerMove(event) {
   // Check if backtracking (moving to a cell already in drag path)
   const backtrackIndex = dragPath.indexOf(cell.key);
   if (backtrackIndex !== -1 && backtrackIndex < dragPath.length - 1) {
+    // Special case: returning to start cell might be loop closing
+    if (backtrackIndex === 0) {
+      const lastCell = dragPath[dragPath.length - 1];
+      const firstCell = dragPath[0];
+
+      if (canConnect(lastCell, firstCell)) {
+        // Close the loop by connecting last cell to first
+        addConnection(lastCell, firstCell);
+        dragPath.push(firstCell);
+        render();
+        return;
+      }
+    }
+
     // Backtracking! Remove connections and cells from backtrackIndex+1 onwards
     for (let i = dragPath.length - 1; i > backtrackIndex; i--) {
       const cellToRemove = dragPath[i];
