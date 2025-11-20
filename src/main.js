@@ -6,7 +6,7 @@ import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCel
 import { generateSolutionPath } from './generator.js';
 
 // Game configuration
-const GRID_SIZE = 6;
+let gridSize = 4;
 
 // DOM elements
 const canvas = document.getElementById('game-canvas');
@@ -15,6 +15,7 @@ const newBtn = document.getElementById('new-btn');
 const restartBtn = document.getElementById('restart-btn');
 const hintsCheckbox = document.getElementById('hints-checkbox');
 const solutionCheckbox = document.getElementById('solution-checkbox');
+const gridSizeSelect = document.getElementById('grid-size-select');
 
 // Game state
 let cellSize = 0;
@@ -102,7 +103,7 @@ function getCellFromPointer(event) {
   const col = Math.floor(x / cellSize);
   const row = Math.floor(y / cellSize);
 
-  if (row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE) {
+  if (row >= 0 && row < gridSize && col >= 0 && col < gridSize) {
     return { row, col, key: `${row},${col}` };
   }
   return null;
@@ -179,7 +180,7 @@ function findPathToCell(fromKey, toKey) {
     const neighbors = [
       [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]
     ].filter(([nr, nc]) =>
-      nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE
+      nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize
     );
 
     for (const [nr, nc] of neighbors) {
@@ -437,8 +438,8 @@ function calculateCellSize() {
   const availableWidth = viewportWidth - 40; // 20px padding each side
 
   const maxCellSize = Math.min(
-    availableWidth / GRID_SIZE,
-    availableHeight / GRID_SIZE
+    availableWidth / gridSize,
+    availableHeight / gridSize
   );
 
   // Ensure minimum cell size for usability (50px) and maximum (100px)
@@ -450,7 +451,7 @@ function calculateCellSize() {
  */
 function resizeCanvas() {
   cellSize = calculateCellSize();
-  const totalSize = cellSize * GRID_SIZE;
+  const totalSize = cellSize * gridSize;
 
   // Get device pixel ratio for high DPI display support
   const dpr = window.devicePixelRatio || 1;
@@ -473,16 +474,16 @@ function resizeCanvas() {
  * Main render function
  */
 function render() {
-  const totalSize = cellSize * GRID_SIZE;
+  const totalSize = cellSize * gridSize;
 
   // Clear canvas
   clearCanvas(ctx, totalSize, totalSize);
 
   // Render grid
-  renderGrid(ctx, GRID_SIZE, cellSize);
+  renderGrid(ctx, gridSize, cellSize);
 
   // Render cell numbers (turn counts) with validation
-  renderCellNumbers(ctx, GRID_SIZE, cellSize, solutionPath, hintCells, hintMode, playerDrawnCells, playerConnections);
+  renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode, playerDrawnCells, playerConnections);
 
   // Render solution path (only when checkbox is checked)
   if (showSolution) {
@@ -497,8 +498,8 @@ function render() {
  * Generate a new puzzle
  */
 function generateNewPuzzle() {
-  solutionPath = generateSolutionPath(GRID_SIZE);
-  hintCells = generateHintCells(GRID_SIZE, 0.3);
+  solutionPath = generateSolutionPath(gridSize);
+  hintCells = generateHintCells(gridSize, 0.3);
 
   // Clear player state
   playerDrawnCells.clear();
@@ -565,6 +566,13 @@ function init() {
   solutionCheckbox.addEventListener('change', () => {
     showSolution = solutionCheckbox.checked;
     render();
+  });
+
+  // Set up grid size selector
+  gridSizeSelect.addEventListener('change', () => {
+    gridSize = parseInt(gridSizeSelect.value, 10);
+    resizeCanvas();
+    generateNewPuzzle();
   });
 
   // Set up canvas pointer handlers for player drawing (supports touch and mouse)
