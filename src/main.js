@@ -441,13 +441,12 @@ function handlePointerDown(event) {
   dragPath = [cell.key];
   cellsAddedThisDrag = new Set();
 
-  // Determine drag mode based on whether cell is already drawn
-  if (playerDrawnCells.has(cell.key)) {
-    // Cell is already drawn - enter erase mode
-    dragMode = 'erase';
-  } else {
-    // Cell is not drawn - enter draw mode and add it
-    dragMode = 'draw';
+  // Start in draw mode by default
+  // Mode will be determined on first move based on connection existence
+  dragMode = 'draw';
+
+  // If cell is not already drawn, add it
+  if (!playerDrawnCells.has(cell.key)) {
     playerDrawnCells.add(cell.key);
     if (!playerConnections.has(cell.key)) {
       playerConnections.set(cell.key, new Set());
@@ -472,6 +471,26 @@ function handlePointerMove(event) {
   if (cell.key === currentCell) return; // Same cell, ignore
 
   hasDragMoved = true;
+
+  // Determine mode on first move if not already in erase mode
+  if (dragPath.length === 1 && dragMode === 'draw') {
+    // Check if there's an existing connection from currentCell to target
+    const hasConnection = playerConnections.get(currentCell)?.has(cell.key);
+
+    if (hasConnection) {
+      // Moving along an existing connection → erase mode
+      dragMode = 'erase';
+    } else if (!isAdjacent(...currentCell.split(',').map(Number), ...cell.key.split(',').map(Number))) {
+      // Non-adjacent move: check if there's a path through existing cells
+      const erasePath = findErasePathToCell(currentCell, cell.key);
+      if (erasePath && erasePath.length > 0) {
+        // Valid erase path exists → erase mode
+        dragMode = 'erase';
+      }
+      // Otherwise stay in draw mode (default)
+    }
+    // If no connection and adjacent, stay in draw mode (default)
+  }
 
   // Handle erase mode
   if (dragMode === 'erase') {
@@ -576,22 +595,13 @@ function handlePointerUp(event) {
   if (!hasDragMoved && cell && dragPath.length === 1 && dragPath[0] === cell.key) {
     // This was a tap on a single cell
 
-    // If cell existed before this drag (not added), check for double-tap
     if (!cellsAddedThisDrag.has(cell.key)) {
-      if (lastTappedCell === cell.key) {
-        // Double-tap to delete
-        const [row, col] = cell.key.split(',').map(Number);
-        clearPlayerCell(row, col);
-        lastTappedCell = null;
-      } else {
-        // Single tap on existing cell - force connect from lastTappedCell
-        if (lastTappedCell && playerDrawnCells.has(lastTappedCell)) {
-          forceConnection(lastTappedCell, cell.key);
-        }
-        lastTappedCell = cell.key;
-      }
+      // Cell existed before this tap - erase it
+      const [row, col] = cell.key.split(',').map(Number);
+      clearPlayerCell(row, col);
+      lastTappedCell = null;
     } else {
-      // Cell was just added - force connect from lastTappedCell
+      // Cell was just added - try to connect from lastTappedCell
       if (lastTappedCell && playerDrawnCells.has(lastTappedCell)) {
         forceConnection(lastTappedCell, cell.key);
       }
