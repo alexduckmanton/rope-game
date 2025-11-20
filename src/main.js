@@ -568,8 +568,10 @@ function render() {
     hasWon = true;
     // Re-render with green path
     renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
-    // Show win alert
-    alert('You win!');
+    // Show win alert after browser has painted the green path
+    setTimeout(() => {
+      alert('You win!');
+    }, 0);
   }
 }
 
