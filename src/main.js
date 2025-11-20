@@ -12,6 +12,7 @@ const GRID_SIZE = 6;
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 const newBtn = document.getElementById('new-btn');
+const restartBtn = document.getElementById('restart-btn');
 const hintsCheckbox = document.getElementById('hints-checkbox');
 
 // Game state
@@ -490,6 +491,18 @@ function generateNewPuzzle() {
 }
 
 /**
+ * Restart current puzzle (clear player's drawn paths)
+ */
+function restartPuzzle() {
+  // Clear player state but keep the same puzzle
+  playerDrawnCells.clear();
+  playerConnections.clear();
+  lastTappedCell = null;
+
+  render();
+}
+
+/**
  * Initialize the game
  */
 function init() {
@@ -522,6 +535,7 @@ function init() {
 
   // Set up button handlers
   newBtn.addEventListener('click', generateNewPuzzle);
+  restartBtn.addEventListener('click', restartPuzzle);
 
   // Set up hints toggle - use click on label to cycle through states
   hintsCheckbox.addEventListener('click', (e) => {
