@@ -14,12 +14,14 @@ const ctx = canvas.getContext('2d');
 const newBtn = document.getElementById('new-btn');
 const restartBtn = document.getElementById('restart-btn');
 const hintsCheckbox = document.getElementById('hints-checkbox');
+const solutionCheckbox = document.getElementById('solution-checkbox');
 
 // Game state
 let cellSize = 0;
 let solutionPath = [];
 let hintCells = new Set();
 let hintMode = 'partial'; // 'none' | 'partial' | 'all'
+let showSolution = false;
 
 // Player path state
 let playerDrawnCells = new Set();      // Set of "row,col" strings
@@ -468,8 +470,10 @@ function render() {
   // Render cell numbers (turn counts) with validation
   renderCellNumbers(ctx, GRID_SIZE, cellSize, solutionPath, hintCells, hintMode, playerDrawnCells, playerConnections);
 
-  // Render solution path
-  renderPath(ctx, solutionPath, cellSize);
+  // Render solution path (only when checkbox is checked)
+  if (showSolution) {
+    renderPath(ctx, solutionPath, cellSize);
+  }
 
   // Render player path on top
   renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize);
@@ -541,6 +545,12 @@ function init() {
   hintsCheckbox.addEventListener('click', (e) => {
     e.preventDefault(); // Prevent default checkbox behavior
     cycleHintMode();
+  });
+
+  // Set up solution toggle
+  solutionCheckbox.addEventListener('change', () => {
+    showSolution = solutionCheckbox.checked;
+    render();
   });
 
   // Set up canvas pointer handlers for player drawing (supports touch and mouse)
