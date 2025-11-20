@@ -250,7 +250,7 @@ function forceConnection(cellKeyA, cellKeyB) {
 /**
  * Find path from one cell to another using BFS (for non-adjacent cells)
  * Returns array of cell keys (not including start, but including end)
- * Only paths through empty cells (for intermediates) are valid
+ * Can path through any cells - forceConnection will handle breaking old connections
  */
 function findPathToCell(fromKey, toKey) {
   const [fromRow, fromCol] = fromKey.split(',').map(Number);
@@ -286,10 +286,8 @@ function findPathToCell(fromKey, toKey) {
         return [...path, neighborKey];
       }
 
-      // For intermediate cells, they must be empty (not already drawn)
-      // because they need 2 connections (entry and exit)
-      if (playerDrawnCells.has(neighborKey)) continue;
-
+      // With forceConnection, we can now path through existing cells
+      // because it will automatically break old connections as needed
       visited.add(neighborKey);
       queue.push([neighborKey, [...path, neighborKey]]);
     }
