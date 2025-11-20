@@ -464,8 +464,8 @@ function render() {
   // Render grid
   renderGrid(ctx, GRID_SIZE, cellSize);
 
-  // Render cell numbers (turn counts)
-  renderCellNumbers(ctx, GRID_SIZE, cellSize, solutionPath, hintCells, hintMode);
+  // Render cell numbers (turn counts) with validation
+  renderCellNumbers(ctx, GRID_SIZE, cellSize, solutionPath, hintCells, hintMode, playerDrawnCells, playerConnections);
 
   // Render solution path
   renderPath(ctx, solutionPath, cellSize);
