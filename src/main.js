@@ -539,11 +539,21 @@ function init() {
     }
   }, { passive: false });
 
-  // Prevent double-tap zoom by handling touchend
+  // Prevent double-tap zoom by handling touchstart (catches zoom earlier in event chain)
+  let lastTouchStart = 0;
+  document.addEventListener('touchstart', (e) => {
+    const now = Date.now();
+    if (e.touches.length === 1 && now - lastTouchStart <= 500) {
+      e.preventDefault();
+    }
+    lastTouchStart = now;
+  }, { passive: false });
+
+  // Also prevent on touchend as a fallback
   let lastTouchEnd = 0;
   document.addEventListener('touchend', (e) => {
     const now = Date.now();
-    if (now - lastTouchEnd <= 300) {
+    if (now - lastTouchEnd <= 500) {
       e.preventDefault();
     }
     lastTouchEnd = now;
