@@ -12,6 +12,7 @@ const GRID_SIZE = 6;
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 const newBtn = document.getElementById('new-btn');
+const restartBtn = document.getElementById('restart-btn');
 const hintsCheckbox = document.getElementById('hints-checkbox');
 
 // Game state
@@ -464,8 +465,8 @@ function render() {
   // Render grid
   renderGrid(ctx, GRID_SIZE, cellSize);
 
-  // Render cell numbers (turn counts)
-  renderCellNumbers(ctx, GRID_SIZE, cellSize, solutionPath, hintCells, hintMode);
+  // Render cell numbers (turn counts) with validation
+  renderCellNumbers(ctx, GRID_SIZE, cellSize, solutionPath, hintCells, hintMode, playerDrawnCells, playerConnections);
 
   // Render solution path
   renderPath(ctx, solutionPath, cellSize);
@@ -482,6 +483,18 @@ function generateNewPuzzle() {
   hintCells = generateHintCells(GRID_SIZE, 0.3);
 
   // Clear player state
+  playerDrawnCells.clear();
+  playerConnections.clear();
+  lastTappedCell = null;
+
+  render();
+}
+
+/**
+ * Restart current puzzle (clear player's drawn paths)
+ */
+function restartPuzzle() {
+  // Clear player state but keep the same puzzle
   playerDrawnCells.clear();
   playerConnections.clear();
   lastTappedCell = null;
@@ -522,6 +535,7 @@ function init() {
 
   // Set up button handlers
   newBtn.addEventListener('click', generateNewPuzzle);
+  restartBtn.addEventListener('click', restartPuzzle);
 
   // Set up hints toggle - use click on label to cycle through states
   hintsCheckbox.addEventListener('click', (e) => {
