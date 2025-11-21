@@ -52,19 +52,34 @@ export function renderPath(ctx, path, cellSize) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // Draw lines connecting the path
+  // Draw lines connecting the path with smooth corners
   if (path.length >= 2) {
     ctx.beginPath();
-    const first = path[0];
-    ctx.moveTo(first.col * cellSize + cellSize / 2, first.row * cellSize + cellSize / 2);
 
-    for (let i = 1; i < path.length; i++) {
-      const cell = path[i];
-      ctx.lineTo(cell.col * cellSize + cellSize / 2, cell.row * cellSize + cellSize / 2);
+    // Corner radius for smooth curves (adjust for more/less curvature)
+    const radius = cellSize * 0.35;
+
+    // Convert path to pixel coordinates
+    const points = path.map(cell => ({
+      x: cell.col * cellSize + cellSize / 2,
+      y: cell.row * cellSize + cellSize / 2
+    }));
+
+    // Start at first point
+    ctx.moveTo(points[0].x, points[0].y);
+
+    // Draw path with smooth corners using arcTo
+    // For each point, we draw toward it and arc toward the next point
+    for (let i = 0; i < points.length; i++) {
+      const cornerPoint = points[(i + 1) % points.length];
+      const nextPoint = points[(i + 2) % points.length];
+
+      // arcTo draws a line toward cornerPoint, then arcs toward nextPoint
+      ctx.arcTo(cornerPoint.x, cornerPoint.y, nextPoint.x, nextPoint.y, radius);
     }
 
-    // Close loop
-    ctx.lineTo(first.col * cellSize + cellSize / 2, first.row * cellSize + cellSize / 2);
+    // Close the path
+    ctx.closePath();
     ctx.stroke();
   }
 }
@@ -381,6 +396,158 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 }
 
 /**
+ * Trace continuous path segments from connections map
+ * @param {Map<string, Set<string>>} connections - Map of cell connections
+ * @returns {Array<Array<string>>} Array of continuous path segments (each segment is array of cell keys)
+ */
+function tracePathSegments(connections) {
+  const visited = new Set();
+  const segments = [];
+
+  for (const startCell of connections.keys()) {
+    if (visited.has(startCell)) continue;
+
+    // Start a new segment
+    const segment = [];
+    const queue = [startCell];
+
+    while (queue.length > 0) {
+      const currentCell = queue.shift();
+      if (visited.has(currentCell)) continue;
+
+      visited.add(currentCell);
+      segment.push(currentCell);
+
+      // Add connected cells to queue
+      const connectedCells = connections.get(currentCell);
+      if (connectedCells) {
+        for (const connectedCell of connectedCells) {
+          if (!visited.has(connectedCell)) {
+            queue.push(connectedCell);
+          }
+        }
+      }
+    }
+
+    if (segment.length > 0) {
+      segments.push(segment);
+    }
+  }
+
+  return segments;
+}
+
+/**
+ * Draw a smooth path through a segment of cells
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Array<string>} segment - Array of cell keys forming a path
+ * @param {Map<string, Set<string>>} connections - Map of cell connections
+ * @param {number} cellSize - Size of each cell in pixels
+ * @param {string} color - Stroke color
+ */
+function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
+  if (segment.length === 0) return;
+
+  // Convert segment to ordered path by following connections
+  const orderedPath = [];
+  const visited = new Set();
+
+  // Find a good starting point (prefer cells with 1 connection, otherwise any cell)
+  let startCell = segment.find(cellKey => {
+    const connCount = connections.get(cellKey)?.size || 0;
+    return connCount === 1;
+  }) || segment[0];
+
+  // Trace the path from start
+  let current = startCell;
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    orderedPath.push(current);
+
+    // Find next unvisited connected cell
+    const connectedCells = connections.get(current);
+    if (connectedCells) {
+      const nextCell = Array.from(connectedCells).find(cell => !visited.has(cell));
+      current = nextCell;
+    } else {
+      break;
+    }
+  }
+
+  // Check if this is a closed loop
+  const isLoop = orderedPath.length > 2 &&
+                 connections.get(orderedPath[0])?.has(orderedPath[orderedPath.length - 1]);
+
+  // Draw smooth path
+  if (orderedPath.length === 1) {
+    // Single isolated cell - draw a dot
+    const [row, col] = orderedPath[0].split(',').map(Number);
+    const x = col * cellSize + cellSize / 2;
+    const y = row * cellSize + cellSize / 2;
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  } else if (orderedPath.length === 2) {
+    // Two cells - draw a simple line
+    const [row1, col1] = orderedPath[0].split(',').map(Number);
+    const [row2, col2] = orderedPath[1].split(',').map(Number);
+    const x1 = col1 * cellSize + cellSize / 2;
+    const y1 = row1 * cellSize + cellSize / 2;
+    const x2 = col2 * cellSize + cellSize / 2;
+    const y2 = row2 * cellSize + cellSize / 2;
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  } else {
+    // Three or more cells - use smooth curves
+    const radius = cellSize * 0.35;
+
+    // Convert to pixel coordinates
+    const points = orderedPath.map(cellKey => {
+      const [row, col] = cellKey.split(',').map(Number);
+      return {
+        x: col * cellSize + cellSize / 2,
+        y: row * cellSize + cellSize / 2
+      };
+    });
+
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+
+    if (isLoop) {
+      // Closed loop - apply smoothing to all corners including wrap-around
+      for (let i = 0; i < points.length; i++) {
+        const cornerPoint = points[(i + 1) % points.length];
+        const nextPoint = points[(i + 2) % points.length];
+        ctx.arcTo(cornerPoint.x, cornerPoint.y, nextPoint.x, nextPoint.y, radius);
+      }
+      ctx.closePath();
+    } else {
+      // Open path - smooth interior corners only
+      for (let i = 0; i < points.length - 2; i++) {
+        const cornerPoint = points[i + 1];
+        const nextPoint = points[i + 2];
+        ctx.arcTo(cornerPoint.x, cornerPoint.y, nextPoint.x, nextPoint.y, radius);
+      }
+      // Draw to final point
+      ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+    }
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  }
+}
+
+/**
  * Render the player's drawn path
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {Set<string>} drawnCells - Set of "row,col" strings for drawn cells
@@ -393,32 +560,12 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
 
   const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000'; // Light green when won, Black otherwise
 
-  // Draw connections as lines
-  const drawnConnections = new Set();
+  // Trace all continuous path segments
+  const segments = tracePathSegments(connections);
 
-  for (const [cellKey, connectedCells] of connections) {
-    const [row, col] = cellKey.split(',').map(Number);
-    const x1 = col * cellSize + cellSize / 2;
-    const y1 = row * cellSize + cellSize / 2;
-
-    for (const connectedKey of connectedCells) {
-      // Avoid drawing same connection twice
-      const connectionId = [cellKey, connectedKey].sort().join('-');
-      if (drawnConnections.has(connectionId)) continue;
-      drawnConnections.add(connectionId);
-
-      const [r2, c2] = connectedKey.split(',').map(Number);
-      const x2 = c2 * cellSize + cellSize / 2;
-      const y2 = r2 * cellSize + cellSize / 2;
-
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.strokeStyle = PLAYER_COLOR;
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.stroke();
-    }
+  // Draw each segment with smooth curves
+  for (const segment of segments) {
+    drawSmoothSegment(ctx, segment, connections, cellSize, PLAYER_COLOR);
   }
 
   // Draw dots for cells with 0 connections
