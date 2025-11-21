@@ -381,7 +381,125 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 }
 
 /**
- * Render the player's drawn path
+ * Identify corner cells (cells with 2 non-aligned connections)
+ * @param {Map<string, Set<string>>} connections - Map of cell connections
+ * @returns {Set<string>} Set of corner cell keys
+ */
+function identifyCorners(connections) {
+  const corners = new Set();
+
+  for (const [cellKey, connectedCells] of connections) {
+    if (connectedCells.size === 2) {
+      const [conn1, conn2] = Array.from(connectedCells);
+      const [r, c] = cellKey.split(',').map(Number);
+      const [r1, c1] = conn1.split(',').map(Number);
+      const [r2, c2] = conn2.split(',').map(Number);
+
+      // Check if connections are aligned (straight line through cell)
+      const aligned = (r1 === r && r2 === r) || (c1 === c && c2 === c);
+
+      if (!aligned) {
+        corners.add(cellKey);
+      }
+    }
+  }
+
+  return corners;
+}
+
+/**
+ * Reconstruct ordered path sequences from connection graph
+ * @param {Map<string, Set<string>>} connections - Map of cell connections
+ * @returns {Array<Array<string>>} Array of paths (each path is array of cell keys)
+ */
+function reconstructPaths(connections) {
+  if (connections.size === 0) return [];
+
+  const visited = new Set();
+  const paths = [];
+
+  for (const startCell of connections.keys()) {
+    if (visited.has(startCell)) continue;
+
+    const path = [startCell];
+    visited.add(startCell);
+
+    let current = startCell;
+    let previous = null;
+
+    // Follow the path
+    while (true) {
+      const neighbors = connections.get(current);
+      if (!neighbors) break;
+
+      // Find next cell (not the one we came from)
+      let next = null;
+      for (const neighbor of neighbors) {
+        if (neighbor !== previous) {
+          next = neighbor;
+          break;
+        }
+      }
+
+      // Check if we've completed a loop or reached the end
+      if (!next || next === startCell || visited.has(next)) {
+        break;
+      }
+
+      path.push(next);
+      visited.add(next);
+      previous = current;
+      current = next;
+    }
+
+    paths.push(path);
+  }
+
+  return paths;
+}
+
+/**
+ * Draw a wiggled segment between two points
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {number} x1 - Start x coordinate
+ * @param {number} y1 - Start y coordinate
+ * @param {number} x2 - End x coordinate
+ * @param {number} y2 - End y coordinate
+ * @param {number} amplitude - Wiggle amplitude
+ * @param {number} frequency - Wiggle frequency (wavelengths per segment)
+ * @param {number} samples - Number of sample points
+ * @param {boolean} isFirst - Whether this is the first segment (use moveTo)
+ */
+function drawWiggledSegment(ctx, x1, y1, x2, y2, amplitude, frequency, samples, isFirst) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
+  if (distance < 0.1) return; // Skip very short segments
+
+  const dirX = dx / distance;
+  const dirY = dy / distance;
+  const perpX = -dirY;
+  const perpY = dirX;
+
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples;
+    const baseX = x1 + dx * t;
+    const baseY = y1 + dy * t;
+    const offset = amplitude * Math.sin(frequency * 2 * Math.PI * t);
+    const x = baseX + perpX * offset;
+    const y = baseY + perpY * offset;
+
+    if (isFirst && i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+}
+
+/**
+ * Render the player's drawn path with smooth corners
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {Set<string>} drawnCells - Set of "row,col" strings for drawn cells
  * @param {Map<string, Set<string>>} connections - Map of cell connections
@@ -391,76 +509,102 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false) {
   if (!drawnCells || drawnCells.size === 0) return;
 
-  const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000'; // Light green when won, Black otherwise
-  const WIGGLE_AMPLITUDE = 3.5; // Moderate wiggle amplitude in pixels
-  const WIGGLE_FREQUENCY = 2; // 2 complete wavelengths per cell distance
-  const SAMPLES = 16; // Number of sample points for smooth curve
+  const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000';
+  const WIGGLE_AMPLITUDE = 3.5;
+  const WIGGLE_FREQUENCY = 2;
+  const SAMPLES = 16;
+  const CORNER_SHORTEN = 0.35; // Shorten segments by 35% at corners for smooth Bezier curves
 
-  // Draw connections as lines with wiggle effect
-  const drawnConnections = new Set();
+  // Identify corners
+  const corners = identifyCorners(connections);
 
-  for (const [cellKey, connectedCells] of connections) {
-    const [row, col] = cellKey.split(',').map(Number);
-    const x1 = col * cellSize + cellSize / 2;
-    const y1 = row * cellSize + cellSize / 2;
+  // Reconstruct ordered paths
+  const paths = reconstructPaths(connections);
 
-    for (const connectedKey of connectedCells) {
-      // Avoid drawing same connection twice
-      const connectionId = [cellKey, connectedKey].sort().join('-');
-      if (drawnConnections.has(connectionId)) continue;
-      drawnConnections.add(connectionId);
+  // Draw each path
+  for (const path of paths) {
+    if (path.length === 0) continue;
 
-      const [r2, c2] = connectedKey.split(',').map(Number);
-      const x2 = c2 * cellSize + cellSize / 2;
-      const y2 = r2 * cellSize + cellSize / 2;
+    ctx.beginPath();
+    ctx.strokeStyle = PLAYER_COLOR;
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
 
-      // Calculate direction vector
-      const dx = x2 - x1;
-      const dy = y2 - y1;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+    // Draw path with smooth corners
+    for (let i = 0; i < path.length; i++) {
+      const current = path[i];
+      const next = path[(i + 1) % path.length];
 
-      // Normalize direction vector
-      const dirX = dx / distance;
-      const dirY = dy / distance;
-
-      // Perpendicular vector (rotate 90 degrees counterclockwise)
-      const perpX = -dirY;
-      const perpY = dirX;
-
-      // Draw curved path with sine wave wiggle
-      ctx.beginPath();
-      ctx.strokeStyle = PLAYER_COLOR;
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      for (let i = 0; i <= SAMPLES; i++) {
-        const t = i / SAMPLES; // Parameter from 0 to 1
-
-        // Linear interpolation along the line
-        const baseX = x1 + dx * t;
-        const baseY = y1 + dy * t;
-
-        // Sine wave offset (2 full wavelengths from 0 to 1)
-        // sin(0) = 0 at entry, sin(4π) = 0 at exit, ensuring continuity
-        const offset = WIGGLE_AMPLITUDE * Math.sin(WIGGLE_FREQUENCY * 2 * Math.PI * t);
-
-        // Apply perpendicular offset
-        const x = baseX + perpX * offset;
-        const y = baseY + perpY * offset;
-
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
+      // Skip if this is the last cell and path is not a loop
+      if (i === path.length - 1) {
+        const currentConnections = connections.get(current);
+        if (!currentConnections || !currentConnections.has(next)) {
+          break;
         }
       }
 
-      ctx.stroke();
+      const [r1, c1] = current.split(',').map(Number);
+      const [r2, c2] = next.split(',').map(Number);
+
+      let x1 = c1 * cellSize + cellSize / 2;
+      let y1 = r1 * cellSize + cellSize / 2;
+      let x2 = c2 * cellSize + cellSize / 2;
+      let y2 = r2 * cellSize + cellSize / 2;
+
+      const currentIsCorner = corners.has(current);
+      const nextIsCorner = corners.has(next);
+
+      // Calculate segment direction
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+
+      // Adjust segment endpoints if at corners
+      if (currentIsCorner) {
+        x1 = x1 + dx * CORNER_SHORTEN;
+        y1 = y1 + dy * CORNER_SHORTEN;
+      }
+
+      if (nextIsCorner) {
+        x2 = x2 - dx * CORNER_SHORTEN;
+        y2 = y2 - dy * CORNER_SHORTEN;
+      }
+
+      // Draw wiggled segment
+      const isFirst = (i === 0);
+      drawWiggledSegment(ctx, x1, y1, x2, y2, WIGGLE_AMPLITUDE, WIGGLE_FREQUENCY, SAMPLES, isFirst);
+
+      // If next cell is a corner, draw Bezier curve to the following segment
+      if (nextIsCorner && i < path.length - 1) {
+        const following = path[(i + 2) % path.length];
+        const [r3, c3] = following.split(',').map(Number);
+
+        // Check if following segment exists
+        const nextConnections = connections.get(next);
+        if (nextConnections && nextConnections.has(following)) {
+          let x3 = c3 * cellSize + cellSize / 2;
+          let y3 = r3 * cellSize + cellSize / 2;
+
+          const dx2 = x3 - (c2 * cellSize + cellSize / 2);
+          const dy2 = y3 - (r2 * cellSize + cellSize / 2);
+
+          const x3_start = (c2 * cellSize + cellSize / 2) + dx2 * CORNER_SHORTEN;
+          const y3_start = (r2 * cellSize + cellSize / 2) + dy2 * CORNER_SHORTEN;
+
+          // Control point at corner center
+          const cx = c2 * cellSize + cellSize / 2;
+          const cy = r2 * cellSize + cellSize / 2;
+
+          // Draw quadratic Bezier curve
+          ctx.quadraticCurveTo(cx, cy, x3_start, y3_start);
+        }
+      }
     }
+
+    ctx.stroke();
   }
 
-  // Draw dots for cells with 0 connections
+  // Draw dots for isolated cells
   for (const cellKey of drawnCells) {
     const connectionCount = connections.get(cellKey)?.size || 0;
     if (connectionCount === 0) {
