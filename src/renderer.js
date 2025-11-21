@@ -201,17 +201,25 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         }
       }
 
-      // Draw validation border for dark hint cells only
+      // Draw validation border around the entire validation area for hint cells
       if (isInHintSet) {
         const isValid = expectedTurnCount === actualTurnCount;
         ctx.strokeStyle = isValid ? VALID_COLOR : INVALID_COLOR;
         ctx.lineWidth = BORDER_WIDTH;
 
-        const borderX = col * cellSize + BORDER_INSET + BORDER_WIDTH / 2;
-        const borderY = row * cellSize + BORDER_INSET + BORDER_WIDTH / 2;
-        const borderSize = cellSize - 2 * BORDER_INSET - BORDER_WIDTH;
+        // Calculate the bounding box of the validation area (3x3, or less at edges/corners)
+        const minRow = Math.max(0, row - 1);
+        const maxRow = Math.min(gridSize - 1, row + 1);
+        const minCol = Math.max(0, col - 1);
+        const maxCol = Math.min(gridSize - 1, col + 1);
 
-        ctx.strokeRect(borderX, borderY, borderSize, borderSize);
+        // Calculate border position and dimensions for the entire validation area
+        const borderX = minCol * cellSize + BORDER_INSET + BORDER_WIDTH / 2;
+        const borderY = minRow * cellSize + BORDER_INSET + BORDER_WIDTH / 2;
+        const areaWidth = (maxCol - minCol + 1) * cellSize - 2 * BORDER_INSET - BORDER_WIDTH;
+        const areaHeight = (maxRow - minRow + 1) * cellSize - 2 * BORDER_INSET - BORDER_WIDTH;
+
+        ctx.strokeRect(borderX, borderY, areaWidth, areaHeight);
       }
 
       // Set text color based on whether cell is in the hint set
