@@ -4,20 +4,46 @@
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap } from './renderer.js';
 import { generateSolutionPath } from './generator.js';
-import { haptic } from 'ios-haptics';
 
-// Safe haptic wrapper to prevent any errors from breaking the game
-function playHaptic() {
+// Haptic module - loaded lazily to prevent blocking game initialization
+let hapticModule = null;
+let hapticLoadAttempted = false;
+
+// Lazy load haptic module
+async function loadHapticModule() {
+  if (hapticLoadAttempted) return;
+  hapticLoadAttempted = true;
+
   try {
-    haptic();
+    hapticModule = await import('ios-haptics');
+  } catch (error) {
+    console.warn('Failed to load haptic module:', error);
+  }
+}
+
+// Safe haptic wrapper - lazy loads module and plays haptic
+async function playHaptic() {
+  try {
+    if (!hapticModule) {
+      await loadHapticModule();
+    }
+    if (hapticModule && hapticModule.haptic) {
+      hapticModule.haptic();
+    }
   } catch (error) {
     console.warn('Haptic feedback error:', error);
   }
 }
 
-function playHapticConfirm() {
+// Safe haptic confirm wrapper
+async function playHapticConfirm() {
   try {
-    haptic.confirm();
+    if (!hapticModule) {
+      await loadHapticModule();
+    }
+    if (hapticModule && hapticModule.haptic && hapticModule.haptic.confirm) {
+      hapticModule.haptic.confirm();
+    }
   } catch (error) {
     console.warn('Haptic confirm error:', error);
   }
