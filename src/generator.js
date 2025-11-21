@@ -8,6 +8,9 @@
  * Performance: ~50ms average for 8x8, >99.99% success rate
  */
 
+import { isAdjacent } from './utils.js';
+import { CONFIG } from './config.js';
+
 /**
  * Pre-generated valid Hamiltonian cycles for fallback
  * These are guaranteed-valid cycles generated and validated offline
@@ -74,9 +77,9 @@ export function generateSolutionPath(size) {
  * Tuned to balance speed vs success rate
  */
 function getAttemptCount(size) {
-  if (size <= 4) return 20;   // 4x4 has higher success rate, fewer attempts needed
-  if (size <= 6) return 50;   // 6x6 moderate difficulty
-  return 100;                 // 8x8 needs more attempts for >99.99% success
+  if (size <= 4) return CONFIG.GENERATION.ATTEMPTS_4X4;
+  if (size <= 6) return CONFIG.GENERATION.ATTEMPTS_6X6;
+  return CONFIG.GENERATION.ATTEMPTS_8X8;
 }
 
 /**
@@ -206,11 +209,4 @@ function getNeighbors(size, row, col) {
     }
   }
   return neighbors;
-}
-
-/**
- * Check if two cells are adjacent (Manhattan distance = 1)
- */
-function isAdjacent(r1, c1, r2, c2) {
-  return (Math.abs(r1 - r2) + Math.abs(c1 - c2)) === 1;
 }

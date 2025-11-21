@@ -2,6 +2,9 @@
  * Canvas rendering module for the Loop puzzle game
  */
 
+import { CONFIG } from './config.js';
+import { drawSmoothCurve, buildSolutionTurnMap, countTurnsInArea } from './utils.js';
+
 /**
  * Render the grid lines
  * @param {CanvasRenderingContext2D} ctx - Canvas context
@@ -47,17 +50,15 @@ export function clearCanvas(ctx, width, height) {
 export function renderPath(ctx, path, cellSize) {
   if (!path || path.length === 0) return;
 
-  ctx.strokeStyle = '#4A90E2';
-  ctx.lineWidth = 4;
+  ctx.strokeStyle = CONFIG.COLORS.SOLUTION_PATH;
+  ctx.lineWidth = CONFIG.RENDERING.PATH_LINE_WIDTH;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
   // Draw lines connecting the path with smooth corners
   if (path.length >= 2) {
-    ctx.beginPath();
-
-    // Corner radius for smooth curves (adjust for more/less curvature)
-    const radius = cellSize * 0.45;
+    // Corner radius for smooth curves
+    const radius = cellSize * CONFIG.RENDERING.CORNER_RADIUS_FACTOR;
 
     // Convert path to pixel coordinates
     const points = path.map(cell => ({
@@ -65,51 +66,9 @@ export function renderPath(ctx, path, cellSize) {
       y: cell.row * cellSize + cellSize / 2
     }));
 
-    // For a closed loop, calculate the proper starting point
-    // Start on the line from the last point toward the first point
-    const lastPoint = points[points.length - 1];
-    const firstPoint = points[0];
-    const secondPoint = points[1];
-
-    // Calculate the angle at the first corner
-    const dx1 = firstPoint.x - lastPoint.x;
-    const dy1 = firstPoint.y - lastPoint.y;
-    const dx2 = secondPoint.x - firstPoint.x;
-    const dy2 = secondPoint.y - firstPoint.y;
-
-    const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
-    const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-
-    // Normalize vectors
-    const ux1 = dx1 / len1;
-    const uy1 = dy1 / len1;
-    const ux2 = dx2 / len2;
-    const uy2 = dy2 / len2;
-
-    // Calculate angle between vectors
-    const dot = ux1 * ux2 + uy1 * uy2;
-    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-
-    // Calculate tangent distance from corner to arc start
-    const tangentDist = Math.min(radius / Math.tan(angle / 2), len1 / 2, len2 / 2);
-
-    // Starting point is offset from first point toward last point
-    const startX = firstPoint.x - ux1 * tangentDist;
-    const startY = firstPoint.y - uy1 * tangentDist;
-
-    // Start at calculated position
-    ctx.moveTo(startX, startY);
-
-    // Draw path with smooth corners using arcTo
-    // Arc around all points including the first point
-    for (let i = 0; i < points.length; i++) {
-      const cornerPoint = points[i];
-      const nextPoint = points[(i + 1) % points.length];
-      ctx.arcTo(cornerPoint.x, cornerPoint.y, nextPoint.x, nextPoint.y, radius);
-    }
-
-    // Close the path - now it should connect smoothly without overhang
-    ctx.closePath();
+    // Draw smooth curve (solution paths are always closed loops)
+    ctx.beginPath();
+    drawSmoothCurve(ctx, points, radius, true);
     ctx.stroke();
   }
 }
@@ -195,6 +154,40 @@ function rectanglesOverlap(bounds1, bounds2) {
 }
 
 /**
+ * Draw collected hint borders with proper layering
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Array} bordersToDraw - Array of border info objects
+ * @param {number} cellSize - Size of each cell in pixels
+ * @param {string} borderMode - Border display mode ('off' | 'center' | 'full')
+ */
+function drawHintBorders(ctx, bordersToDraw, cellSize, borderMode) {
+  // Draw all borders in layer order (highest layer first for proper visual stacking)
+  // This ensures inner borders appear on top of outer borders
+  bordersToDraw.sort((a, b) => b.layer - a.layer);
+
+  for (const border of bordersToDraw) {
+    const { minRow, maxRow, minCol, maxCol, hintColor, borderWidth, layer } = border;
+
+    // Calculate layer-based inset (only for full mode)
+    const layerInset = borderMode === 'full' ? (layer * CONFIG.BORDER.LAYER_OFFSET) : 0;
+    const totalInset = CONFIG.BORDER.INSET + layerInset;
+
+    // Calculate border position and dimensions with layer offset
+    const borderX = minCol * cellSize + totalInset + borderWidth / 2;
+    const borderY = minRow * cellSize + totalInset + borderWidth / 2;
+    const areaWidth = (maxCol - minCol + 1) * cellSize - 2 * totalInset - borderWidth;
+    const areaHeight = (maxRow - minRow + 1) * cellSize - 2 * totalInset - borderWidth;
+
+    // Safety check: only draw if the calculated area is large enough
+    if (areaWidth > 0 && areaHeight > 0) {
+      ctx.strokeStyle = hintColor;
+      ctx.lineWidth = borderWidth;
+      ctx.strokeRect(borderX, borderY, areaWidth, areaHeight);
+    }
+  }
+}
+
+/**
  * Calculate border layers for hint cells to prevent visual overlap
  * Uses greedy graph coloring: overlapping validation areas get different layers
  * @param {Set<string>} hintCells - Set of "row,col" strings for hint cells
@@ -252,48 +245,15 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
   if (!solutionPath || solutionPath.length === 0) return;
   if (hintMode === 'none') return;
 
-  // Build a map of which cells have turns in solution
-  const solutionTurnMap = new Map();
-  const pathLength = solutionPath.length;
-
-  for (let i = 0; i < pathLength; i++) {
-    const prev = solutionPath[(i - 1 + pathLength) % pathLength];
-    const current = solutionPath[i];
-    const next = solutionPath[(i + 1) % pathLength];
-
-    // Check if this is a straight path (no turn)
-    const isStraight =
-      (prev.row === current.row && current.row === next.row) ||
-      (prev.col === current.col && current.col === next.col);
-
-    solutionTurnMap.set(`${current.row},${current.col}`, !isStraight);
-  }
-
-  // Build a map of which cells have turns in player's path
+  // Build turn maps for validation
+  const solutionTurnMap = buildSolutionTurnMap(solutionPath);
   const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
-
-  // Border styling constants
-  const BORDER_WIDTH = 3;
-  const BORDER_INSET = 2;
-  const LAYER_OFFSET = 6; // Additional inset per layer for concentric borders
-
-  // Hint color palette - each hint gets a color in sequence
-  const HINT_COLORS = [
-    '#E09F7D', // Peachy orange
-    '#ED8C6E', // Coral peach
-    '#EF5D60', // Coral red
-    '#EE4F64', // Red pink
-    '#EC4067', // Pink magenta
-    '#C72072', // Pink purple
-    '#A01A7D', // Purple
-    '#B54585'  // Light purple
-  ];
 
   // Assign a color to each hint cell
   const hintCellsArray = Array.from(hintCells);
   const hintColorMap = new Map();
   hintCellsArray.forEach((cellKey, index) => {
-    hintColorMap.set(cellKey, HINT_COLORS[index % HINT_COLORS.length]);
+    hintColorMap.set(cellKey, CONFIG.COLORS.HINT_COLORS[index % CONFIG.COLORS.HINT_COLORS.length]);
   });
 
   // Calculate border layers for full mode (to prevent visual overlap)
@@ -303,7 +263,7 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
   const bordersToDraw = [];
 
   // Set up text rendering
-  ctx.font = `bold ${Math.floor(cellSize * 0.75)}px sans-serif`;
+  ctx.font = `bold ${Math.floor(cellSize * CONFIG.HINT.FONT_SIZE_FACTOR)}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
@@ -315,38 +275,15 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Determine if we should render this cell
       if (hintMode === 'partial' && !isInHintSet) continue;
 
-      // Count turns in adjacent cells (including diagonals and self) for solution
-      let expectedTurnCount = 0;
-      let actualTurnCount = 0;
-      const adjacents = [
-        [row - 1, col - 1], // up-left
-        [row - 1, col],     // up
-        [row - 1, col + 1], // up-right
-        [row, col - 1],     // left
-        [row, col],         // self
-        [row, col + 1],     // right
-        [row + 1, col - 1], // down-left
-        [row + 1, col],     // down
-        [row + 1, col + 1]  // down-right
-      ];
-
-      for (const [adjRow, adjCol] of adjacents) {
-        if (adjRow >= 0 && adjRow < gridSize && adjCol >= 0 && adjCol < gridSize) {
-          const adjKey = `${adjRow},${adjCol}`;
-          if (solutionTurnMap.get(adjKey)) {
-            expectedTurnCount++;
-          }
-          if (playerTurnMap.get(adjKey)) {
-            actualTurnCount++;
-          }
-        }
-      }
+      // Count turns in adjacent cells (including diagonals and self)
+      const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
+      const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
 
       // Collect border drawing information for hint cells (deferred rendering)
       if (isInHintSet && borderMode !== 'off') {
         const isValid = expectedTurnCount === actualTurnCount;
-        const hintColor = isValid ? '#ACF39D' : hintColorMap.get(cellKey);
-        const borderWidth = BORDER_WIDTH;  // Always 3px thick
+        const hintColor = isValid ? CONFIG.COLORS.HINT_VALIDATED : hintColorMap.get(cellKey);
+        const borderWidth = CONFIG.BORDER.WIDTH;
 
         // Calculate the bounding box based on border mode
         let minRow, maxRow, minCol, maxCol;
@@ -382,47 +319,22 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Set text color and opacity based on whether cell is in the hint set
       if (isInHintSet) {
         const isValid = expectedTurnCount === actualTurnCount;
-        const hintColor = isValid ? '#ACF39D' : hintColorMap.get(cellKey);
+        const hintColor = isValid ? CONFIG.COLORS.HINT_VALIDATED : hintColorMap.get(cellKey);
         ctx.fillStyle = hintColor;
         ctx.globalAlpha = 1.0;  // Always 100% opacity
       } else {
-        ctx.fillStyle = '#C0C0C0'; // Light grey for extra cells in 'all' mode
+        ctx.fillStyle = CONFIG.COLORS.HINT_EXTRA; // Light grey for extra cells in 'all' mode
         ctx.globalAlpha = 1.0;
       }
 
       const x = col * cellSize + cellSize / 2;
       const y = row * cellSize + cellSize / 2;
       ctx.fillText(expectedTurnCount.toString(), x, y);
-
-      // Reset globalAlpha for next iteration
-      ctx.globalAlpha = 1.0;
     }
   }
 
-  // Draw all borders in layer order (highest layer first for proper visual stacking)
-  // This ensures inner borders appear on top of outer borders
-  bordersToDraw.sort((a, b) => b.layer - a.layer);
-
-  for (const border of bordersToDraw) {
-    const { minRow, maxRow, minCol, maxCol, hintColor, borderWidth, layer } = border;
-
-    // Calculate layer-based inset (only for full mode)
-    const layerInset = borderMode === 'full' ? (layer * LAYER_OFFSET) : 0;
-    const totalInset = BORDER_INSET + layerInset;
-
-    // Calculate border position and dimensions with layer offset
-    const borderX = minCol * cellSize + totalInset + borderWidth / 2;
-    const borderY = minRow * cellSize + totalInset + borderWidth / 2;
-    const areaWidth = (maxCol - minCol + 1) * cellSize - 2 * totalInset - borderWidth;
-    const areaHeight = (maxRow - minRow + 1) * cellSize - 2 * totalInset - borderWidth;
-
-    // Safety check: only draw if the calculated area is large enough
-    if (areaWidth > 0 && areaHeight > 0) {
-      ctx.strokeStyle = hintColor;
-      ctx.lineWidth = borderWidth;
-      ctx.strokeRect(borderX, borderY, areaWidth, areaHeight);
-    }
-  }
+  // Draw all collected borders with proper layering
+  drawHintBorders(ctx, bordersToDraw, cellSize, borderMode);
 }
 
 /**
@@ -515,7 +427,7 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
     const x = col * cellSize + cellSize / 2;
     const y = row * cellSize + cellSize / 2;
     ctx.beginPath();
-    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.arc(x, y, CONFIG.RENDERING.DOT_RADIUS, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
   } else if (orderedPath.length === 2) {
@@ -531,12 +443,12 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
     ctx.strokeStyle = color;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = CONFIG.RENDERING.PATH_LINE_WIDTH;
     ctx.lineCap = 'round';
     ctx.stroke();
   } else {
     // Three or more cells - use smooth curves
-    const radius = cellSize * 0.45;
+    const radius = cellSize * CONFIG.RENDERING.CORNER_RADIUS_FACTOR;
 
     // Convert to pixel coordinates
     const points = orderedPath.map(cellKey => {
@@ -547,65 +459,11 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
       };
     });
 
+    // Draw smooth curve through points
     ctx.beginPath();
-
-    if (isLoop) {
-      // Closed loop - calculate proper starting point to avoid overhang
-      const lastPoint = points[points.length - 1];
-      const firstPoint = points[0];
-      const secondPoint = points[1];
-
-      // Calculate the angle at the first corner
-      const dx1 = firstPoint.x - lastPoint.x;
-      const dy1 = firstPoint.y - lastPoint.y;
-      const dx2 = secondPoint.x - firstPoint.x;
-      const dy2 = secondPoint.y - firstPoint.y;
-
-      const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
-      const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-
-      // Normalize vectors
-      const ux1 = dx1 / len1;
-      const uy1 = dy1 / len1;
-      const ux2 = dx2 / len2;
-      const uy2 = dy2 / len2;
-
-      // Calculate angle between vectors
-      const dot = ux1 * ux2 + uy1 * uy2;
-      const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-
-      // Calculate tangent distance from corner to arc start
-      const tangentDist = Math.min(radius / Math.tan(angle / 2), len1 / 2, len2 / 2);
-
-      // Starting point is offset from first point toward last point
-      const startX = firstPoint.x - ux1 * tangentDist;
-      const startY = firstPoint.y - uy1 * tangentDist;
-
-      // Start at calculated position
-      ctx.moveTo(startX, startY);
-
-      // Arc around all points including the first point
-      for (let i = 0; i < points.length; i++) {
-        const cornerPoint = points[i];
-        const nextPoint = points[(i + 1) % points.length];
-        ctx.arcTo(cornerPoint.x, cornerPoint.y, nextPoint.x, nextPoint.y, radius);
-      }
-      ctx.closePath();
-    } else {
-      // Open path - start at first point and smooth interior corners only
-      ctx.moveTo(points[0].x, points[0].y);
-
-      for (let i = 0; i < points.length - 2; i++) {
-        const cornerPoint = points[i + 1];
-        const nextPoint = points[i + 2];
-        ctx.arcTo(cornerPoint.x, cornerPoint.y, nextPoint.x, nextPoint.y, radius);
-      }
-      // Draw to final point
-      ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
-    }
-
+    drawSmoothCurve(ctx, points, radius, isLoop);
     ctx.strokeStyle = color;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = CONFIG.RENDERING.PATH_LINE_WIDTH;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
@@ -623,7 +481,7 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
 export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false) {
   if (!drawnCells || drawnCells.size === 0) return;
 
-  const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000'; // Light green when won, Black otherwise
+  const PLAYER_COLOR = hasWon ? CONFIG.COLORS.PLAYER_PATH_WIN : CONFIG.COLORS.PLAYER_PATH;
 
   // Trace all continuous path segments
   const segments = tracePathSegments(connections);
@@ -642,7 +500,7 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
       const y = row * cellSize + cellSize / 2;
 
       ctx.beginPath();
-      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.arc(x, y, CONFIG.RENDERING.DOT_RADIUS, 0, Math.PI * 2);
       ctx.fillStyle = PLAYER_COLOR;
       ctx.fill();
     }
