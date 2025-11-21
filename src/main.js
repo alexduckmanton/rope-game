@@ -4,7 +4,7 @@
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap } from './renderer.js';
 import { generateSolutionPath } from './generator.js';
-import { isAdjacent, buildSolutionTurnMap } from './utils.js';
+import { isAdjacent, buildSolutionTurnMap, countTurnsInArea } from './utils.js';
 import { CONFIG } from './config.js';
 
 // Game configuration
@@ -290,27 +290,8 @@ function checkWin() {
     const [row, col] = cellKey.split(',').map(Number);
 
     // Count turns in adjacent cells (including diagonals and self)
-    let expectedTurnCount = 0;
-    let actualTurnCount = 0;
-    const adjacents = [
-      [row - 1, col - 1], // up-left
-      [row - 1, col],     // up
-      [row - 1, col + 1], // up-right
-      [row, col - 1],     // left
-      [row, col],         // self
-      [row, col + 1],     // right
-      [row + 1, col - 1], // down-left
-      [row + 1, col],     // down
-      [row + 1, col + 1]  // down-right
-    ];
-
-    for (const [adjRow, adjCol] of adjacents) {
-      if (adjRow >= 0 && adjRow < gridSize && adjCol >= 0 && adjCol < gridSize) {
-        const adjKey = `${adjRow},${adjCol}`;
-        if (solutionTurnMap.get(adjKey)) expectedTurnCount++;
-        if (playerTurnMap.get(adjKey)) actualTurnCount++;
-      }
-    }
+    const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
+    const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
 
     if (expectedTurnCount !== actualTurnCount) return false;
   }
@@ -318,6 +299,84 @@ function checkWin() {
   return true;
 }
 
+
+/**
+ * Attempt to close a loop by connecting back to start cell
+ * @param {Array<string>} currentDragPath - Current drag path
+ * @returns {boolean} True if loop was closed successfully
+ */
+function tryCloseLoop(currentDragPath) {
+  if (currentDragPath.length < 2) return false;
+
+  const lastCell = currentDragPath[currentDragPath.length - 1];
+  const firstCell = currentDragPath[0];
+
+  // Check if already connected or can make connection
+  if (playerConnections.get(lastCell)?.has(firstCell) || forceConnection(lastCell, firstCell)) {
+    // Close the loop by connecting last cell to first
+    dragPath.push(firstCell);
+    cleanupOrphanedCells();
+    render();
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Handle backtracking when drag returns to a previous cell
+ * @param {number} backtrackIndex - Index in dragPath to backtrack to
+ */
+function handleBacktrack(backtrackIndex) {
+  // Remove connections from backtrackIndex+1 onwards
+  for (let i = dragPath.length - 1; i > backtrackIndex; i--) {
+    const cellToRemove = dragPath[i];
+    const prevCell = dragPath[i - 1];
+    removeConnection(prevCell, cellToRemove);
+  }
+
+  // Trim drag path and cleanup any orphaned cells
+  dragPath = dragPath.slice(0, backtrackIndex + 1);
+  cleanupOrphanedCells();
+  render();
+}
+
+/**
+ * Extend the drag path forward to a new cell
+ * @param {string} newCellKey - The new cell to extend to
+ * @param {string} currentCellKey - The current end of the drag path
+ */
+function extendDragPath(newCellKey, currentCellKey) {
+  const path = findPathToCell(currentCellKey, newCellKey);
+  if (!path || path.length === 0) return;
+
+  // Add all cells in path
+  let prevInDrag = currentCellKey;
+  for (const pathCell of path) {
+    // Add cell if not already drawn
+    if (!playerDrawnCells.has(pathCell)) {
+      playerDrawnCells.add(pathCell);
+      ensureConnectionMap(pathCell);
+      cellsAddedThisDrag.add(pathCell);
+    }
+
+    // Try to connect or continue through existing connection
+    if (playerConnections.get(prevInDrag)?.has(pathCell)) {
+      // Already connected - continue drawing through it
+      dragPath.push(pathCell);
+      prevInDrag = pathCell;
+    } else if (forceConnection(prevInDrag, pathCell)) {
+      // Make new connection, breaking old ones if necessary
+      dragPath.push(pathCell);
+      prevInDrag = pathCell;
+    } else {
+      // Can't connect (e.g., not adjacent), stop here
+      break;
+    }
+  }
+  cleanupOrphanedCells();
+  render();
+}
 
 /**
  * Handle pointer down - start drag
@@ -369,63 +428,18 @@ function handlePointerMove(event) {
   if (backtrackIndex !== -1 && backtrackIndex < dragPath.length - 1) {
     // Special case: returning to start cell might be loop closing
     if (backtrackIndex === 0) {
-      const lastCell = dragPath[dragPath.length - 1];
-      const firstCell = dragPath[0];
-
-      // Check if already connected or can make connection
-      if (playerConnections.get(lastCell)?.has(firstCell) || forceConnection(lastCell, firstCell)) {
-        // Close the loop by connecting last cell to first
-        dragPath.push(firstCell);
-        cleanupOrphanedCells();
-        render();
+      if (tryCloseLoop(dragPath)) {
         return;
       }
     }
 
-    // Backtracking! Remove connections from backtrackIndex+1 onwards
-    for (let i = dragPath.length - 1; i > backtrackIndex; i--) {
-      const cellToRemove = dragPath[i];
-      const prevCell = dragPath[i - 1];
-      removeConnection(prevCell, cellToRemove);
-    }
-
-    // Trim drag path and cleanup any orphaned cells
-    dragPath = dragPath.slice(0, backtrackIndex + 1);
-    cleanupOrphanedCells();
-    render();
+    // Handle backtracking
+    handleBacktrack(backtrackIndex);
     return;
   }
 
-  // Moving forward - find path to the new cell (handles non-adjacent cells)
-  const path = findPathToCell(currentCell, cell.key);
-  if (path && path.length > 0) {
-    // Add all cells in path
-    let prevInDrag = currentCell;
-    for (const pathCell of path) {
-      // Add cell if not already drawn
-      if (!playerDrawnCells.has(pathCell)) {
-        playerDrawnCells.add(pathCell);
-        ensureConnectionMap(pathCell);
-        cellsAddedThisDrag.add(pathCell);
-      }
-
-      // Try to connect or continue through existing connection
-      if (playerConnections.get(prevInDrag)?.has(pathCell)) {
-        // Already connected - continue drawing through it
-        dragPath.push(pathCell);
-        prevInDrag = pathCell;
-      } else if (forceConnection(prevInDrag, pathCell)) {
-        // Make new connection, breaking old ones if necessary
-        dragPath.push(pathCell);
-        prevInDrag = pathCell;
-      } else {
-        // Can't connect (e.g., not adjacent), stop here
-        break;
-      }
-    }
-    cleanupOrphanedCells();
-    render();
-  }
+  // Moving forward - extend drag path to new cell
+  extendDragPath(cell.key, currentCell);
 }
 
 /**

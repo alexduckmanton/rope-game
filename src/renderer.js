@@ -3,7 +3,7 @@
  */
 
 import { CONFIG } from './config.js';
-import { drawSmoothCurve, buildSolutionTurnMap } from './utils.js';
+import { drawSmoothCurve, buildSolutionTurnMap, countTurnsInArea } from './utils.js';
 
 /**
  * Render the grid lines
@@ -154,6 +154,40 @@ function rectanglesOverlap(bounds1, bounds2) {
 }
 
 /**
+ * Draw collected hint borders with proper layering
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Array} bordersToDraw - Array of border info objects
+ * @param {number} cellSize - Size of each cell in pixels
+ * @param {string} borderMode - Border display mode ('off' | 'center' | 'full')
+ */
+function drawHintBorders(ctx, bordersToDraw, cellSize, borderMode) {
+  // Draw all borders in layer order (highest layer first for proper visual stacking)
+  // This ensures inner borders appear on top of outer borders
+  bordersToDraw.sort((a, b) => b.layer - a.layer);
+
+  for (const border of bordersToDraw) {
+    const { minRow, maxRow, minCol, maxCol, hintColor, borderWidth, layer } = border;
+
+    // Calculate layer-based inset (only for full mode)
+    const layerInset = borderMode === 'full' ? (layer * CONFIG.BORDER.LAYER_OFFSET) : 0;
+    const totalInset = CONFIG.BORDER.INSET + layerInset;
+
+    // Calculate border position and dimensions with layer offset
+    const borderX = minCol * cellSize + totalInset + borderWidth / 2;
+    const borderY = minRow * cellSize + totalInset + borderWidth / 2;
+    const areaWidth = (maxCol - minCol + 1) * cellSize - 2 * totalInset - borderWidth;
+    const areaHeight = (maxRow - minRow + 1) * cellSize - 2 * totalInset - borderWidth;
+
+    // Safety check: only draw if the calculated area is large enough
+    if (areaWidth > 0 && areaHeight > 0) {
+      ctx.strokeStyle = hintColor;
+      ctx.lineWidth = borderWidth;
+      ctx.strokeRect(borderX, borderY, areaWidth, areaHeight);
+    }
+  }
+}
+
+/**
  * Calculate border layers for hint cells to prevent visual overlap
  * Uses greedy graph coloring: overlapping validation areas get different layers
  * @param {Set<string>} hintCells - Set of "row,col" strings for hint cells
@@ -241,32 +275,9 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Determine if we should render this cell
       if (hintMode === 'partial' && !isInHintSet) continue;
 
-      // Count turns in adjacent cells (including diagonals and self) for solution
-      let expectedTurnCount = 0;
-      let actualTurnCount = 0;
-      const adjacents = [
-        [row - 1, col - 1], // up-left
-        [row - 1, col],     // up
-        [row - 1, col + 1], // up-right
-        [row, col - 1],     // left
-        [row, col],         // self
-        [row, col + 1],     // right
-        [row + 1, col - 1], // down-left
-        [row + 1, col],     // down
-        [row + 1, col + 1]  // down-right
-      ];
-
-      for (const [adjRow, adjCol] of adjacents) {
-        if (adjRow >= 0 && adjRow < gridSize && adjCol >= 0 && adjCol < gridSize) {
-          const adjKey = `${adjRow},${adjCol}`;
-          if (solutionTurnMap.get(adjKey)) {
-            expectedTurnCount++;
-          }
-          if (playerTurnMap.get(adjKey)) {
-            actualTurnCount++;
-          }
-        }
-      }
+      // Count turns in adjacent cells (including diagonals and self)
+      const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
+      const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
 
       // Collect border drawing information for hint cells (deferred rendering)
       if (isInHintSet && borderMode !== 'off') {
@@ -322,30 +333,8 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
     }
   }
 
-  // Draw all borders in layer order (highest layer first for proper visual stacking)
-  // This ensures inner borders appear on top of outer borders
-  bordersToDraw.sort((a, b) => b.layer - a.layer);
-
-  for (const border of bordersToDraw) {
-    const { minRow, maxRow, minCol, maxCol, hintColor, borderWidth, layer } = border;
-
-    // Calculate layer-based inset (only for full mode)
-    const layerInset = borderMode === 'full' ? (layer * CONFIG.BORDER.LAYER_OFFSET) : 0;
-    const totalInset = CONFIG.BORDER.INSET + layerInset;
-
-    // Calculate border position and dimensions with layer offset
-    const borderX = minCol * cellSize + totalInset + borderWidth / 2;
-    const borderY = minRow * cellSize + totalInset + borderWidth / 2;
-    const areaWidth = (maxCol - minCol + 1) * cellSize - 2 * totalInset - borderWidth;
-    const areaHeight = (maxRow - minRow + 1) * cellSize - 2 * totalInset - borderWidth;
-
-    // Safety check: only draw if the calculated area is large enough
-    if (areaWidth > 0 && areaHeight > 0) {
-      ctx.strokeStyle = hintColor;
-      ctx.lineWidth = borderWidth;
-      ctx.strokeRect(borderX, borderY, areaWidth, areaHeight);
-    }
-  }
+  // Draw all collected borders with proper layering
+  drawHintBorders(ctx, bordersToDraw, cellSize, borderMode);
 }
 
 /**

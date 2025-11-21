@@ -108,3 +108,51 @@ export function buildSolutionTurnMap(solutionPath) {
 
   return turnMap;
 }
+
+/**
+ * Get all adjacent cells in a 3x3 area (including diagonals and center)
+ * Returns array of [row, col] coordinates
+ *
+ * @param {number} row - Center row
+ * @param {number} col - Center column
+ * @returns {Array<[number, number]>} Array of [row, col] coordinates in 3x3 area
+ */
+export function getAdjacentCells(row, col) {
+  return [
+    [row - 1, col - 1], // up-left
+    [row - 1, col],     // up
+    [row - 1, col + 1], // up-right
+    [row, col - 1],     // left
+    [row, col],         // self (center)
+    [row, col + 1],     // right
+    [row + 1, col - 1], // down-left
+    [row + 1, col],     // down
+    [row + 1, col + 1]  // down-right
+  ];
+}
+
+/**
+ * Count turns in a 3x3 area around a cell (used for hint validation)
+ *
+ * @param {number} row - Center row
+ * @param {number} col - Center column
+ * @param {number} gridSize - Grid size for bounds checking
+ * @param {Map<string, boolean>} turnMap - Map of cellKey -> isTurn
+ * @returns {number} Count of turns in the 3x3 area
+ */
+export function countTurnsInArea(row, col, gridSize, turnMap) {
+  let turnCount = 0;
+  const adjacents = getAdjacentCells(row, col);
+
+  for (const [adjRow, adjCol] of adjacents) {
+    // Check bounds
+    if (adjRow >= 0 && adjRow < gridSize && adjCol >= 0 && adjCol < gridSize) {
+      const adjKey = `${adjRow},${adjCol}`;
+      if (turnMap.get(adjKey)) {
+        turnCount++;
+      }
+    }
+  }
+
+  return turnCount;
+}
