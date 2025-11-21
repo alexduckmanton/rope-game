@@ -121,6 +121,77 @@ export function buildPlayerTurnMap(playerDrawnCells, playerConnections) {
 }
 
 /**
+ * Get the validation area bounds for a hint cell
+ * @param {number} row - Row index of hint cell
+ * @param {number} col - Column index of hint cell
+ * @param {number} gridSize - Grid size
+ * @returns {{minRow: number, maxRow: number, minCol: number, maxCol: number}} Validation area bounds
+ */
+function getValidationBounds(row, col, gridSize) {
+  return {
+    minRow: Math.max(0, row - 1),
+    maxRow: Math.min(gridSize - 1, row + 1),
+    minCol: Math.max(0, col - 1),
+    maxCol: Math.min(gridSize - 1, col + 1)
+  };
+}
+
+/**
+ * Check if two rectangular bounds overlap
+ * @param {{minRow: number, maxRow: number, minCol: number, maxCol: number}} bounds1 - First rectangle
+ * @param {{minRow: number, maxRow: number, minCol: number, maxCol: number}} bounds2 - Second rectangle
+ * @returns {boolean} True if rectangles overlap
+ */
+function rectanglesOverlap(bounds1, bounds2) {
+  // Two rectangles overlap if they overlap on both axes
+  const rowOverlap = bounds1.minRow <= bounds2.maxRow && bounds1.maxRow >= bounds2.minRow;
+  const colOverlap = bounds1.minCol <= bounds2.maxCol && bounds1.maxCol >= bounds2.minCol;
+  return rowOverlap && colOverlap;
+}
+
+/**
+ * Calculate border layers for hint cells to prevent visual overlap
+ * Uses greedy graph coloring: overlapping validation areas get different layers
+ * @param {Set<string>} hintCells - Set of "row,col" strings for hint cells
+ * @param {number} gridSize - Grid size
+ * @returns {Map<string, number>} Map of cellKey -> layer number (0 = outermost)
+ */
+function calculateBorderLayers(hintCells, gridSize) {
+  const hintArray = Array.from(hintCells);
+  const layers = new Map();
+
+  // Calculate validation bounds for all hint cells
+  const boundsMap = new Map();
+  for (const cellKey of hintArray) {
+    const [row, col] = cellKey.split(',').map(Number);
+    boundsMap.set(cellKey, getValidationBounds(row, col, gridSize));
+  }
+
+  // Greedy layer assignment
+  for (const cellKey of hintArray) {
+    const bounds = boundsMap.get(cellKey);
+
+    // Find all overlapping hint cells that already have layers assigned
+    const overlappingLayers = new Set();
+    for (const [otherKey, layer] of layers) {
+      const otherBounds = boundsMap.get(otherKey);
+      if (rectanglesOverlap(bounds, otherBounds)) {
+        overlappingLayers.add(layer);
+      }
+    }
+
+    // Assign the lowest layer number that doesn't conflict with overlapping cells
+    let assignedLayer = 0;
+    while (overlappingLayers.has(assignedLayer)) {
+      assignedLayer++;
+    }
+    layers.set(cellKey, assignedLayer);
+  }
+
+  return layers;
+}
+
+/**
  * Render numbers in each cell showing count of turns in adjacent cells
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {number} gridSize - Grid size (e.g., 6 for 6x6)
@@ -159,14 +230,18 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
   // Border styling constants
   const BORDER_WIDTH = 3;
   const BORDER_INSET = 2;
+  const LAYER_OFFSET = 6; // Additional inset per layer for concentric borders
 
   // Hint color palette - each hint gets a color in sequence
   const HINT_COLORS = [
-    '#E09F7D',
-    '#EF5D60',
-    '#EC4067',
-    '#A01A7D',
-    '#311847'
+    '#E09F7D', // Peachy orange
+    '#ED8C6E', // Coral peach
+    '#EF5D60', // Coral red
+    '#EE4F64', // Red pink
+    '#EC4067', // Pink magenta
+    '#C72072', // Pink purple
+    '#A01A7D', // Purple
+    '#B54585'  // Light purple
   ];
 
   // Assign a color to each hint cell
@@ -175,6 +250,12 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
   hintCellsArray.forEach((cellKey, index) => {
     hintColorMap.set(cellKey, HINT_COLORS[index % HINT_COLORS.length]);
   });
+
+  // Calculate border layers for full mode (to prevent visual overlap)
+  const borderLayers = borderMode === 'full' ? calculateBorderLayers(hintCells, gridSize) : new Map();
+
+  // Array to collect border drawing information (deferred rendering)
+  const bordersToDraw = [];
 
   // Set up text rendering
   ctx.font = `bold ${Math.floor(cellSize * 0.75)}px sans-serif`;
@@ -216,14 +297,11 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         }
       }
 
-      // Draw validation border for hint cells (if borderMode is not 'off')
+      // Collect border drawing information for hint cells (deferred rendering)
       if (isInHintSet && borderMode !== 'off') {
         const isValid = expectedTurnCount === actualTurnCount;
-        const hintColor = hintColorMap.get(cellKey);
-        const borderWidth = isValid ? 1 : BORDER_WIDTH;  // 1px when valid, 3px when invalid
-
-        ctx.strokeStyle = hintColor;
-        ctx.lineWidth = borderWidth;
+        const hintColor = isValid ? '#ACF39D' : hintColorMap.get(cellKey);
+        const borderWidth = BORDER_WIDTH;  // Always 3px thick
 
         // Calculate the bounding box based on border mode
         let minRow, maxRow, minCol, maxCol;
@@ -241,21 +319,27 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
           maxCol = Math.min(gridSize - 1, col + 1);
         }
 
-        // Calculate border position and dimensions
-        const borderX = minCol * cellSize + BORDER_INSET + borderWidth / 2;
-        const borderY = minRow * cellSize + BORDER_INSET + borderWidth / 2;
-        const areaWidth = (maxCol - minCol + 1) * cellSize - 2 * BORDER_INSET - borderWidth;
-        const areaHeight = (maxRow - minRow + 1) * cellSize - 2 * BORDER_INSET - borderWidth;
+        // Get layer for this hint cell (0 for center mode)
+        const layer = borderMode === 'full' ? (borderLayers.get(cellKey) || 0) : 0;
 
-        ctx.strokeRect(borderX, borderY, areaWidth, areaHeight);
+        // Store border info for deferred rendering
+        bordersToDraw.push({
+          minRow,
+          maxRow,
+          minCol,
+          maxCol,
+          hintColor,
+          borderWidth,
+          layer
+        });
       }
 
       // Set text color and opacity based on whether cell is in the hint set
       if (isInHintSet) {
         const isValid = expectedTurnCount === actualTurnCount;
-        const hintColor = hintColorMap.get(cellKey);
+        const hintColor = isValid ? '#ACF39D' : hintColorMap.get(cellKey);
         ctx.fillStyle = hintColor;
-        ctx.globalAlpha = isValid ? 0.5 : 1.0;  // 50% opacity when valid, 100% when invalid
+        ctx.globalAlpha = 1.0;  // Always 100% opacity
       } else {
         ctx.fillStyle = '#C0C0C0'; // Light grey for extra cells in 'all' mode
         ctx.globalAlpha = 1.0;
@@ -267,6 +351,31 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 
       // Reset globalAlpha for next iteration
       ctx.globalAlpha = 1.0;
+    }
+  }
+
+  // Draw all borders in layer order (highest layer first for proper visual stacking)
+  // This ensures inner borders appear on top of outer borders
+  bordersToDraw.sort((a, b) => b.layer - a.layer);
+
+  for (const border of bordersToDraw) {
+    const { minRow, maxRow, minCol, maxCol, hintColor, borderWidth, layer } = border;
+
+    // Calculate layer-based inset (only for full mode)
+    const layerInset = borderMode === 'full' ? (layer * LAYER_OFFSET) : 0;
+    const totalInset = BORDER_INSET + layerInset;
+
+    // Calculate border position and dimensions with layer offset
+    const borderX = minCol * cellSize + totalInset + borderWidth / 2;
+    const borderY = minRow * cellSize + totalInset + borderWidth / 2;
+    const areaWidth = (maxCol - minCol + 1) * cellSize - 2 * totalInset - borderWidth;
+    const areaHeight = (maxRow - minRow + 1) * cellSize - 2 * totalInset - borderWidth;
+
+    // Safety check: only draw if the calculated area is large enough
+    if (areaWidth > 0 && areaHeight > 0) {
+      ctx.strokeStyle = hintColor;
+      ctx.lineWidth = borderWidth;
+      ctx.strokeRect(borderX, borderY, areaWidth, areaHeight);
     }
   }
 }
@@ -282,7 +391,7 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false) {
   if (!drawnCells || drawnCells.size === 0) return;
 
-  const PLAYER_COLOR = hasWon ? '#27AE60' : '#E24A4A'; // Green when won, Red otherwise
+  const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000'; // Light green when won, Black otherwise
 
   // Draw connections as lines
   const drawnConnections = new Set();
