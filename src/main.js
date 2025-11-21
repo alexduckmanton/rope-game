@@ -1,14 +1,27 @@
 /**
  * Loop Puzzle Game - Main Entry Point
+ *
+ * This is a minimalist path-drawing puzzle game where players create a single
+ * continuous loop through a grid, guided by numbered hints. The hints show how
+ * many turns (corners) the path makes in a 3x3 area around each numbered cell.
  */
+
+/* ============================================================================
+ * IMPORTS
+ * ========================================================================= */
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap } from './renderer.js';
 import { generateSolutionPath } from './generator.js';
-import { isAdjacent, buildSolutionTurnMap, countTurnsInArea } from './utils.js';
+import { isAdjacent, buildSolutionTurnMap, countTurnsInArea, determineConnectionToBreak, findShortestPath } from './utils.js';
 import { CONFIG } from './config.js';
+
+/* ============================================================================
+ * STATE VARIABLES
+ * ========================================================================= */
 
 // Game configuration
 let gridSize = 4;
+let cellSize = 0;
 
 // DOM elements
 const canvas = document.getElementById('game-canvas');
@@ -20,27 +33,34 @@ const borderCheckbox = document.getElementById('border-checkbox');
 const solutionCheckbox = document.getElementById('solution-checkbox');
 const gridSizeSelect = document.getElementById('grid-size-select');
 
-// Game state
-let cellSize = 0;
-let solutionPath = [];
-let hintCells = new Set();
-let hintMode = 'partial'; // 'none' | 'partial' | 'all'
-let borderMode = 'off'; // 'off' | 'center' | 'full'
-let showSolution = false;
-let hasWon = false;
+// Puzzle state
+let solutionPath = [];                 // Solution path generated for the puzzle
+let hintCells = new Set();             // Set of cells that show hint numbers
+let hintMode = 'partial';              // Display mode: 'none' | 'partial' | 'all'
+let borderMode = 'off';                // Border mode: 'off' | 'center' | 'full'
+let showSolution = false;              // Whether to show the solution path
+let hasWon = false;                    // Whether the player has completed the puzzle
 
 // Player path state
-let playerDrawnCells = new Set();      // Set of "row,col" strings
-let playerConnections = new Map();      // Map of "row,col" -> Set of connected "row,col"
+let playerDrawnCells = new Set();      // Set of "row,col" strings player has drawn
+let playerConnections = new Map();     // Map of "row,col" -> Set of connected "row,col"
 
-// Drag state
-let isDragging = false;
-let dragPath = [];                      // Cells visited during current drag (in order)
-let cellsAddedThisDrag = new Set();     // Cells that were newly added during this drag
-let hasDragMoved = false;               // Whether pointer moved to different cells during drag
+// Drag interaction state
+let isDragging = false;                // Whether player is currently dragging
+let dragPath = [];                     // Cells visited during current drag (in order)
+let cellsAddedThisDrag = new Set();    // Cells newly added during this drag
+let hasDragMoved = false;              // Whether drag has moved to different cells
+
+/* ============================================================================
+ * PLAYER CELL & CONNECTION MANAGEMENT
+ * ========================================================================= */
 
 /**
- * Clear a player cell and its connections
+ * Clear a player cell and all its connections
+ * Removes the cell from drawn cells and cleans up all connection references
+ *
+ * @param {number} row - Row index of cell to clear
+ * @param {number} col - Column index of cell to clear
  */
 function clearPlayerCell(row, col) {
   const cellKey = `${row},${col}`;
@@ -60,6 +80,10 @@ function clearPlayerCell(row, col) {
 
 /**
  * Get cell coordinates from pointer event
+ * Converts screen coordinates to grid cell position
+ *
+ * @param {PointerEvent} event - The pointer event
+ * @returns {{row: number, col: number, key: string}|null} Cell info or null if out of bounds
  */
 function getCellFromPointer(event) {
   const rect = canvas.getBoundingClientRect();
@@ -76,7 +100,11 @@ function getCellFromPointer(event) {
 }
 
 /**
- * Remove a connection between two cells
+ * Remove a bidirectional connection between two cells
+ * Updates both cells' connection sets to remove references to each other
+ *
+ * @param {string} cellKeyA - First cell key
+ * @param {string} cellKeyB - Second cell key
  */
 function removeConnection(cellKeyA, cellKeyB) {
   playerConnections.get(cellKeyA)?.delete(cellKeyB);
@@ -85,6 +113,9 @@ function removeConnection(cellKeyA, cellKeyB) {
 
 /**
  * Ensure a cell has an entry in the connections map
+ * Initializes an empty Set if the cell doesn't have one yet
+ *
+ * @param {string} cellKey - Cell key to ensure has a connection map
  */
 function ensureConnectionMap(cellKey) {
   if (!playerConnections.has(cellKey)) {
@@ -93,7 +124,8 @@ function ensureConnectionMap(cellKey) {
 }
 
 /**
- * Reset drag state variables
+ * Reset all drag state variables to initial values
+ * Called when drag interaction ends
  */
 function resetDragState() {
   isDragging = false;
@@ -106,6 +138,8 @@ function resetDragState() {
  * Clean up orphaned cells (cells with 0 connections)
  * Removes all cells that have no connections, repeating until no more orphans exist
  * This handles cascading orphans (removing one orphan might create another)
+ *
+ * Uses iterative approach to handle chains of dependencies
  */
 function cleanupOrphanedCells() {
   let foundOrphan = true;
@@ -126,58 +160,18 @@ function cleanupOrphanedCells() {
   }
 }
 
-/**
- * Determine which connection to break based on "opposite direction" priority.
- * When drawing from cellA to cellB, we want to remove the connection from cellB
- * that goes in the opposite direction from where we're coming.
- *
- * @param {string} targetCell - The cell that has 2 connections
- * @param {string} comingFromCell - The cell we're drawing from
- * @param {Set<string>} existingConnections - Set of cells connected to targetCell
- * @returns {string} The cell key to disconnect from targetCell
- */
-function determineConnectionToBreak(targetCell, comingFromCell, existingConnections) {
-  const [targetRow, targetCol] = targetCell.split(',').map(Number);
-  const [fromRow, fromCol] = comingFromCell.split(',').map(Number);
-
-  // Direction vector from comingFrom to target (the direction we're drawing)
-  const drawDirection = {
-    row: targetRow - fromRow,
-    col: targetCol - fromCol
-  };
-
-  // We want to remove the connection in the opposite direction
-  const oppositeDirection = {
-    row: -drawDirection.row,
-    col: -drawDirection.col
-  };
-
-  // Find which existing connection is in the opposite direction
-  for (const connectedKey of existingConnections) {
-    const [connRow, connCol] = connectedKey.split(',').map(Number);
-    const connectionDirection = {
-      row: connRow - targetRow,
-      col: connCol - targetCol
-    };
-
-    // Check if this connection is in the opposite direction
-    if (connectionDirection.row === oppositeDirection.row &&
-        connectionDirection.col === oppositeDirection.col) {
-      return connectedKey;
-    }
-  }
-
-  // Fallback: return first connection if no opposite found
-  return Array.from(existingConnections)[0];
-}
+/* ============================================================================
+ * PATH CONNECTION LOGIC
+ * Functions for managing bidirectional connections between cells
+ * ========================================================================= */
 
 /**
- * Force a connection between two cells, breaking existing connections if necessary.
+ * Force a connection between two cells, breaking existing connections if necessary
  * This prioritizes the new connection being drawn and removes old connections
- * based on "opposite direction" logic.
+ * based on "opposite direction" logic
  *
- * @param {string} cellKeyA - First cell
- * @param {string} cellKeyB - Second cell
+ * @param {string} cellKeyA - First cell key
+ * @param {string} cellKeyB - Second cell key
  * @returns {boolean} True if connection was made, false if not possible
  */
 function forceConnection(cellKeyA, cellKeyB) {
@@ -219,48 +213,19 @@ function forceConnection(cellKeyA, cellKeyB) {
  * Find path from one cell to another using BFS (for non-adjacent cells)
  * Returns array of cell keys (not including start, but including end)
  * Can path through any cells - forceConnection will handle breaking old connections
+ *
+ * @param {string} fromKey - Starting cell key
+ * @param {string} toKey - Target cell key
+ * @returns {Array<string>|null} Array of cell keys forming path, or null if no path
  */
 function findPathToCell(fromKey, toKey) {
-  const [fromRow, fromCol] = fromKey.split(',').map(Number);
-  const [toRow, toCol] = toKey.split(',').map(Number);
-
-  // If adjacent, just return the target
-  if (isAdjacent(fromRow, fromCol, toRow, toCol)) {
-    return [toKey];
-  }
-
-  // BFS to find shortest path
-  const queue = [[fromKey, []]];
-  const visited = new Set([fromKey]);
-
-  while (queue.length > 0) {
-    const [current, path] = queue.shift();
-    const [r, c] = current.split(',').map(Number);
-
-    // Get adjacent cells
-    const neighbors = [
-      [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]
-    ].filter(([nr, nc]) =>
-      nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize
-    );
-
-    for (const [nr, nc] of neighbors) {
-      const neighborKey = `${nr},${nc}`;
-      if (visited.has(neighborKey)) continue;
-
-      // Check if this is the target
-      if (neighborKey === toKey) {
-        return [...path, neighborKey];
-      }
-
-      visited.add(neighborKey);
-      queue.push([neighborKey, [...path, neighborKey]]);
-    }
-  }
-
-  // No path found
-  return null;
+  return findShortestPath(fromKey, toKey, gridSize);
 }
+
+/* ============================================================================
+ * VALIDATION
+ * Functions for checking win conditions and path validity
+ * ========================================================================= */
 
 /**
  * Check if the player has won the game
@@ -268,6 +233,8 @@ function findPathToCell(fromKey, toKey) {
  * 1. All cells are covered
  * 2. All cells have exactly 2 connections (forms a closed loop)
  * 3. All hint cells are valid (expected turns === actual turns)
+ *
+ * @returns {boolean} True if player has won, false otherwise
  */
 function checkWin() {
   const totalCells = gridSize * gridSize;
@@ -300,8 +267,14 @@ function checkWin() {
 }
 
 
+/* ============================================================================
+ * DRAG INTERACTION HELPERS
+ * Helper functions for managing drag-based path drawing
+ * ========================================================================= */
+
 /**
  * Attempt to close a loop by connecting back to start cell
+ *
  * @param {Array<string>} currentDragPath - Current drag path
  * @returns {boolean} True if loop was closed successfully
  */
@@ -378,8 +351,15 @@ function extendDragPath(newCellKey, currentCellKey) {
   render();
 }
 
+/* ============================================================================
+ * EVENT HANDLERS
+ * Functions for handling pointer/touch events and user interactions
+ * ========================================================================= */
+
 /**
- * Handle pointer down - start drag
+ * Handle pointer down event - start drag interaction
+ *
+ * @param {PointerEvent} event - The pointer down event
  */
 function handlePointerDown(event) {
   event.preventDefault();
@@ -409,7 +389,10 @@ function handlePointerDown(event) {
 }
 
 /**
- * Handle pointer move - continue drag
+ * Handle pointer move event - continue drag interaction
+ * Handles backtracking, loop closing, and forward path extension
+ *
+ * @param {PointerEvent} event - The pointer move event
  */
 function handlePointerMove(event) {
   if (!isDragging) return;
@@ -443,7 +426,10 @@ function handlePointerMove(event) {
 }
 
 /**
- * Handle pointer up - end drag
+ * Handle pointer up event - end drag interaction
+ * Handles tap-to-erase logic for single cell taps
+ *
+ * @param {PointerEvent} event - The pointer up event
  */
 function handlePointerUp(event) {
   if (!isDragging) return;
@@ -469,7 +455,10 @@ function handlePointerUp(event) {
 }
 
 /**
- * Handle pointer cancel - abort drag
+ * Handle pointer cancel event - abort drag interaction
+ * Called when pointer event is cancelled (e.g., system interruption)
+ *
+ * @param {PointerEvent} event - The pointer cancel event
  */
 function handlePointerCancel(event) {
   canvas.releasePointerCapture(event.pointerId);
@@ -478,8 +467,14 @@ function handlePointerCancel(event) {
   cleanupOrphanedCells();
 }
 
+/* ============================================================================
+ * UI FUNCTIONS
+ * Functions for managing UI state and visual updates
+ * ========================================================================= */
+
 /**
- * Update checkbox visual state to match hintMode
+ * Update hint checkbox visual state to match current hintMode
+ * Sets checkbox to unchecked, indeterminate, or checked based on mode
  */
 function updateCheckboxState() {
   if (hintMode === 'none') {
@@ -495,7 +490,8 @@ function updateCheckboxState() {
 }
 
 /**
- * Cycle through hint modes: none -> partial -> all -> none
+ * Cycle through hint display modes: none -> partial -> all -> none
+ * Updates the hintMode state and checkbox visual state
  */
 function cycleHintMode() {
   if (hintMode === 'none') {
@@ -511,7 +507,8 @@ function cycleHintMode() {
 }
 
 /**
- * Update border checkbox visual state to match borderMode
+ * Update border checkbox visual state to match current borderMode
+ * Sets checkbox to unchecked, indeterminate, or checked based on mode
  */
 function updateBorderCheckboxState() {
   if (borderMode === 'off') {
@@ -527,7 +524,8 @@ function updateBorderCheckboxState() {
 }
 
 /**
- * Cycle through border modes: off -> center -> full -> off
+ * Cycle through border display modes: off -> center -> full -> off
+ * Updates the borderMode state and checkbox visual state
  */
 function cycleBorderMode() {
   if (borderMode === 'off') {
@@ -542,8 +540,16 @@ function cycleBorderMode() {
   render();
 }
 
+/* ============================================================================
+ * GAME LIFECYCLE & RENDERING
+ * Functions for game initialization, state management, and rendering
+ * ========================================================================= */
+
 /**
- * Calculate optimal cell size based on viewport
+ * Calculate optimal cell size based on viewport dimensions
+ * Ensures cells fit within available space while respecting min/max bounds
+ *
+ * @returns {number} Calculated cell size in pixels
  */
 function calculateCellSize() {
   const viewportWidth = window.innerWidth;
@@ -563,7 +569,8 @@ function calculateCellSize() {
 }
 
 /**
- * Resize canvas and re-render
+ * Resize canvas to match calculated cell size and re-render
+ * Handles high DPI displays by adjusting canvas internal resolution
  */
 function resizeCanvas() {
   cellSize = calculateCellSize();
@@ -587,7 +594,9 @@ function resizeCanvas() {
 }
 
 /**
- * Main render function
+ * Main render function - draws the complete game state
+ * Orchestrates rendering of grid, hints, solution (if enabled), and player path
+ * Also checks for win condition and displays victory message
  */
 function render() {
   const totalSize = cellSize * gridSize;
@@ -625,7 +634,8 @@ function render() {
 }
 
 /**
- * Generate a new puzzle
+ * Generate a new puzzle with random solution and hints
+ * Clears all player state and renders the new puzzle
  */
 function generateNewPuzzle() {
   solutionPath = generateSolutionPath(gridSize);
@@ -640,7 +650,8 @@ function generateNewPuzzle() {
 }
 
 /**
- * Restart current puzzle (clear player's drawn paths)
+ * Restart current puzzle without generating a new one
+ * Clears all player progress but keeps the same puzzle
  */
 function restartPuzzle() {
   // Clear player state but keep the same puzzle
@@ -651,8 +662,14 @@ function restartPuzzle() {
   render();
 }
 
+/* ============================================================================
+ * INITIALIZATION
+ * Game initialization and event listener setup
+ * ========================================================================= */
+
 /**
  * Initialize the game
+ * Sets up event listeners, prevents mobile zoom gestures, and starts the first puzzle
  */
 function init() {
   // Prevent all forms of zooming on mobile devices

@@ -156,3 +156,99 @@ export function countTurnsInArea(row, col, gridSize, turnMap) {
 
   return turnCount;
 }
+
+/**
+ * Determine which connection to break based on "opposite direction" priority
+ * When drawing from cellA to cellB, we want to remove the connection from cellB
+ * that goes in the opposite direction from where we're coming
+ *
+ * @param {string} targetCell - The cell that has 2 connections (format: "row,col")
+ * @param {string} comingFromCell - The cell we're drawing from (format: "row,col")
+ * @param {Set<string>} existingConnections - Set of cells connected to targetCell
+ * @returns {string} The cell key to disconnect from targetCell
+ */
+export function determineConnectionToBreak(targetCell, comingFromCell, existingConnections) {
+  const [targetRow, targetCol] = targetCell.split(',').map(Number);
+  const [fromRow, fromCol] = comingFromCell.split(',').map(Number);
+
+  // Direction vector from comingFrom to target (the direction we're drawing)
+  const drawDirection = {
+    row: targetRow - fromRow,
+    col: targetCol - fromCol
+  };
+
+  // We want to remove the connection in the opposite direction
+  const oppositeDirection = {
+    row: -drawDirection.row,
+    col: -drawDirection.col
+  };
+
+  // Find which existing connection is in the opposite direction
+  for (const connectedKey of existingConnections) {
+    const [connRow, connCol] = connectedKey.split(',').map(Number);
+    const connectionDirection = {
+      row: connRow - targetRow,
+      col: connCol - targetCol
+    };
+
+    // Check if this connection is in the opposite direction
+    if (connectionDirection.row === oppositeDirection.row &&
+        connectionDirection.col === oppositeDirection.col) {
+      return connectedKey;
+    }
+  }
+
+  // Fallback: return first connection if no opposite found
+  return Array.from(existingConnections)[0];
+}
+
+/**
+ * Find shortest path from one cell to another using BFS
+ * Returns array of cell keys (not including start, but including end)
+ *
+ * @param {string} fromKey - Starting cell key (format: "row,col")
+ * @param {string} toKey - Target cell key (format: "row,col")
+ * @param {number} gridSize - Size of the grid for bounds checking
+ * @returns {Array<string>|null} Array of cell keys forming path, or null if no path exists
+ */
+export function findShortestPath(fromKey, toKey, gridSize) {
+  const [fromRow, fromCol] = fromKey.split(',').map(Number);
+  const [toRow, toCol] = toKey.split(',').map(Number);
+
+  // If adjacent, just return the target
+  if (isAdjacent(fromRow, fromCol, toRow, toCol)) {
+    return [toKey];
+  }
+
+  // BFS to find shortest path
+  const queue = [[fromKey, []]];
+  const visited = new Set([fromKey]);
+
+  while (queue.length > 0) {
+    const [current, path] = queue.shift();
+    const [r, c] = current.split(',').map(Number);
+
+    // Get adjacent cells
+    const neighbors = [
+      [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]
+    ].filter(([nr, nc]) =>
+      nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize
+    );
+
+    for (const [nr, nc] of neighbors) {
+      const neighborKey = `${nr},${nc}`;
+      if (visited.has(neighborKey)) continue;
+
+      // Check if this is the target
+      if (neighborKey === toKey) {
+        return [...path, neighborKey];
+      }
+
+      visited.add(neighborKey);
+      queue.push([neighborKey, [...path, neighborKey]]);
+    }
+  }
+
+  // No path found
+  return null;
+}
