@@ -14,6 +14,7 @@ const ctx = canvas.getContext('2d');
 const newBtn = document.getElementById('new-btn');
 const restartBtn = document.getElementById('restart-btn');
 const hintsCheckbox = document.getElementById('hints-checkbox');
+const borderCheckbox = document.getElementById('border-checkbox');
 const solutionCheckbox = document.getElementById('solution-checkbox');
 const gridSizeSelect = document.getElementById('grid-size-select');
 
@@ -22,6 +23,7 @@ let cellSize = 0;
 let solutionPath = [];
 let hintCells = new Set();
 let hintMode = 'partial'; // 'none' | 'partial' | 'all'
+let borderMode = 'full'; // 'off' | 'center' | 'full'
 let showSolution = false;
 let hasWon = false;
 
@@ -515,6 +517,38 @@ function cycleHintMode() {
 }
 
 /**
+ * Update border checkbox visual state to match borderMode
+ */
+function updateBorderCheckboxState() {
+  if (borderMode === 'off') {
+    borderCheckbox.checked = false;
+    borderCheckbox.indeterminate = false;
+  } else if (borderMode === 'center') {
+    borderCheckbox.checked = false;
+    borderCheckbox.indeterminate = true;
+  } else if (borderMode === 'full') {
+    borderCheckbox.checked = true;
+    borderCheckbox.indeterminate = false;
+  }
+}
+
+/**
+ * Cycle through border modes: off -> center -> full -> off
+ */
+function cycleBorderMode() {
+  if (borderMode === 'off') {
+    borderMode = 'center';
+  } else if (borderMode === 'center') {
+    borderMode = 'full';
+  } else {
+    borderMode = 'off';
+  }
+  // Use setTimeout to ensure our state is applied after browser default behavior
+  setTimeout(updateBorderCheckboxState, 0);
+  render();
+}
+
+/**
  * Calculate optimal cell size based on viewport
  */
 function calculateCellSize() {
@@ -571,7 +605,7 @@ function render() {
   renderGrid(ctx, gridSize, cellSize);
 
   // Render cell numbers (turn counts) with validation
-  renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode, playerDrawnCells, playerConnections);
+  renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode, playerDrawnCells, playerConnections, borderMode);
 
   // Render solution path (only when checkbox is checked)
   if (showSolution) {
@@ -674,6 +708,12 @@ function init() {
     cycleHintMode();
   });
 
+  // Set up border toggle - use click on label to cycle through states
+  borderCheckbox.addEventListener('click', (e) => {
+    e.preventDefault(); // Prevent default checkbox behavior
+    cycleBorderMode();
+  });
+
   // Set up solution toggle
   solutionCheckbox.addEventListener('change', () => {
     showSolution = solutionCheckbox.checked;
@@ -701,6 +741,7 @@ function init() {
 
   // Set initial checkbox state
   updateCheckboxState();
+  updateBorderCheckboxState();
 
   console.log('Loop Puzzle Game initialized');
 }

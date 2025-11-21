@@ -130,8 +130,9 @@ export function buildPlayerTurnMap(playerDrawnCells, playerConnections) {
  * @param {string} hintMode - Display mode: 'none' | 'partial' | 'all'
  * @param {Set<string>} playerDrawnCells - Set of "row,col" strings for drawn cells
  * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
+ * @param {string} borderMode - Border display mode: 'off' | 'center' | 'full'
  */
-export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map()) {
+export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full') {
   if (!solutionPath || solutionPath.length === 0) return;
   if (hintMode === 'none') return;
 
@@ -215,8 +216,8 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         }
       }
 
-      // Draw validation border around the entire validation area for hint cells
-      if (isInHintSet) {
+      // Draw validation border for hint cells (if borderMode is not 'off')
+      if (isInHintSet && borderMode !== 'off') {
         const isValid = expectedTurnCount === actualTurnCount;
         const hintColor = hintColorMap.get(cellKey);
         const borderWidth = isValid ? 1 : BORDER_WIDTH;  // 1px when valid, 3px when invalid
@@ -224,13 +225,23 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         ctx.strokeStyle = hintColor;
         ctx.lineWidth = borderWidth;
 
-        // Calculate the bounding box of the validation area (3x3, or less at edges/corners)
-        const minRow = Math.max(0, row - 1);
-        const maxRow = Math.min(gridSize - 1, row + 1);
-        const minCol = Math.max(0, col - 1);
-        const maxCol = Math.min(gridSize - 1, col + 1);
+        // Calculate the bounding box based on border mode
+        let minRow, maxRow, minCol, maxCol;
+        if (borderMode === 'center') {
+          // Border around only the hint cell itself
+          minRow = row;
+          maxRow = row;
+          minCol = col;
+          maxCol = col;
+        } else {
+          // Border around the entire validation area (3x3, or less at edges/corners)
+          minRow = Math.max(0, row - 1);
+          maxRow = Math.min(gridSize - 1, row + 1);
+          minCol = Math.max(0, col - 1);
+          maxCol = Math.min(gridSize - 1, col + 1);
+        }
 
-        // Calculate border position and dimensions for the entire validation area
+        // Calculate border position and dimensions
         const borderX = minCol * cellSize + BORDER_INSET + borderWidth / 2;
         const borderY = minRow * cellSize + BORDER_INSET + borderWidth / 2;
         const areaWidth = (maxCol - minCol + 1) * cellSize - 2 * BORDER_INSET - borderWidth;
