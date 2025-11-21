@@ -300,8 +300,8 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Collect border drawing information for hint cells (deferred rendering)
       if (isInHintSet && borderMode !== 'off') {
         const isValid = expectedTurnCount === actualTurnCount;
-        const hintColor = hintColorMap.get(cellKey);
-        const borderWidth = isValid ? 1 : BORDER_WIDTH;  // 1px when valid, 3px when invalid
+        const hintColor = isValid ? '#ACF39D' : hintColorMap.get(cellKey);
+        const borderWidth = BORDER_WIDTH;  // Always 3px thick
 
         // Calculate the bounding box based on border mode
         let minRow, maxRow, minCol, maxCol;
@@ -337,9 +337,9 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Set text color and opacity based on whether cell is in the hint set
       if (isInHintSet) {
         const isValid = expectedTurnCount === actualTurnCount;
-        const hintColor = hintColorMap.get(cellKey);
+        const hintColor = isValid ? '#ACF39D' : hintColorMap.get(cellKey);
         ctx.fillStyle = hintColor;
-        ctx.globalAlpha = isValid ? 0.5 : 1.0;  // 50% opacity when valid, 100% when invalid
+        ctx.globalAlpha = 1.0;  // Always 100% opacity
       } else {
         ctx.fillStyle = '#C0C0C0'; // Light grey for extra cells in 'all' mode
         ctx.globalAlpha = 1.0;
@@ -391,7 +391,7 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false) {
   if (!drawnCells || drawnCells.size === 0) return;
 
-  const PLAYER_COLOR = hasWon ? '#27AE60' : '#E24A4A'; // Green when won, Red otherwise
+  const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000'; // Light green when won, Black otherwise
 
   // Draw connections as lines
   const drawnConnections = new Set();
