@@ -5,60 +5,40 @@
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap } from './renderer.js';
 import { generateSolutionPath } from './generator.js';
 
-// Haptic module - loaded lazily to prevent blocking game initialization
+// Haptic module - loaded eagerly during initialization to ensure synchronous access
 let hapticModule = null;
-let hapticLoadAttempted = false;
 
-// Lazy load haptic module
-async function loadHapticModule() {
-  if (hapticLoadAttempted) return;
-  hapticLoadAttempted = true;
-
+// Load haptic module immediately (non-blocking)
+// This ensures the module is ready for synchronous calls during user interactions
+// iOS Safari requires haptics to be triggered synchronously from user events
+(async () => {
   try {
     hapticModule = await import('ios-haptics');
-    console.log('Haptic module loaded:', hapticModule);
-    console.log('Has haptic function:', typeof hapticModule.haptic);
-    console.log('Has confirm:', typeof hapticModule.haptic?.confirm);
   } catch (error) {
-    console.warn('Failed to load haptic module:', error);
+    // Silently fail - haptics are optional enhancement
+    console.warn('Haptic module failed to load:', error);
   }
-}
+})();
 
-// Safe haptic wrapper - lazy loads module and plays haptic
-async function playHaptic() {
+// Synchronous haptic wrapper - calls haptic if module is loaded
+function playHaptic() {
   try {
-    if (!hapticModule) {
-      await loadHapticModule();
-    }
-    console.log('Attempting to play haptic, module:', hapticModule);
     if (hapticModule && hapticModule.haptic) {
-      console.log('Calling haptic()...');
       hapticModule.haptic();
-      console.log('Haptic called');
-    } else {
-      console.warn('Haptic module or function not available');
     }
   } catch (error) {
-    console.warn('Haptic feedback error:', error);
+    // Silently fail - don't break gameplay
   }
 }
 
-// Safe haptic confirm wrapper
-async function playHapticConfirm() {
+// Synchronous haptic confirm wrapper
+function playHapticConfirm() {
   try {
-    if (!hapticModule) {
-      await loadHapticModule();
-    }
-    console.log('Attempting to play haptic confirm, module:', hapticModule);
     if (hapticModule && hapticModule.haptic && hapticModule.haptic.confirm) {
-      console.log('Calling haptic.confirm()...');
       hapticModule.haptic.confirm();
-      console.log('Haptic confirm called');
-    } else {
-      console.warn('Haptic module, function, or confirm method not available');
     }
   } catch (error) {
-    console.warn('Haptic confirm error:', error);
+    // Silently fail - don't break gameplay
   }
 }
 
