@@ -4,6 +4,7 @@
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap } from './renderer.js';
 import { generateSolutionPath } from './generator.js';
+import { haptic } from 'ios-haptics';
 
 // Game configuration
 let gridSize = 4;
@@ -36,6 +37,7 @@ let isDragging = false;
 let dragPath = [];                      // Cells visited during current drag (in order)
 let cellsAddedThisDrag = new Set();     // Cells that were newly added during this drag
 let hasDragMoved = false;               // Whether pointer moved to different cells during drag
+let lastHapticCell = null;              // Last cell we played haptic for (to avoid duplicates)
 
 /**
  * Check if two cells are adjacent (Manhattan distance = 1)
@@ -105,6 +107,7 @@ function resetDragState() {
   dragPath = [];
   cellsAddedThisDrag = new Set();
   hasDragMoved = false;
+  lastHapticCell = null;
 }
 
 /**
@@ -358,6 +361,7 @@ function handlePointerDown(event) {
   hasDragMoved = false;
   dragPath = [cell.key];
   cellsAddedThisDrag = new Set();
+  lastHapticCell = null; // Reset haptic tracking for new drag
 
   // Always add cell if not already drawn (for continuous drawing)
   if (!playerDrawnCells.has(cell.key)) {
@@ -380,7 +384,18 @@ function handlePointerMove(event) {
   if (!cell) return;
 
   const currentCell = dragPath[dragPath.length - 1];
+
+  // On first pointer move, play haptic for the initial cell we started from
+  if (lastHapticCell === null) {
+    haptic();
+    lastHapticCell = currentCell;
+  }
+
   if (cell.key === currentCell) return; // Same cell, ignore
+
+  // Moving to a different cell - play haptic
+  haptic();
+  lastHapticCell = cell.key;
 
   hasDragMoved = true;
 
@@ -460,6 +475,9 @@ function handlePointerUp(event) {
 
   // If it was just a tap (no movement to other cells), handle tap logic
   if (!hasDragMoved && cell && dragPath.length === 1 && dragPath[0] === cell.key) {
+    // This was a tap on a single cell - play haptic
+    haptic();
+
     // This was a tap on a single cell
     if (!cellsAddedThisDrag.has(cell.key)) {
       // Cell existed before this tap - erase it
@@ -618,6 +636,8 @@ function render() {
   // Check for win condition (only if not already won)
   if (!hasWon && checkWin()) {
     hasWon = true;
+    // Play success haptic
+    haptic.confirm();
     // Re-render with green path
     renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
     // Show win alert after browser has painted the green path
