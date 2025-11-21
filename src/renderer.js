@@ -521,9 +521,18 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
   // Reconstruct ordered paths
   const paths = reconstructPaths(connections);
 
+  // Track which connections have been drawn to handle branching paths
+  const drawnConnections = new Set();
+
   // Draw each path
   for (const path of paths) {
     if (path.length === 0) continue;
+
+    // Skip single-cell paths (they're artifacts of branching, connections will be drawn below)
+    if (path.length === 1) continue;
+
+    // Detect if this is a closed loop
+    const isClosedLoop = path.length > 2 && connections.get(path[path.length - 1])?.has(path[0]);
 
     ctx.beginPath();
     ctx.strokeStyle = PLAYER_COLOR;
@@ -537,12 +546,13 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
       const next = path[(i + 1) % path.length];
 
       // Skip if this is the last cell and path is not a loop
-      if (i === path.length - 1) {
-        const currentConnections = connections.get(current);
-        if (!currentConnections || !currentConnections.has(next)) {
-          break;
-        }
+      if (i === path.length - 1 && !isClosedLoop) {
+        break;
       }
+
+      // Mark this connection as drawn
+      const connectionId = [current, next].sort().join('-');
+      drawnConnections.add(connectionId);
 
       const [r1, c1] = current.split(',').map(Number);
       const [r2, c2] = next.split(',').map(Number);
@@ -575,7 +585,10 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
       drawWiggledSegment(ctx, x1, y1, x2, y2, WIGGLE_AMPLITUDE, WIGGLE_FREQUENCY, SAMPLES, isFirst);
 
       // If next cell is a corner, draw Bezier curve to the following segment
-      if (nextIsCorner && i < path.length - 1) {
+      // For closed loops, allow wrap-around at the last segment
+      const shouldDrawBezier = nextIsCorner && (i < path.length - 1 || isClosedLoop);
+
+      if (shouldDrawBezier) {
         const following = path[(i + 2) % path.length];
         const [r3, c3] = following.split(',').map(Number);
 
@@ -602,6 +615,34 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
     }
 
     ctx.stroke();
+  }
+
+  // Draw any remaining connections that weren't part of reconstructed paths
+  // (This handles branching connections that were skipped during path reconstruction)
+  ctx.strokeStyle = PLAYER_COLOR;
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  for (const [cellKey, connectedCells] of connections) {
+    for (const connectedKey of connectedCells) {
+      const connectionId = [cellKey, connectedKey].sort().join('-');
+      if (drawnConnections.has(connectionId)) continue;
+      drawnConnections.add(connectionId);
+
+      const [r1, c1] = cellKey.split(',').map(Number);
+      const [r2, c2] = connectedKey.split(',').map(Number);
+
+      const x1 = c1 * cellSize + cellSize / 2;
+      const y1 = r1 * cellSize + cellSize / 2;
+      const x2 = c2 * cellSize + cellSize / 2;
+      const y2 = r2 * cellSize + cellSize / 2;
+
+      // Draw simple wiggled segment for orphaned connections
+      ctx.beginPath();
+      drawWiggledSegment(ctx, x1, y1, x2, y2, WIGGLE_AMPLITUDE, WIGGLE_FREQUENCY, SAMPLES, true);
+      ctx.stroke();
+    }
   }
 
   // Draw dots for isolated cells
