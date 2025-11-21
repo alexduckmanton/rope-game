@@ -50,6 +50,7 @@ const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 const newBtn = document.getElementById('new-btn');
 const restartBtn = document.getElementById('restart-btn');
+const hapticTestBtn = document.getElementById('haptic-test-btn');
 const hintsCheckbox = document.getElementById('hints-checkbox');
 const borderCheckbox = document.getElementById('border-checkbox');
 const solutionCheckbox = document.getElementById('solution-checkbox');
@@ -757,6 +758,20 @@ function init() {
   // Set up button handlers
   newBtn.addEventListener('click', generateNewPuzzle);
   restartBtn.addEventListener('click', restartPuzzle);
+
+  // Set up haptic test button
+  hapticTestBtn.addEventListener('click', () => {
+    console.log('Haptic test button clicked');
+    console.log('Haptic module:', hapticModule);
+    if (hapticModule) {
+      console.log('Haptic function:', hapticModule.haptic);
+      console.log('Calling playHaptic()...');
+      playHaptic();
+      console.log('playHaptic() completed');
+    } else {
+      console.warn('Haptic module not loaded yet');
+    }
+  });
 
   // Set up hints toggle - use click on label to cycle through states
   hintsCheckbox.addEventListener('click', (e) => {
