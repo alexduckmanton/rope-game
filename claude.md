@@ -8,8 +8,8 @@
 
 1. **Draw ONE continuous path** that visits every cell exactly once and returns to the starting point
 1. **Path can only move UP, DOWN, LEFT, RIGHT** (no diagonals)
-1. **Numbered cells are clues** that indicate how many turns (corners/bends) the path must make in the cells directly adjacent to that number
-1. **The number refers to its NEIGHBORS**, not the numbered cell itself
+1. **Numbered cells are clues** that indicate how many turns (corners/bends) the path must make in the surrounding 9-cell area (all 8 adjacent cells including diagonals, plus the numbered cell itself)
+1. **The number counts a 3x3 grid centered on itself** - this includes orthogonal neighbors, diagonal neighbors, and the numbered cell itself
 1. A "turn" = when the path changes direction within a cell (straight = 0 turns, corner = 1 turn)
 
 ### Victory Condition
@@ -56,7 +56,7 @@ All constraints are satisfied AND the path forms a complete loop visiting every 
 - Use recursive backtracking to create a path visiting all cells once
 - Ensure it forms a closed loop
 2. **Calculate constraints from the solution**
-- For each cell, count turns in its neighbors
+- For each cell, count turns in the surrounding 9-cell area (8 neighbors + self)
 - Only place numbers for cells that add interesting constraints
 - Avoid over-constraining (too many numbers = too easy)
 3. **Test solvability**

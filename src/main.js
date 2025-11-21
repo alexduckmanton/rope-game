@@ -307,14 +307,19 @@ function checkWin() {
   for (const cellKey of hintCells) {
     const [row, col] = cellKey.split(',').map(Number);
 
-    // Count turns in adjacent cells
+    // Count turns in adjacent cells (including diagonals and self)
     let expectedTurnCount = 0;
     let actualTurnCount = 0;
     const adjacents = [
-      [row - 1, col], // up
-      [row + 1, col], // down
-      [row, col - 1], // left
-      [row, col + 1]  // right
+      [row - 1, col - 1], // up-left
+      [row - 1, col],     // up
+      [row - 1, col + 1], // up-right
+      [row, col - 1],     // left
+      [row, col],         // self
+      [row, col + 1],     // right
+      [row + 1, col - 1], // down-left
+      [row + 1, col],     // down
+      [row + 1, col + 1]  // down-right
     ];
 
     for (const [adjRow, adjCol] of adjacents) {
