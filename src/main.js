@@ -53,7 +53,12 @@ function triggerHaptic() {
 
 // Play single haptic
 function playHaptic() {
-  triggerHaptic();
+  // Defer haptic to allow event handler to complete first
+  // iOS Safari only allows click() to trigger haptics within 100ms AFTER
+  // a user interaction completes, not DURING it
+  setTimeout(() => {
+    triggerHaptic();
+  }, 0);
 }
 
 // Play confirm haptic (two rapid pulses)
@@ -62,8 +67,10 @@ function playHapticConfirm() {
     navigator.vibrate([50, 70, 50]);
     return;
   }
-  triggerHaptic();
-  setTimeout(() => triggerHaptic(), 120);
+  setTimeout(() => {
+    triggerHaptic();
+    setTimeout(() => triggerHaptic(), 120);
+  }, 0);
 }
 
 // Game configuration
