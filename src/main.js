@@ -16,6 +16,9 @@ async function loadHapticModule() {
 
   try {
     hapticModule = await import('ios-haptics');
+    console.log('Haptic module loaded:', hapticModule);
+    console.log('Has haptic function:', typeof hapticModule.haptic);
+    console.log('Has confirm:', typeof hapticModule.haptic?.confirm);
   } catch (error) {
     console.warn('Failed to load haptic module:', error);
   }
@@ -27,8 +30,13 @@ async function playHaptic() {
     if (!hapticModule) {
       await loadHapticModule();
     }
+    console.log('Attempting to play haptic, module:', hapticModule);
     if (hapticModule && hapticModule.haptic) {
+      console.log('Calling haptic()...');
       hapticModule.haptic();
+      console.log('Haptic called');
+    } else {
+      console.warn('Haptic module or function not available');
     }
   } catch (error) {
     console.warn('Haptic feedback error:', error);
@@ -41,8 +49,13 @@ async function playHapticConfirm() {
     if (!hapticModule) {
       await loadHapticModule();
     }
+    console.log('Attempting to play haptic confirm, module:', hapticModule);
     if (hapticModule && hapticModule.haptic && hapticModule.haptic.confirm) {
+      console.log('Calling haptic.confirm()...');
       hapticModule.haptic.confirm();
+      console.log('Haptic confirm called');
+    } else {
+      console.warn('Haptic module, function, or confirm method not available');
     }
   } catch (error) {
     console.warn('Haptic confirm error:', error);
