@@ -433,17 +433,14 @@ function handlePointerMove(event) {
 
   const currentCell = dragPath[dragPath.length - 1];
 
-  // On first pointer move, play haptic for the initial cell we started from
-  if (lastHapticCell === null) {
-    playHaptic();
-    lastHapticCell = currentCell;
-  }
-
   if (cell.key === currentCell) return; // Same cell, ignore
 
-  // Moving to a different cell - play haptic
-  playHaptic();
-  lastHapticCell = cell.key;
+  // Moving to a different cell - play haptic for the cell we're entering
+  // Only play if we haven't already played haptic for this cell in this drag
+  if (lastHapticCell !== cell.key) {
+    playHaptic();
+    lastHapticCell = cell.key;
+  }
 
   hasDragMoved = true;
 

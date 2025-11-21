@@ -10,8 +10,5 @@
   },
   "devDependencies": {
     "vite": "^5.4.0"
-  },
-  "dependencies": {
-    "ios-haptics": "^0.1.4"
   }
 }
