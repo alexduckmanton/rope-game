@@ -155,11 +155,25 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
   // Build a map of which cells have turns in player's path
   const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
-  // Validation colors
-  const VALID_COLOR = '#27AE60';   // Green
-  const INVALID_COLOR = '#C0392B'; // Dark red
+  // Border styling constants
   const BORDER_WIDTH = 3;
   const BORDER_INSET = 2;
+
+  // Hint color palette - each hint gets a color in sequence
+  const HINT_COLORS = [
+    '#E09F7D',
+    '#EF5D60',
+    '#EC4067',
+    '#A01A7D',
+    '#311847'
+  ];
+
+  // Assign a color to each hint cell
+  const hintCellsArray = Array.from(hintCells);
+  const hintColorMap = new Map();
+  hintCellsArray.forEach((cellKey, index) => {
+    hintColorMap.set(cellKey, HINT_COLORS[index % HINT_COLORS.length]);
+  });
 
   // Set up text rendering
   ctx.font = `bold ${Math.floor(cellSize * 0.75)}px sans-serif`;
@@ -204,8 +218,11 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Draw validation border around the entire validation area for hint cells
       if (isInHintSet) {
         const isValid = expectedTurnCount === actualTurnCount;
-        ctx.strokeStyle = isValid ? VALID_COLOR : INVALID_COLOR;
-        ctx.lineWidth = BORDER_WIDTH;
+        const hintColor = hintColorMap.get(cellKey);
+        const borderWidth = isValid ? 1 : BORDER_WIDTH;  // 1px when valid, 3px when invalid
+
+        ctx.strokeStyle = hintColor;
+        ctx.lineWidth = borderWidth;
 
         // Calculate the bounding box of the validation area (3x3, or less at edges/corners)
         const minRow = Math.max(0, row - 1);
@@ -214,24 +231,31 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         const maxCol = Math.min(gridSize - 1, col + 1);
 
         // Calculate border position and dimensions for the entire validation area
-        const borderX = minCol * cellSize + BORDER_INSET + BORDER_WIDTH / 2;
-        const borderY = minRow * cellSize + BORDER_INSET + BORDER_WIDTH / 2;
-        const areaWidth = (maxCol - minCol + 1) * cellSize - 2 * BORDER_INSET - BORDER_WIDTH;
-        const areaHeight = (maxRow - minRow + 1) * cellSize - 2 * BORDER_INSET - BORDER_WIDTH;
+        const borderX = minCol * cellSize + BORDER_INSET + borderWidth / 2;
+        const borderY = minRow * cellSize + BORDER_INSET + borderWidth / 2;
+        const areaWidth = (maxCol - minCol + 1) * cellSize - 2 * BORDER_INSET - borderWidth;
+        const areaHeight = (maxRow - minRow + 1) * cellSize - 2 * BORDER_INSET - borderWidth;
 
         ctx.strokeRect(borderX, borderY, areaWidth, areaHeight);
       }
 
-      // Set text color based on whether cell is in the hint set
+      // Set text color and opacity based on whether cell is in the hint set
       if (isInHintSet) {
-        ctx.fillStyle = '#2C3E50'; // Dark color for hint cells
+        const isValid = expectedTurnCount === actualTurnCount;
+        const hintColor = hintColorMap.get(cellKey);
+        ctx.fillStyle = hintColor;
+        ctx.globalAlpha = isValid ? 0.5 : 1.0;  // 50% opacity when valid, 100% when invalid
       } else {
         ctx.fillStyle = '#C0C0C0'; // Light grey for extra cells in 'all' mode
+        ctx.globalAlpha = 1.0;
       }
 
       const x = col * cellSize + cellSize / 2;
       const y = row * cellSize + cellSize / 2;
       ctx.fillText(expectedTurnCount.toString(), x, y);
+
+      // Reset globalAlpha for next iteration
+      ctx.globalAlpha = 1.0;
     }
   }
 }
