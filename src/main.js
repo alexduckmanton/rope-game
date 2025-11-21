@@ -6,6 +6,23 @@ import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCel
 import { generateSolutionPath } from './generator.js';
 import { haptic } from 'ios-haptics';
 
+// Safe haptic wrapper to prevent any errors from breaking the game
+function playHaptic() {
+  try {
+    haptic();
+  } catch (error) {
+    console.warn('Haptic feedback error:', error);
+  }
+}
+
+function playHapticConfirm() {
+  try {
+    haptic.confirm();
+  } catch (error) {
+    console.warn('Haptic confirm error:', error);
+  }
+}
+
 // Game configuration
 let gridSize = 4;
 
@@ -387,14 +404,14 @@ function handlePointerMove(event) {
 
   // On first pointer move, play haptic for the initial cell we started from
   if (lastHapticCell === null) {
-    haptic();
+    playHaptic();
     lastHapticCell = currentCell;
   }
 
   if (cell.key === currentCell) return; // Same cell, ignore
 
   // Moving to a different cell - play haptic
-  haptic();
+  playHaptic();
   lastHapticCell = cell.key;
 
   hasDragMoved = true;
@@ -476,7 +493,7 @@ function handlePointerUp(event) {
   // If it was just a tap (no movement to other cells), handle tap logic
   if (!hasDragMoved && cell && dragPath.length === 1 && dragPath[0] === cell.key) {
     // This was a tap on a single cell - play haptic
-    haptic();
+    playHaptic();
 
     // This was a tap on a single cell
     if (!cellsAddedThisDrag.has(cell.key)) {
@@ -637,7 +654,7 @@ function render() {
   if (!hasWon && checkWin()) {
     hasWon = true;
     // Play success haptic
-    haptic.confirm();
+    playHapticConfirm();
     // Re-render with green path
     renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
     // Show win alert after browser has painted the green path
