@@ -761,16 +761,28 @@ function init() {
 
   // Set up haptic test button
   hapticTestBtn.addEventListener('click', () => {
-    console.log('Haptic test button clicked');
-    console.log('Haptic module:', hapticModule);
-    if (hapticModule) {
-      console.log('Haptic function:', hapticModule.haptic);
-      console.log('Calling playHaptic()...');
-      playHaptic();
-      console.log('playHaptic() completed');
-    } else {
-      console.warn('Haptic module not loaded yet');
+    let status = '';
+
+    if (!hapticModule) {
+      status = 'ERROR: Haptic module not loaded';
+      alert(status);
+      return;
     }
+
+    status += 'Module: ✓ loaded\n';
+    status += `Has haptic: ${hapticModule.haptic ? '✓' : '✗'}\n`;
+    status += `Has confirm: ${hapticModule.haptic?.confirm ? '✓' : '✗'}\n`;
+
+    if (hapticModule.haptic) {
+      try {
+        hapticModule.haptic();
+        status += 'Called haptic(): ✓';
+      } catch (error) {
+        status += `Called haptic(): ✗ ${error.message}`;
+      }
+    }
+
+    alert(status);
   });
 
   // Set up hints toggle - use click on label to cycle through states
