@@ -28,7 +28,6 @@ let hasWon = false;
 // Player path state
 let playerDrawnCells = new Set();      // Set of "row,col" strings
 let playerConnections = new Map();      // Map of "row,col" -> Set of connected "row,col"
-let lastTappedCell = null;              // "row,col" string or null
 
 // Drag state
 let isDragging = false;
@@ -41,37 +40,6 @@ let hasDragMoved = false;               // Whether pointer moved to different ce
  */
 function isAdjacent(r1, c1, r2, c2) {
   return Math.abs(r1 - r2) + Math.abs(c1 - c2) === 1;
-}
-
-/**
- * Try to connect two cells if possible
- */
-function tryConnect(cellKeyA, cellKeyB) {
-  const [r1, c1] = cellKeyA.split(',').map(Number);
-  const [r2, c2] = cellKeyB.split(',').map(Number);
-
-  // Check adjacency
-  if (!isAdjacent(r1, c1, r2, c2)) return;
-
-  // Check if already connected
-  if (playerConnections.get(cellKeyA)?.has(cellKeyB)) return;
-
-  // Check connection limits (max 2 per cell)
-  const connectionsA = playerConnections.get(cellKeyA)?.size || 0;
-  const connectionsB = playerConnections.get(cellKeyB)?.size || 0;
-
-  if (connectionsA >= 2 || connectionsB >= 2) return;
-
-  // Make the connection
-  if (!playerConnections.has(cellKeyA)) {
-    playerConnections.set(cellKeyA, new Set());
-  }
-  if (!playerConnections.has(cellKeyB)) {
-    playerConnections.set(cellKeyB, new Set());
-  }
-
-  playerConnections.get(cellKeyA).add(cellKeyB);
-  playerConnections.get(cellKeyB).add(cellKeyA);
 }
 
 /**
@@ -111,9 +79,111 @@ function getCellFromPointer(event) {
 }
 
 /**
- * Check if two cells can be connected
+ * Remove a connection between two cells
  */
-function canConnect(cellKeyA, cellKeyB) {
+function removeConnection(cellKeyA, cellKeyB) {
+  playerConnections.get(cellKeyA)?.delete(cellKeyB);
+  playerConnections.get(cellKeyB)?.delete(cellKeyA);
+}
+
+/**
+ * Ensure a cell has an entry in the connections map
+ */
+function ensureConnectionMap(cellKey) {
+  if (!playerConnections.has(cellKey)) {
+    playerConnections.set(cellKey, new Set());
+  }
+}
+
+/**
+ * Reset drag state variables
+ */
+function resetDragState() {
+  isDragging = false;
+  dragPath = [];
+  cellsAddedThisDrag = new Set();
+  hasDragMoved = false;
+}
+
+/**
+ * Clean up orphaned cells (cells with 0 connections)
+ * Removes all cells that have no connections, repeating until no more orphans exist
+ * This handles cascading orphans (removing one orphan might create another)
+ */
+function cleanupOrphanedCells() {
+  let foundOrphan = true;
+
+  while (foundOrphan) {
+    foundOrphan = false;
+
+    for (const cellKey of playerDrawnCells) {
+      const connections = playerConnections.get(cellKey);
+      if (!connections || connections.size === 0) {
+        // Remove orphaned cell
+        playerDrawnCells.delete(cellKey);
+        playerConnections.delete(cellKey);
+        foundOrphan = true;
+        break; // Restart iteration since we modified the set
+      }
+    }
+  }
+}
+
+/**
+ * Determine which connection to break based on "opposite direction" priority.
+ * When drawing from cellA to cellB, we want to remove the connection from cellB
+ * that goes in the opposite direction from where we're coming.
+ *
+ * @param {string} targetCell - The cell that has 2 connections
+ * @param {string} comingFromCell - The cell we're drawing from
+ * @param {Set<string>} existingConnections - Set of cells connected to targetCell
+ * @returns {string} The cell key to disconnect from targetCell
+ */
+function determineConnectionToBreak(targetCell, comingFromCell, existingConnections) {
+  const [targetRow, targetCol] = targetCell.split(',').map(Number);
+  const [fromRow, fromCol] = comingFromCell.split(',').map(Number);
+
+  // Direction vector from comingFrom to target (the direction we're drawing)
+  const drawDirection = {
+    row: targetRow - fromRow,
+    col: targetCol - fromCol
+  };
+
+  // We want to remove the connection in the opposite direction
+  const oppositeDirection = {
+    row: -drawDirection.row,
+    col: -drawDirection.col
+  };
+
+  // Find which existing connection is in the opposite direction
+  for (const connectedKey of existingConnections) {
+    const [connRow, connCol] = connectedKey.split(',').map(Number);
+    const connectionDirection = {
+      row: connRow - targetRow,
+      col: connCol - targetCol
+    };
+
+    // Check if this connection is in the opposite direction
+    if (connectionDirection.row === oppositeDirection.row &&
+        connectionDirection.col === oppositeDirection.col) {
+      return connectedKey;
+    }
+  }
+
+  // Fallback: return first connection if no opposite found
+  return Array.from(existingConnections)[0];
+}
+
+/**
+ * Force a connection between two cells, breaking existing connections if necessary.
+ * This prioritizes the new connection being drawn and removes old connections
+ * based on "opposite direction" logic.
+ *
+ * @param {string} cellKeyA - First cell
+ * @param {string} cellKeyB - Second cell
+ * @returns {boolean} True if connection was made, false if not possible
+ */
+function forceConnection(cellKeyA, cellKeyB) {
   const [r1, c1] = cellKeyA.split(',').map(Number);
   const [r2, c2] = cellKeyB.split(',').map(Number);
 
@@ -123,42 +193,35 @@ function canConnect(cellKeyA, cellKeyB) {
   // Must not already be connected
   if (playerConnections.get(cellKeyA)?.has(cellKeyB)) return false;
 
-  // Both cells must have < 2 connections
-  const connectionsA = playerConnections.get(cellKeyA)?.size || 0;
-  const connectionsB = playerConnections.get(cellKeyB)?.size || 0;
+  // Initialize connection maps if needed
+  ensureConnectionMap(cellKeyA);
+  ensureConnectionMap(cellKeyB);
 
-  if (connectionsA >= 2 || connectionsB >= 2) return false;
+  // Check if cellA has 2 connections - if so, break one
+  const connectionsA = playerConnections.get(cellKeyA);
+  if (connectionsA.size >= 2) {
+    const toBreak = determineConnectionToBreak(cellKeyA, cellKeyB, connectionsA);
+    removeConnection(cellKeyA, toBreak);
+  }
+
+  // Check if cellB has 2 connections - if so, break one
+  const connectionsB = playerConnections.get(cellKeyB);
+  if (connectionsB.size >= 2) {
+    const toBreak = determineConnectionToBreak(cellKeyB, cellKeyA, connectionsB);
+    removeConnection(cellKeyB, toBreak);
+  }
+
+  // Now make the new connection
+  playerConnections.get(cellKeyA).add(cellKeyB);
+  playerConnections.get(cellKeyB).add(cellKeyA);
 
   return true;
 }
 
 /**
- * Add a connection between two cells (assumes canConnect was checked)
- */
-function addConnection(cellKeyA, cellKeyB) {
-  if (!playerConnections.has(cellKeyA)) {
-    playerConnections.set(cellKeyA, new Set());
-  }
-  if (!playerConnections.has(cellKeyB)) {
-    playerConnections.set(cellKeyB, new Set());
-  }
-
-  playerConnections.get(cellKeyA).add(cellKeyB);
-  playerConnections.get(cellKeyB).add(cellKeyA);
-}
-
-/**
- * Remove a connection between two cells
- */
-function removeConnection(cellKeyA, cellKeyB) {
-  playerConnections.get(cellKeyA)?.delete(cellKeyB);
-  playerConnections.get(cellKeyB)?.delete(cellKeyA);
-}
-
-/**
  * Find path from one cell to another using BFS (for non-adjacent cells)
  * Returns array of cell keys (not including start, but including end)
- * Only paths through empty cells (for intermediates) are valid
+ * Can path through any cells - forceConnection will handle breaking old connections
  */
 function findPathToCell(fromKey, toKey) {
   const [fromRow, fromCol] = fromKey.split(',').map(Number);
@@ -190,15 +253,8 @@ function findPathToCell(fromKey, toKey) {
 
       // Check if this is the target
       if (neighborKey === toKey) {
-        // Target can have 0 or 1 connections
-        const targetConnections = playerConnections.get(toKey)?.size || 0;
-        if (targetConnections >= 2) continue;
         return [...path, neighborKey];
       }
-
-      // For intermediate cells, they must be empty (not already drawn)
-      // because they need 2 connections (entry and exit)
-      if (playerDrawnCells.has(neighborKey)) continue;
 
       visited.add(neighborKey);
       queue.push([neighborKey, [...path, neighborKey]]);
@@ -296,12 +352,10 @@ function handlePointerDown(event) {
   dragPath = [cell.key];
   cellsAddedThisDrag = new Set();
 
-  // If cell is not drawn, add it
+  // Always add cell if not already drawn (for continuous drawing)
   if (!playerDrawnCells.has(cell.key)) {
     playerDrawnCells.add(cell.key);
-    if (!playerConnections.has(cell.key)) {
-      playerConnections.set(cell.key, new Set());
-    }
+    ensureConnectionMap(cell.key);
     cellsAddedThisDrag.add(cell.key);
   }
 
@@ -331,49 +385,31 @@ function handlePointerMove(event) {
       const lastCell = dragPath[dragPath.length - 1];
       const firstCell = dragPath[0];
 
-      if (canConnect(lastCell, firstCell)) {
+      // Check if already connected or can make connection
+      if (playerConnections.get(lastCell)?.has(firstCell) || forceConnection(lastCell, firstCell)) {
         // Close the loop by connecting last cell to first
-        addConnection(lastCell, firstCell);
         dragPath.push(firstCell);
+        cleanupOrphanedCells();
         render();
         return;
       }
     }
 
-    // Backtracking! Remove connections and cells from backtrackIndex+1 onwards
+    // Backtracking! Remove connections from backtrackIndex+1 onwards
     for (let i = dragPath.length - 1; i > backtrackIndex; i--) {
       const cellToRemove = dragPath[i];
       const prevCell = dragPath[i - 1];
-
-      // Remove connection between these cells
       removeConnection(prevCell, cellToRemove);
-
-      // If this cell was added during this drag and now has 0 connections, remove it
-      if (cellsAddedThisDrag.has(cellToRemove)) {
-        const connections = playerConnections.get(cellToRemove);
-        if (!connections || connections.size === 0) {
-          playerDrawnCells.delete(cellToRemove);
-          playerConnections.delete(cellToRemove);
-          cellsAddedThisDrag.delete(cellToRemove);
-        }
-      }
     }
 
-    // Trim drag path
+    // Trim drag path and cleanup any orphaned cells
     dragPath = dragPath.slice(0, backtrackIndex + 1);
+    cleanupOrphanedCells();
     render();
     return;
   }
 
-  // Moving forward - try to connect to the new cell
-  // Check if current cell can accept another connection
-  const currentConnections = playerConnections.get(currentCell)?.size || 0;
-  if (currentConnections >= 2) {
-    // Current cell is full, can't add more connections
-    return;
-  }
-
-  // Find path to the new cell (handles non-adjacent cells)
+  // Moving forward - find path to the new cell (handles non-adjacent cells)
   const path = findPathToCell(currentCell, cell.key);
   if (path && path.length > 0) {
     // Add all cells in path
@@ -382,22 +418,25 @@ function handlePointerMove(event) {
       // Add cell if not already drawn
       if (!playerDrawnCells.has(pathCell)) {
         playerDrawnCells.add(pathCell);
-        if (!playerConnections.has(pathCell)) {
-          playerConnections.set(pathCell, new Set());
-        }
+        ensureConnectionMap(pathCell);
         cellsAddedThisDrag.add(pathCell);
       }
 
-      // Try to connect
-      if (canConnect(prevInDrag, pathCell)) {
-        addConnection(prevInDrag, pathCell);
+      // Try to connect or continue through existing connection
+      if (playerConnections.get(prevInDrag)?.has(pathCell)) {
+        // Already connected - continue drawing through it
+        dragPath.push(pathCell);
+        prevInDrag = pathCell;
+      } else if (forceConnection(prevInDrag, pathCell)) {
+        // Make new connection, breaking old ones if necessary
         dragPath.push(pathCell);
         prevInDrag = pathCell;
       } else {
-        // Can't connect, stop here
+        // Can't connect (e.g., not adjacent), stop here
         break;
       }
     }
+    cleanupOrphanedCells();
     render();
   }
 }
@@ -415,39 +454,16 @@ function handlePointerUp(event) {
   // If it was just a tap (no movement to other cells), handle tap logic
   if (!hasDragMoved && cell && dragPath.length === 1 && dragPath[0] === cell.key) {
     // This was a tap on a single cell
-
-    // If cell existed before this drag (not added), check for double-tap
     if (!cellsAddedThisDrag.has(cell.key)) {
-      if (lastTappedCell === cell.key) {
-        // Double-tap to delete
-        const [row, col] = cell.key.split(',').map(Number);
-        clearPlayerCell(row, col);
-        lastTappedCell = null;
-      } else {
-        // Single tap on existing cell - try to connect from lastTappedCell
-        if (lastTappedCell && playerDrawnCells.has(lastTappedCell)) {
-          tryConnect(lastTappedCell, cell.key);
-        }
-        lastTappedCell = cell.key;
-      }
-    } else {
-      // Cell was just added - try to connect from lastTappedCell
-      if (lastTappedCell && playerDrawnCells.has(lastTappedCell)) {
-        tryConnect(lastTappedCell, cell.key);
-      }
-      lastTappedCell = cell.key;
+      // Cell existed before this tap - erase it
+      const [row, col] = cell.key.split(',').map(Number);
+      clearPlayerCell(row, col);
     }
-  } else if (dragPath.length > 0) {
-    // Was a drag - update lastTappedCell to the end of the drag
-    lastTappedCell = dragPath[dragPath.length - 1];
+    // If cell was just added during this tap, keep it
   }
 
-  // Reset drag state
-  isDragging = false;
-  dragPath = [];
-  cellsAddedThisDrag = new Set();
-  hasDragMoved = false;
-
+  resetDragState();
+  cleanupOrphanedCells();
   render();
 }
 
@@ -457,11 +473,8 @@ function handlePointerUp(event) {
 function handlePointerCancel(event) {
   canvas.releasePointerCapture(event.pointerId);
 
-  // Keep changes made during drag, just reset state
-  isDragging = false;
-  dragPath = [];
-  cellsAddedThisDrag = new Set();
-  hasDragMoved = false;
+  resetDragState();
+  cleanupOrphanedCells();
 }
 
 /**
@@ -588,7 +601,6 @@ function generateNewPuzzle() {
   // Clear player state
   playerDrawnCells.clear();
   playerConnections.clear();
-  lastTappedCell = null;
   hasWon = false;
 
   render();
@@ -601,7 +613,6 @@ function restartPuzzle() {
   // Clear player state but keep the same puzzle
   playerDrawnCells.clear();
   playerConnections.clear();
-  lastTappedCell = null;
   hasWon = false;
 
   render();

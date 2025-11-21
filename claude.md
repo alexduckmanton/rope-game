@@ -37,9 +37,11 @@ All constraints are satisfied AND the path forms a complete loop visiting every 
 
 - **Pointer Events API** (handles both mouse and touch)
 - Support for:
-  - Tap-and-drag (continuous drawing)
-  - Tap-cell-by-cell (discrete drawing)
-  - Both should feel native and responsive
+  - Drag to draw (continuous path creation)
+  - Single tap to erase existing cells
+  - Drag backward to undo recent drawing (backtracking)
+  - Automatic connection breaking when drawing through existing paths
+  - All interactions should feel native and responsive
 
 -----
 
@@ -157,9 +159,11 @@ loop-puzzle/
 ### Core Gameplay
 
 - [ ] Render 5×5 grid with constraints
-- [ ] Draw path with tap-and-drag
-- [ ] Draw path with tap-cell-by-cell
+- [ ] Draw path with drag (continuous drawing)
+- [ ] Erase cells with single tap
 - [ ] Real-time path visualization
+- [ ] Automatic connection breaking when drawing through existing paths
+- [ ] Automatic orphaned cell cleanup
 - [ ] Constraint validation
 - [ ] Victory detection
 - [ ] Victory animation
@@ -175,8 +179,8 @@ loop-puzzle/
 
 - [ ] Smooth animations (path drawing, constraint feedback)
 - [ ] Color transitions for constraint states
-- [ ] Prevent accidental path crossing
-- [ ] Handle path backtracking (drag back over cells)
+- [ ] Intelligent connection breaking (opposite direction priority)
+- [ ] Handle path backtracking (drag backward to undo)
 
 -----
 
@@ -247,8 +251,10 @@ npm run dev
 ## Expected Behavior Summary
 
 1. **User opens app** → See 5×5 grid with constraint numbers
-2. **User taps cell** → Path starts, blue dot appears
-3. **User drags or taps adjacent cells** → Blue path extends smoothly
-4. **User completes loop** → Constraints turn green if satisfied, yellow if violated
-5. **All green** → Victory animation, can tap "New Puzzle"
-6. **Stuck** → Tap "Restart" to clear path and try again
+2. **User taps empty cell** → Path starts, cell is drawn
+3. **User taps existing cell** → Cell is erased (along with any orphaned cells)
+4. **User drags** → Blue path extends smoothly, automatically breaking old connections when crossing existing paths
+5. **User drags backward** → Recent path is undone (backtracking)
+6. **User completes loop** → Constraints turn green if satisfied, yellow if violated
+7. **All green** → Victory animation, can tap "New Puzzle"
+8. **Stuck** → Tap "Restart" to clear path and try again
