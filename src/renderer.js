@@ -381,6 +381,157 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 }
 
 /**
+ * Reconstruct an ordered path from the connection graph
+ * @param {Map<string, Set<string>>} connections - Map of cell connections
+ * @returns {Array<{row: number, col: number}>|null} Ordered path or null if not a valid path
+ */
+function reconstructOrderedPath(connections) {
+  if (!connections || connections.size === 0) return null;
+
+  // Find a cell with exactly 2 connections to start from
+  let startCell = null;
+  for (const [cellKey, connectedCells] of connections) {
+    if (connectedCells.size === 2) {
+      startCell = cellKey;
+      break;
+    }
+  }
+
+  if (!startCell) return null;
+
+  // Walk the path
+  const path = [];
+  const visited = new Set();
+  let currentCell = startCell;
+  let previousCell = null;
+
+  while (currentCell) {
+    if (visited.has(currentCell)) break; // We've completed the loop
+
+    visited.add(currentCell);
+    const [row, col] = currentCell.split(',').map(Number);
+    path.push({ row, col });
+
+    // Find next cell
+    const connectedCells = connections.get(currentCell);
+    if (!connectedCells || connectedCells.size !== 2) break;
+
+    // Get the two connected cells and choose the one we haven't visited
+    const connected = Array.from(connectedCells);
+    let nextCell = null;
+
+    for (const cell of connected) {
+      if (cell !== previousCell) {
+        nextCell = cell;
+        break;
+      }
+    }
+
+    if (!nextCell) break;
+
+    previousCell = currentCell;
+    currentCell = nextCell;
+  }
+
+  return path.length > 0 ? path : null;
+}
+
+/**
+ * Draw a smooth curved and squiggly path
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Array<{row: number, col: number}>} orderedPath - Ordered path
+ * @param {number} cellSize - Size of each cell
+ * @param {boolean} hasWon - Whether player has won
+ */
+function drawSmoothCurvedPath(ctx, orderedPath, cellSize, hasWon) {
+  if (orderedPath.length < 2) return;
+
+  const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000';
+  const WAVE_AMPLITUDE = cellSize * 0.15; // 15% of cell size - playful!
+  const WAVE_FREQUENCY = 2 * Math.PI / (cellSize * 0.65); // ~1.5 waves per cell
+  const SAMPLES_PER_SEGMENT = 20; // Points to sample per segment for smooth curves
+
+  ctx.strokeStyle = PLAYER_COLOR;
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Helper to get cell center
+  const getCellCenter = (cell) => ({
+    x: cell.col * cellSize + cellSize / 2,
+    y: cell.row * cellSize + cellSize / 2
+  });
+
+  // Sample many points along the path with wave offsets
+  const sampledPoints = [];
+  let accumulatedDistance = 0;
+
+  for (let i = 0; i < orderedPath.length; i++) {
+    const curr = orderedPath[i];
+    const next = orderedPath[(i + 1) % orderedPath.length];
+
+    const currPos = getCellCenter(curr);
+    const nextPos = getCellCenter(next);
+
+    const dx = nextPos.x - currPos.x;
+    const dy = nextPos.y - currPos.y;
+    const segmentLength = Math.sqrt(dx * dx + dy * dy);
+
+    if (segmentLength === 0) continue;
+
+    const dirX = dx / segmentLength;
+    const dirY = dy / segmentLength;
+
+    // Sample points along this segment
+    for (let s = 0; s < SAMPLES_PER_SEGMENT; s++) {
+      const t = s / SAMPLES_PER_SEGMENT;
+      const distance = accumulatedDistance + segmentLength * t;
+
+      // Interpolate position
+      const x = currPos.x + dx * t;
+      const y = currPos.y + dy * t;
+
+      // Add wave offset perpendicular to direction
+      const waveValue = Math.sin(distance * WAVE_FREQUENCY) * WAVE_AMPLITUDE;
+      const perpX = -dirY; // Perpendicular vector
+      const perpY = dirX;
+
+      sampledPoints.push({
+        x: x + perpX * waveValue,
+        y: y + perpY * waveValue
+      });
+    }
+
+    accumulatedDistance += segmentLength;
+  }
+
+  if (sampledPoints.length < 2) return;
+
+  // Draw smooth curve through sampled points using cardinal splines
+  ctx.beginPath();
+  ctx.moveTo(sampledPoints[0].x, sampledPoints[0].y);
+
+  const tension = 0.5; // Controls curve tightness (0 = tight, 1 = loose)
+
+  for (let i = 0; i < sampledPoints.length; i++) {
+    const p0 = sampledPoints[(i - 1 + sampledPoints.length) % sampledPoints.length];
+    const p1 = sampledPoints[i];
+    const p2 = sampledPoints[(i + 1) % sampledPoints.length];
+    const p3 = sampledPoints[(i + 2) % sampledPoints.length];
+
+    // Calculate control points for cubic bezier (Catmull-Rom to Bezier conversion)
+    const cp1x = p1.x + (p2.x - p0.x) / 6 * tension;
+    const cp1y = p1.y + (p2.y - p0.y) / 6 * tension;
+    const cp2x = p2.x - (p3.x - p1.x) / 6 * tension;
+    const cp2y = p2.y - (p3.y - p1.y) / 6 * tension;
+
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+  }
+
+  ctx.stroke();
+}
+
+/**
  * Render the player's drawn path
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {Set<string>} drawnCells - Set of "row,col" strings for drawn cells
@@ -391,33 +542,41 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false) {
   if (!drawnCells || drawnCells.size === 0) return;
 
-  const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000'; // Light green when won, Black otherwise
+  const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000';
 
-  // Draw connections as lines
-  const drawnConnections = new Set();
+  // Try to reconstruct and draw a smooth curved path
+  const orderedPath = reconstructOrderedPath(connections);
 
-  for (const [cellKey, connectedCells] of connections) {
-    const [row, col] = cellKey.split(',').map(Number);
-    const x1 = col * cellSize + cellSize / 2;
-    const y1 = row * cellSize + cellSize / 2;
+  if (orderedPath && orderedPath.length >= 2) {
+    // Draw smooth curved and squiggly path
+    drawSmoothCurvedPath(ctx, orderedPath, cellSize, hasWon);
+  } else {
+    // Fallback: draw straight lines for incomplete paths
+    const drawnConnections = new Set();
 
-    for (const connectedKey of connectedCells) {
-      // Avoid drawing same connection twice
-      const connectionId = [cellKey, connectedKey].sort().join('-');
-      if (drawnConnections.has(connectionId)) continue;
-      drawnConnections.add(connectionId);
+    for (const [cellKey, connectedCells] of connections) {
+      const [row, col] = cellKey.split(',').map(Number);
+      const x1 = col * cellSize + cellSize / 2;
+      const y1 = row * cellSize + cellSize / 2;
 
-      const [r2, c2] = connectedKey.split(',').map(Number);
-      const x2 = c2 * cellSize + cellSize / 2;
-      const y2 = r2 * cellSize + cellSize / 2;
+      for (const connectedKey of connectedCells) {
+        // Avoid drawing same connection twice
+        const connectionId = [cellKey, connectedKey].sort().join('-');
+        if (drawnConnections.has(connectionId)) continue;
+        drawnConnections.add(connectionId);
 
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.strokeStyle = PLAYER_COLOR;
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.stroke();
+        const [r2, c2] = connectedKey.split(',').map(Number);
+        const x2 = c2 * cellSize + cellSize / 2;
+        const y2 = r2 * cellSize + cellSize / 2;
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = PLAYER_COLOR;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
     }
   }
 
