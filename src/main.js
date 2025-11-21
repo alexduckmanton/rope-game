@@ -21,18 +21,31 @@ function triggerHaptic() {
     // Use iOS Safari's switch checkbox haptic (iOS 17.4+)
     if (!supportsHaptics) return;
 
+    // Create elements in body (not head) for better iOS compatibility
     const labelEl = document.createElement('label');
     labelEl.ariaHidden = 'true';
-    labelEl.style.display = 'none';
+    labelEl.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;';
 
     const inputEl = document.createElement('input');
     inputEl.type = 'checkbox';
     inputEl.setAttribute('switch', '');
 
     labelEl.appendChild(inputEl);
-    document.head.appendChild(labelEl);
+    document.body.appendChild(labelEl);
+
+    // Force a synchronous reflow before clicking
+    labelEl.offsetHeight;
+
+    // Toggle the checkbox (not just click the label)
+    inputEl.checked = !inputEl.checked;
     labelEl.click();
-    document.head.removeChild(labelEl);
+
+    // Clean up asynchronously to ensure haptic fires
+    requestAnimationFrame(() => {
+      if (labelEl.parentNode) {
+        document.body.removeChild(labelEl);
+      }
+    });
   } catch (error) {
     // Silently fail - haptics are optional
   }
