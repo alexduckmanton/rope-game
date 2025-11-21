@@ -65,20 +65,50 @@ export function renderPath(ctx, path, cellSize) {
       y: cell.row * cellSize + cellSize / 2
     }));
 
-    // Start at first point
-    ctx.moveTo(points[0].x, points[0].y);
+    // For a closed loop, calculate the proper starting point
+    // Start on the line from the last point toward the first point
+    const lastPoint = points[points.length - 1];
+    const firstPoint = points[0];
+    const secondPoint = points[1];
+
+    // Calculate the angle at the first corner
+    const dx1 = firstPoint.x - lastPoint.x;
+    const dy1 = firstPoint.y - lastPoint.y;
+    const dx2 = secondPoint.x - firstPoint.x;
+    const dy2 = secondPoint.y - firstPoint.y;
+
+    const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+    const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+    // Normalize vectors
+    const ux1 = dx1 / len1;
+    const uy1 = dy1 / len1;
+    const ux2 = dx2 / len2;
+    const uy2 = dy2 / len2;
+
+    // Calculate angle between vectors
+    const dot = ux1 * ux2 + uy1 * uy2;
+    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+
+    // Calculate tangent distance from corner to arc start
+    const tangentDist = Math.min(radius / Math.tan(angle / 2), len1 / 2, len2 / 2);
+
+    // Starting point is offset from first point toward last point
+    const startX = firstPoint.x - ux1 * tangentDist;
+    const startY = firstPoint.y - uy1 * tangentDist;
+
+    // Start at calculated position
+    ctx.moveTo(startX, startY);
 
     // Draw path with smooth corners using arcTo
-    // For each point, we draw toward it and arc toward the next point
+    // Arc around all points including the first point
     for (let i = 0; i < points.length; i++) {
-      const cornerPoint = points[(i + 1) % points.length];
-      const nextPoint = points[(i + 2) % points.length];
-
-      // arcTo draws a line toward cornerPoint, then arcs toward nextPoint
+      const cornerPoint = points[i];
+      const nextPoint = points[(i + 1) % points.length];
       ctx.arcTo(cornerPoint.x, cornerPoint.y, nextPoint.x, nextPoint.y, radius);
     }
 
-    // Close the path
+    // Close the path - now it should connect smoothly without overhang
     ctx.closePath();
     ctx.stroke();
   }
@@ -518,18 +548,53 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
     });
 
     ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
 
     if (isLoop) {
-      // Closed loop - apply smoothing to all corners including wrap-around
+      // Closed loop - calculate proper starting point to avoid overhang
+      const lastPoint = points[points.length - 1];
+      const firstPoint = points[0];
+      const secondPoint = points[1];
+
+      // Calculate the angle at the first corner
+      const dx1 = firstPoint.x - lastPoint.x;
+      const dy1 = firstPoint.y - lastPoint.y;
+      const dx2 = secondPoint.x - firstPoint.x;
+      const dy2 = secondPoint.y - firstPoint.y;
+
+      const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+      const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+      // Normalize vectors
+      const ux1 = dx1 / len1;
+      const uy1 = dy1 / len1;
+      const ux2 = dx2 / len2;
+      const uy2 = dy2 / len2;
+
+      // Calculate angle between vectors
+      const dot = ux1 * ux2 + uy1 * uy2;
+      const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+
+      // Calculate tangent distance from corner to arc start
+      const tangentDist = Math.min(radius / Math.tan(angle / 2), len1 / 2, len2 / 2);
+
+      // Starting point is offset from first point toward last point
+      const startX = firstPoint.x - ux1 * tangentDist;
+      const startY = firstPoint.y - uy1 * tangentDist;
+
+      // Start at calculated position
+      ctx.moveTo(startX, startY);
+
+      // Arc around all points including the first point
       for (let i = 0; i < points.length; i++) {
-        const cornerPoint = points[(i + 1) % points.length];
-        const nextPoint = points[(i + 2) % points.length];
+        const cornerPoint = points[i];
+        const nextPoint = points[(i + 1) % points.length];
         ctx.arcTo(cornerPoint.x, cornerPoint.y, nextPoint.x, nextPoint.y, radius);
       }
       ctx.closePath();
     } else {
-      // Open path - smooth interior corners only
+      // Open path - start at first point and smooth interior corners only
+      ctx.moveTo(points[0].x, points[0].y);
+
       for (let i = 0; i < points.length - 2; i++) {
         const cornerPoint = points[i + 1];
         const nextPoint = points[i + 2];
