@@ -234,11 +234,14 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 
   // Hint color palette - each hint gets a color in sequence
   const HINT_COLORS = [
-    '#E09F7D',
-    '#EF5D60',
-    '#EC4067',
-    '#A01A7D',
-    '#311847'
+    '#E09F7D', // Peachy orange
+    '#ED8C6E', // Coral peach
+    '#EF5D60', // Coral red
+    '#EE4F64', // Red pink
+    '#EC4067', // Pink magenta
+    '#C72072', // Pink purple
+    '#A01A7D', // Purple
+    '#B54585'  // Light purple
   ];
 
   // Assign a color to each hint cell
