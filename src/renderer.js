@@ -383,17 +383,32 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 /**
  * Reconstruct an ordered path from the connection graph
  * @param {Map<string, Set<string>>} connections - Map of cell connections
- * @returns {Array<{row: number, col: number}>|null} Ordered path or null if not a valid path
+ * @returns {{path: Array<{row: number, col: number}>, isClosed: boolean}|null}
+ *          Ordered path with closure info, or null if not a valid path
  */
 function reconstructOrderedPath(connections) {
   if (!connections || connections.size === 0) return null;
 
-  // Find a cell with exactly 2 connections to start from
+  // Find a starting cell
+  // Prefer cells with 1 connection (endpoints of open chains)
+  // Otherwise use cells with 2 connections (for closed loops or middle of chains)
   let startCell = null;
+
+  // First pass: look for endpoints (cells with exactly 1 connection)
   for (const [cellKey, connectedCells] of connections) {
-    if (connectedCells.size === 2) {
+    if (connectedCells.size === 1) {
       startCell = cellKey;
       break;
+    }
+  }
+
+  // Second pass: if no endpoints, look for cells with 2 connections
+  if (!startCell) {
+    for (const [cellKey, connectedCells] of connections) {
+      if (connectedCells.size === 2) {
+        startCell = cellKey;
+        break;
+      }
     }
   }
 
@@ -404,9 +419,14 @@ function reconstructOrderedPath(connections) {
   const visited = new Set();
   let currentCell = startCell;
   let previousCell = null;
+  let isClosed = false;
 
   while (currentCell) {
-    if (visited.has(currentCell)) break; // We've completed the loop
+    // Check if we've returned to start (completed a closed loop)
+    if (visited.has(currentCell)) {
+      isClosed = true;
+      break;
+    }
 
     visited.add(currentCell);
     const [row, col] = currentCell.split(',').map(Number);
@@ -414,26 +434,36 @@ function reconstructOrderedPath(connections) {
 
     // Find next cell
     const connectedCells = connections.get(currentCell);
-    if (!connectedCells || connectedCells.size !== 2) break;
+    if (!connectedCells) break;
 
-    // Get the two connected cells and choose the one we haven't visited
-    const connected = Array.from(connectedCells);
-    let nextCell = null;
+    const connectionCount = connectedCells.size;
 
-    for (const cell of connected) {
-      if (cell !== previousCell) {
-        nextCell = cell;
-        break;
+    if (connectionCount === 1) {
+      // We've reached an endpoint of an open chain
+      break;
+    } else if (connectionCount === 2) {
+      // Continue walking the chain
+      const connected = Array.from(connectedCells);
+      let nextCell = null;
+
+      for (const cell of connected) {
+        if (cell !== previousCell) {
+          nextCell = cell;
+          break;
+        }
       }
+
+      if (!nextCell) break;
+
+      previousCell = currentCell;
+      currentCell = nextCell;
+    } else {
+      // More than 2 connections - invalid path structure
+      break;
     }
-
-    if (!nextCell) break;
-
-    previousCell = currentCell;
-    currentCell = nextCell;
   }
 
-  return path.length > 0 ? path : null;
+  return path.length > 0 ? { path, isClosed } : null;
 }
 
 /**
@@ -442,8 +472,9 @@ function reconstructOrderedPath(connections) {
  * @param {Array<{row: number, col: number}>} orderedPath - Ordered path
  * @param {number} cellSize - Size of each cell
  * @param {boolean} hasWon - Whether player has won
+ * @param {boolean} isClosed - Whether the path is a closed loop or open chain
  */
-function drawSmoothCurvedPath(ctx, orderedPath, cellSize, hasWon) {
+function drawSmoothCurvedPath(ctx, orderedPath, cellSize, hasWon, isClosed) {
   if (orderedPath.length < 2) return;
 
   const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000';
@@ -466,9 +497,14 @@ function drawSmoothCurvedPath(ctx, orderedPath, cellSize, hasWon) {
   const sampledPoints = [];
   let accumulatedDistance = 0;
 
-  for (let i = 0; i < orderedPath.length; i++) {
+  // For closed loops: iterate through all segments including wrap-around (last -> first)
+  // For open chains: stop before wrap-around (don't connect last -> first)
+  const numSegments = isClosed ? orderedPath.length : orderedPath.length - 1;
+
+  for (let i = 0; i < numSegments; i++) {
     const curr = orderedPath[i];
-    const next = orderedPath[(i + 1) % orderedPath.length];
+    const nextIndex = isClosed ? (i + 1) % orderedPath.length : i + 1;
+    const next = orderedPath[nextIndex];
 
     const currPos = getCellCenter(curr);
     const nextPos = getCellCenter(next);
@@ -512,12 +548,34 @@ function drawSmoothCurvedPath(ctx, orderedPath, cellSize, hasWon) {
   ctx.moveTo(sampledPoints[0].x, sampledPoints[0].y);
 
   const tension = 0.5; // Controls curve tightness (0 = tight, 1 = loose)
+  const numPoints = sampledPoints.length;
 
-  for (let i = 0; i < sampledPoints.length; i++) {
-    const p0 = sampledPoints[(i - 1 + sampledPoints.length) % sampledPoints.length];
-    const p1 = sampledPoints[i];
-    const p2 = sampledPoints[(i + 1) % sampledPoints.length];
-    const p3 = sampledPoints[(i + 2) % sampledPoints.length];
+  // For closed loops: draw all curves including wrap-around
+  // For open chains: only draw to the last point (no wrap)
+  const numCurves = isClosed ? numPoints : numPoints - 1;
+
+  for (let i = 0; i < numCurves; i++) {
+    let p0, p1, p2, p3;
+
+    if (isClosed) {
+      // Closed loop - use modulo for all point lookups
+      p0 = sampledPoints[(i - 1 + numPoints) % numPoints];
+      p1 = sampledPoints[i];
+      p2 = sampledPoints[(i + 1) % numPoints];
+      p3 = sampledPoints[(i + 2) % numPoints];
+    } else {
+      // Open chain - clamp indices at boundaries
+      // At endpoints, duplicate the endpoint for missing control points
+      const i0 = Math.max(0, i - 1);
+      const i1 = i;
+      const i2 = i + 1; // Safe because numCurves = numPoints - 1
+      const i3 = Math.min(numPoints - 1, i + 2);
+
+      p0 = sampledPoints[i0];
+      p1 = sampledPoints[i1];
+      p2 = sampledPoints[i2];
+      p3 = sampledPoints[i3];
+    }
 
     // Calculate control points for cubic bezier (Catmull-Rom to Bezier conversion)
     const cp1x = p1.x + (p2.x - p0.x) / 6 * tension;
@@ -545,13 +603,13 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
   const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000';
 
   // Try to reconstruct and draw a smooth curved path
-  const orderedPath = reconstructOrderedPath(connections);
+  const pathResult = reconstructOrderedPath(connections);
 
-  if (orderedPath && orderedPath.length >= 2) {
-    // Draw smooth curved and squiggly path
-    drawSmoothCurvedPath(ctx, orderedPath, cellSize, hasWon);
+  if (pathResult && pathResult.path && pathResult.path.length >= 2) {
+    // Draw smooth curved and squiggly path (works for both open and closed paths)
+    drawSmoothCurvedPath(ctx, pathResult.path, cellSize, hasWon, pathResult.isClosed);
   } else {
-    // Fallback: draw straight lines for incomplete paths
+    // Fallback: draw straight lines for incomplete/invalid paths
     const drawnConnections = new Set();
 
     for (const [cellKey, connectedCells] of connections) {
