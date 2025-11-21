@@ -57,7 +57,7 @@ export function renderPath(ctx, path, cellSize) {
     ctx.beginPath();
 
     // Corner radius for smooth curves (adjust for more/less curvature)
-    const radius = cellSize * 0.35;
+    const radius = cellSize * 0.45;
 
     // Convert path to pixel coordinates
     const points = path.map(cell => ({
@@ -536,7 +536,7 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
     ctx.stroke();
   } else {
     // Three or more cells - use smooth curves
-    const radius = cellSize * 0.35;
+    const radius = cellSize * 0.45;
 
     // Convert to pixel coordinates
     const points = orderedPath.map(cellKey => {
