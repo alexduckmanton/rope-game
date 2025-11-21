@@ -394,7 +394,7 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
   const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000'; // Light green when won, Black otherwise
   const WIGGLE_AMPLITUDE = 3.5; // Moderate wiggle amplitude in pixels
   const WIGGLE_FREQUENCY = 2; // 2 complete wavelengths per cell distance
-  const SAMPLES = 12; // Number of sample points for smooth curve
+  const SAMPLES = 16; // Number of sample points for smooth curve
 
   // Draw connections as lines with wiggle effect
   const drawnConnections = new Set();
