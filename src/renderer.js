@@ -580,9 +580,14 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
       // Check if we'll actually draw a Bezier curve at the next corner
       let willDrawBezierAtNext = false;
       if (nextIsCorner && (i < path.length - 1 || isClosedLoop)) {
-        const following = path[(i + 2) % path.length];
-        const nextConnections = connections.get(next);
-        willDrawBezierAtNext = nextConnections && nextConnections.has(current) && nextConnections.has(following);
+        // For open paths, only check if there's actually a following segment
+        // For closed loops, allow wrap-around
+        const followingIndex = isClosedLoop ? (i + 2) % path.length : i + 2;
+        if (followingIndex < path.length) {
+          const following = path[followingIndex];
+          const nextConnections = connections.get(next);
+          willDrawBezierAtNext = nextConnections && nextConnections.has(current) && nextConnections.has(following);
+        }
       }
 
       // Only shorten segment endpoints if Bezier curves will connect them
@@ -602,7 +607,8 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
 
       // If next cell is a corner and we verified the Bezier can be drawn, draw it
       if (willDrawBezierAtNext) {
-        const following = path[(i + 2) % path.length];
+        const followingIndex = isClosedLoop ? (i + 2) % path.length : i + 2;
+        const following = path[followingIndex];
         const [r3, c3] = following.split(',').map(Number);
 
         let x3 = c3 * cellSize + cellSize / 2;
