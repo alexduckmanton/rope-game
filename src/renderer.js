@@ -392,8 +392,11 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
   if (!drawnCells || drawnCells.size === 0) return;
 
   const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000'; // Light green when won, Black otherwise
+  const WIGGLE_AMPLITUDE = 3.5; // Moderate wiggle amplitude in pixels
+  const WIGGLE_FREQUENCY = 2; // 2 complete wavelengths per cell distance
+  const SAMPLES = 8; // Number of sample points for smooth curve
 
-  // Draw connections as lines
+  // Draw connections as lines with wiggle effect
   const drawnConnections = new Set();
 
   for (const [cellKey, connectedCells] of connections) {
@@ -411,12 +414,48 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
       const x2 = c2 * cellSize + cellSize / 2;
       const y2 = r2 * cellSize + cellSize / 2;
 
+      // Calculate direction vector
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // Normalize direction vector
+      const dirX = dx / distance;
+      const dirY = dy / distance;
+
+      // Perpendicular vector (rotate 90 degrees counterclockwise)
+      const perpX = -dirY;
+      const perpY = dirX;
+
+      // Draw curved path with sine wave wiggle
       ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
       ctx.strokeStyle = PLAYER_COLOR;
       ctx.lineWidth = 4;
       ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      for (let i = 0; i <= SAMPLES; i++) {
+        const t = i / SAMPLES; // Parameter from 0 to 1
+
+        // Linear interpolation along the line
+        const baseX = x1 + dx * t;
+        const baseY = y1 + dy * t;
+
+        // Sine wave offset (2 full wavelengths from 0 to 1)
+        // sin(0) = 0 at entry, sin(4π) = 0 at exit, ensuring continuity
+        const offset = WIGGLE_AMPLITUDE * Math.sin(WIGGLE_FREQUENCY * 2 * Math.PI * t);
+
+        // Apply perpendicular offset
+        const x = baseX + perpX * offset;
+        const y = baseY + perpY * offset;
+
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+
       ctx.stroke();
     }
   }
