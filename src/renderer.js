@@ -3,6 +3,7 @@
  */
 
 import { CONFIG } from './config.js';
+import { drawSmoothCurve, buildSolutionTurnMap } from './utils.js';
 
 /**
  * Render the grid lines
@@ -56,8 +57,6 @@ export function renderPath(ctx, path, cellSize) {
 
   // Draw lines connecting the path with smooth corners
   if (path.length >= 2) {
-    ctx.beginPath();
-
     // Corner radius for smooth curves
     const radius = cellSize * CONFIG.RENDERING.CORNER_RADIUS_FACTOR;
 
@@ -67,51 +66,9 @@ export function renderPath(ctx, path, cellSize) {
       y: cell.row * cellSize + cellSize / 2
     }));
 
-    // For a closed loop, calculate the proper starting point
-    // Start on the line from the last point toward the first point
-    const lastPoint = points[points.length - 1];
-    const firstPoint = points[0];
-    const secondPoint = points[1];
-
-    // Calculate the angle at the first corner
-    const dx1 = firstPoint.x - lastPoint.x;
-    const dy1 = firstPoint.y - lastPoint.y;
-    const dx2 = secondPoint.x - firstPoint.x;
-    const dy2 = secondPoint.y - firstPoint.y;
-
-    const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
-    const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-
-    // Normalize vectors
-    const ux1 = dx1 / len1;
-    const uy1 = dy1 / len1;
-    const ux2 = dx2 / len2;
-    const uy2 = dy2 / len2;
-
-    // Calculate angle between vectors
-    const dot = ux1 * ux2 + uy1 * uy2;
-    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-
-    // Calculate tangent distance from corner to arc start
-    const tangentDist = Math.min(radius / Math.tan(angle / 2), len1 / 2, len2 / 2);
-
-    // Starting point is offset from first point toward last point
-    const startX = firstPoint.x - ux1 * tangentDist;
-    const startY = firstPoint.y - uy1 * tangentDist;
-
-    // Start at calculated position
-    ctx.moveTo(startX, startY);
-
-    // Draw path with smooth corners using arcTo
-    // Arc around all points including the first point
-    for (let i = 0; i < points.length; i++) {
-      const cornerPoint = points[i];
-      const nextPoint = points[(i + 1) % points.length];
-      ctx.arcTo(cornerPoint.x, cornerPoint.y, nextPoint.x, nextPoint.y, radius);
-    }
-
-    // Close the path - now it should connect smoothly without overhang
-    ctx.closePath();
+    // Draw smooth curve (solution paths are always closed loops)
+    ctx.beginPath();
+    drawSmoothCurve(ctx, points, radius, true);
     ctx.stroke();
   }
 }
@@ -254,24 +211,8 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
   if (!solutionPath || solutionPath.length === 0) return;
   if (hintMode === 'none') return;
 
-  // Build a map of which cells have turns in solution
-  const solutionTurnMap = new Map();
-  const pathLength = solutionPath.length;
-
-  for (let i = 0; i < pathLength; i++) {
-    const prev = solutionPath[(i - 1 + pathLength) % pathLength];
-    const current = solutionPath[i];
-    const next = solutionPath[(i + 1) % pathLength];
-
-    // Check if this is a straight path (no turn)
-    const isStraight =
-      (prev.row === current.row && current.row === next.row) ||
-      (prev.col === current.col && current.col === next.col);
-
-    solutionTurnMap.set(`${current.row},${current.col}`, !isStraight);
-  }
-
-  // Build a map of which cells have turns in player's path
+  // Build turn maps for validation
+  const solutionTurnMap = buildSolutionTurnMap(solutionPath);
   const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
   // Assign a color to each hint cell
@@ -529,63 +470,9 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
       };
     });
 
+    // Draw smooth curve through points
     ctx.beginPath();
-
-    if (isLoop) {
-      // Closed loop - calculate proper starting point to avoid overhang
-      const lastPoint = points[points.length - 1];
-      const firstPoint = points[0];
-      const secondPoint = points[1];
-
-      // Calculate the angle at the first corner
-      const dx1 = firstPoint.x - lastPoint.x;
-      const dy1 = firstPoint.y - lastPoint.y;
-      const dx2 = secondPoint.x - firstPoint.x;
-      const dy2 = secondPoint.y - firstPoint.y;
-
-      const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
-      const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-
-      // Normalize vectors
-      const ux1 = dx1 / len1;
-      const uy1 = dy1 / len1;
-      const ux2 = dx2 / len2;
-      const uy2 = dy2 / len2;
-
-      // Calculate angle between vectors
-      const dot = ux1 * ux2 + uy1 * uy2;
-      const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-
-      // Calculate tangent distance from corner to arc start
-      const tangentDist = Math.min(radius / Math.tan(angle / 2), len1 / 2, len2 / 2);
-
-      // Starting point is offset from first point toward last point
-      const startX = firstPoint.x - ux1 * tangentDist;
-      const startY = firstPoint.y - uy1 * tangentDist;
-
-      // Start at calculated position
-      ctx.moveTo(startX, startY);
-
-      // Arc around all points including the first point
-      for (let i = 0; i < points.length; i++) {
-        const cornerPoint = points[i];
-        const nextPoint = points[(i + 1) % points.length];
-        ctx.arcTo(cornerPoint.x, cornerPoint.y, nextPoint.x, nextPoint.y, radius);
-      }
-      ctx.closePath();
-    } else {
-      // Open path - start at first point and smooth interior corners only
-      ctx.moveTo(points[0].x, points[0].y);
-
-      for (let i = 0; i < points.length - 2; i++) {
-        const cornerPoint = points[i + 1];
-        const nextPoint = points[i + 2];
-        ctx.arcTo(cornerPoint.x, cornerPoint.y, nextPoint.x, nextPoint.y, radius);
-      }
-      // Draw to final point
-      ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
-    }
-
+    drawSmoothCurve(ctx, points, radius, isLoop);
     ctx.strokeStyle = color;
     ctx.lineWidth = CONFIG.RENDERING.PATH_LINE_WIDTH;
     ctx.lineCap = 'round';

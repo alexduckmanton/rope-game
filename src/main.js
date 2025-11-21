@@ -4,7 +4,7 @@
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap } from './renderer.js';
 import { generateSolutionPath } from './generator.js';
-import { isAdjacent } from './utils.js';
+import { isAdjacent, buildSolutionTurnMap } from './utils.js';
 import { CONFIG } from './config.js';
 
 // Game configuration
@@ -283,22 +283,7 @@ function checkWin() {
 
   // Build turn maps for validation
   const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
-
-  // Build solution turn map
-  const solutionTurnMap = new Map();
-  const pathLength = solutionPath.length;
-
-  for (let i = 0; i < pathLength; i++) {
-    const prev = solutionPath[(i - 1 + pathLength) % pathLength];
-    const current = solutionPath[i];
-    const next = solutionPath[(i + 1) % pathLength];
-
-    const isStraight =
-      (prev.row === current.row && current.row === next.row) ||
-      (prev.col === current.col && current.col === next.col);
-
-    solutionTurnMap.set(`${current.row},${current.col}`, !isStraight);
-  }
+  const solutionTurnMap = buildSolutionTurnMap(solutionPath);
 
   // Check all hint cells are valid
   for (const cellKey of hintCells) {
