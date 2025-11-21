@@ -2,6 +2,8 @@
  * Canvas rendering module for the Loop puzzle game
  */
 
+import { CONFIG } from './config.js';
+
 /**
  * Render the grid lines
  * @param {CanvasRenderingContext2D} ctx - Canvas context
@@ -47,8 +49,8 @@ export function clearCanvas(ctx, width, height) {
 export function renderPath(ctx, path, cellSize) {
   if (!path || path.length === 0) return;
 
-  ctx.strokeStyle = '#4A90E2';
-  ctx.lineWidth = 4;
+  ctx.strokeStyle = CONFIG.COLORS.SOLUTION_PATH;
+  ctx.lineWidth = CONFIG.RENDERING.PATH_LINE_WIDTH;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
@@ -56,8 +58,8 @@ export function renderPath(ctx, path, cellSize) {
   if (path.length >= 2) {
     ctx.beginPath();
 
-    // Corner radius for smooth curves (adjust for more/less curvature)
-    const radius = cellSize * 0.45;
+    // Corner radius for smooth curves
+    const radius = cellSize * CONFIG.RENDERING.CORNER_RADIUS_FACTOR;
 
     // Convert path to pixel coordinates
     const points = path.map(cell => ({
@@ -272,28 +274,11 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
   // Build a map of which cells have turns in player's path
   const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
-  // Border styling constants
-  const BORDER_WIDTH = 3;
-  const BORDER_INSET = 2;
-  const LAYER_OFFSET = 6; // Additional inset per layer for concentric borders
-
-  // Hint color palette - each hint gets a color in sequence
-  const HINT_COLORS = [
-    '#E09F7D', // Peachy orange
-    '#ED8C6E', // Coral peach
-    '#EF5D60', // Coral red
-    '#EE4F64', // Red pink
-    '#EC4067', // Pink magenta
-    '#C72072', // Pink purple
-    '#A01A7D', // Purple
-    '#B54585'  // Light purple
-  ];
-
   // Assign a color to each hint cell
   const hintCellsArray = Array.from(hintCells);
   const hintColorMap = new Map();
   hintCellsArray.forEach((cellKey, index) => {
-    hintColorMap.set(cellKey, HINT_COLORS[index % HINT_COLORS.length]);
+    hintColorMap.set(cellKey, CONFIG.COLORS.HINT_COLORS[index % CONFIG.COLORS.HINT_COLORS.length]);
   });
 
   // Calculate border layers for full mode (to prevent visual overlap)
@@ -303,7 +288,7 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
   const bordersToDraw = [];
 
   // Set up text rendering
-  ctx.font = `bold ${Math.floor(cellSize * 0.75)}px sans-serif`;
+  ctx.font = `bold ${Math.floor(cellSize * CONFIG.HINT.FONT_SIZE_FACTOR)}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
@@ -345,8 +330,8 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Collect border drawing information for hint cells (deferred rendering)
       if (isInHintSet && borderMode !== 'off') {
         const isValid = expectedTurnCount === actualTurnCount;
-        const hintColor = isValid ? '#ACF39D' : hintColorMap.get(cellKey);
-        const borderWidth = BORDER_WIDTH;  // Always 3px thick
+        const hintColor = isValid ? CONFIG.COLORS.HINT_VALIDATED : hintColorMap.get(cellKey);
+        const borderWidth = CONFIG.BORDER.WIDTH;
 
         // Calculate the bounding box based on border mode
         let minRow, maxRow, minCol, maxCol;
@@ -382,20 +367,17 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Set text color and opacity based on whether cell is in the hint set
       if (isInHintSet) {
         const isValid = expectedTurnCount === actualTurnCount;
-        const hintColor = isValid ? '#ACF39D' : hintColorMap.get(cellKey);
+        const hintColor = isValid ? CONFIG.COLORS.HINT_VALIDATED : hintColorMap.get(cellKey);
         ctx.fillStyle = hintColor;
         ctx.globalAlpha = 1.0;  // Always 100% opacity
       } else {
-        ctx.fillStyle = '#C0C0C0'; // Light grey for extra cells in 'all' mode
+        ctx.fillStyle = CONFIG.COLORS.HINT_EXTRA; // Light grey for extra cells in 'all' mode
         ctx.globalAlpha = 1.0;
       }
 
       const x = col * cellSize + cellSize / 2;
       const y = row * cellSize + cellSize / 2;
       ctx.fillText(expectedTurnCount.toString(), x, y);
-
-      // Reset globalAlpha for next iteration
-      ctx.globalAlpha = 1.0;
     }
   }
 
@@ -407,8 +389,8 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
     const { minRow, maxRow, minCol, maxCol, hintColor, borderWidth, layer } = border;
 
     // Calculate layer-based inset (only for full mode)
-    const layerInset = borderMode === 'full' ? (layer * LAYER_OFFSET) : 0;
-    const totalInset = BORDER_INSET + layerInset;
+    const layerInset = borderMode === 'full' ? (layer * CONFIG.BORDER.LAYER_OFFSET) : 0;
+    const totalInset = CONFIG.BORDER.INSET + layerInset;
 
     // Calculate border position and dimensions with layer offset
     const borderX = minCol * cellSize + totalInset + borderWidth / 2;
@@ -515,7 +497,7 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
     const x = col * cellSize + cellSize / 2;
     const y = row * cellSize + cellSize / 2;
     ctx.beginPath();
-    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.arc(x, y, CONFIG.RENDERING.DOT_RADIUS, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
   } else if (orderedPath.length === 2) {
@@ -531,12 +513,12 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
     ctx.strokeStyle = color;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = CONFIG.RENDERING.PATH_LINE_WIDTH;
     ctx.lineCap = 'round';
     ctx.stroke();
   } else {
     // Three or more cells - use smooth curves
-    const radius = cellSize * 0.45;
+    const radius = cellSize * CONFIG.RENDERING.CORNER_RADIUS_FACTOR;
 
     // Convert to pixel coordinates
     const points = orderedPath.map(cellKey => {
@@ -605,7 +587,7 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
     }
 
     ctx.strokeStyle = color;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = CONFIG.RENDERING.PATH_LINE_WIDTH;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
@@ -623,7 +605,7 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
 export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false) {
   if (!drawnCells || drawnCells.size === 0) return;
 
-  const PLAYER_COLOR = hasWon ? '#ACF39D' : '#000000'; // Light green when won, Black otherwise
+  const PLAYER_COLOR = hasWon ? CONFIG.COLORS.PLAYER_PATH_WIN : CONFIG.COLORS.PLAYER_PATH;
 
   // Trace all continuous path segments
   const segments = tracePathSegments(connections);
@@ -642,7 +624,7 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
       const y = row * cellSize + cellSize / 2;
 
       ctx.beginPath();
-      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.arc(x, y, CONFIG.RENDERING.DOT_RADIUS, 0, Math.PI * 2);
       ctx.fillStyle = PLAYER_COLOR;
       ctx.fill();
     }

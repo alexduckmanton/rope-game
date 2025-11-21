@@ -4,6 +4,8 @@
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap } from './renderer.js';
 import { generateSolutionPath } from './generator.js';
+import { isAdjacent } from './utils.js';
+import { CONFIG } from './config.js';
 
 // Game configuration
 let gridSize = 4;
@@ -36,13 +38,6 @@ let isDragging = false;
 let dragPath = [];                      // Cells visited during current drag (in order)
 let cellsAddedThisDrag = new Set();     // Cells that were newly added during this drag
 let hasDragMoved = false;               // Whether pointer moved to different cells during drag
-
-/**
- * Check if two cells are adjacent (Manhattan distance = 1)
- */
-function isAdjacent(r1, c1, r2, c2) {
-  return Math.abs(r1 - r2) + Math.abs(c1 - c2) === 1;
-}
 
 /**
  * Clear a player cell and its connections
@@ -555,17 +550,17 @@ function calculateCellSize() {
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
 
-  // Reserve space for buttons (80px top, 20px padding)
-  const availableHeight = viewportHeight - 100;
-  const availableWidth = viewportWidth - 40; // 20px padding each side
+  // Reserve space for buttons and padding
+  const availableHeight = viewportHeight - CONFIG.LAYOUT.TOP_BAR_HEIGHT;
+  const availableWidth = viewportWidth - CONFIG.LAYOUT.HORIZONTAL_PADDING;
 
   const maxCellSize = Math.min(
     availableWidth / gridSize,
     availableHeight / gridSize
   );
 
-  // Ensure minimum cell size for usability (50px) and maximum (100px)
-  return Math.max(50, Math.min(maxCellSize, 100));
+  // Ensure minimum and maximum cell size for usability
+  return Math.max(CONFIG.CELL_SIZE_MIN, Math.min(maxCellSize, CONFIG.CELL_SIZE_MAX));
 }
 
 /**
@@ -635,7 +630,7 @@ function render() {
  */
 function generateNewPuzzle() {
   solutionPath = generateSolutionPath(gridSize);
-  hintCells = generateHintCells(gridSize, 0.3);
+  hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY);
 
   // Clear player state
   playerDrawnCells.clear();
@@ -742,8 +737,6 @@ function init() {
   // Set initial checkbox state
   updateCheckboxState();
   updateBorderCheckboxState();
-
-  console.log('Loop Puzzle Game initialized');
 }
 
 // Start the game when DOM is ready
