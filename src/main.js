@@ -5,41 +5,52 @@
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap } from './renderer.js';
 import { generateSolutionPath } from './generator.js';
 
-// Haptic module - loaded eagerly during initialization to ensure synchronous access
-let hapticModule = null;
+// Haptic feedback implementation (based on ios-haptics library)
+// Detects if device supports haptics (touch device)
+const supportsHaptics = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
-// Load haptic module immediately (non-blocking)
-// This ensures the module is ready for synchronous calls during user interactions
-// iOS Safari requires haptics to be triggered synchronously from user events
-(async () => {
+// Core haptic function - creates a hidden switch checkbox and toggles it to trigger iOS haptic
+function triggerHaptic() {
   try {
-    hapticModule = await import('ios-haptics');
-  } catch (error) {
-    // Silently fail - haptics are optional enhancement
-    console.warn('Haptic module failed to load:', error);
-  }
-})();
-
-// Synchronous haptic wrapper - calls haptic if module is loaded
-function playHaptic() {
-  try {
-    if (hapticModule && hapticModule.haptic) {
-      hapticModule.haptic();
+    // Use vibration API if available (Android and some browsers)
+    if (navigator.vibrate) {
+      navigator.vibrate(50);
+      return;
     }
+
+    // Use iOS Safari's switch checkbox haptic (iOS 17.4+)
+    if (!supportsHaptics) return;
+
+    const labelEl = document.createElement('label');
+    labelEl.ariaHidden = 'true';
+    labelEl.style.display = 'none';
+
+    const inputEl = document.createElement('input');
+    inputEl.type = 'checkbox';
+    inputEl.setAttribute('switch', '');
+
+    labelEl.appendChild(inputEl);
+    document.head.appendChild(labelEl);
+    labelEl.click();
+    document.head.removeChild(labelEl);
   } catch (error) {
-    // Silently fail - don't break gameplay
+    // Silently fail - haptics are optional
   }
 }
 
-// Synchronous haptic confirm wrapper
+// Play single haptic
+function playHaptic() {
+  triggerHaptic();
+}
+
+// Play confirm haptic (two rapid pulses)
 function playHapticConfirm() {
-  try {
-    if (hapticModule && hapticModule.haptic && hapticModule.haptic.confirm) {
-      hapticModule.haptic.confirm();
-    }
-  } catch (error) {
-    // Silently fail - don't break gameplay
+  if (navigator.vibrate) {
+    navigator.vibrate([50, 70, 50]);
+    return;
   }
+  triggerHaptic();
+  setTimeout(() => triggerHaptic(), 120);
 }
 
 // Game configuration
@@ -763,23 +774,16 @@ function init() {
   hapticTestBtn.addEventListener('click', () => {
     let status = '';
 
-    if (!hapticModule) {
-      status = 'ERROR: Haptic module not loaded';
-      alert(status);
-      return;
-    }
+    status += `Supports haptics: ${supportsHaptics ? '✓' : '✗'}\n`;
+    status += `Has vibrate API: ${navigator.vibrate ? '✓' : '✗'}\n`;
 
-    status += 'Module: ✓ loaded\n';
-    status += `Has haptic: ${hapticModule.haptic ? '✓' : '✗'}\n`;
-    status += `Has confirm: ${hapticModule.haptic?.confirm ? '✓' : '✗'}\n`;
-
-    if (hapticModule.haptic) {
-      try {
-        hapticModule.haptic();
-        status += 'Called haptic(): ✓';
-      } catch (error) {
-        status += `Called haptic(): ✗ ${error.message}`;
-      }
+    try {
+      triggerHaptic();
+      status += 'Called haptic: ✓\n';
+      status += '\nYou should feel a vibration!';
+    } catch (error) {
+      status += `Called haptic: ✗\n`;
+      status += `Error: ${error.message}`;
     }
 
     alert(status);
