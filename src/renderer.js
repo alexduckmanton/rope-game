@@ -569,13 +569,29 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
       const dx = x2 - x1;
       const dy = y2 - y1;
 
-      // Adjust segment endpoints if at corners
-      if (currentIsCorner) {
+      // Check if we'll actually draw a Bezier curve at the current corner
+      let willDrawBezierAtCurrent = false;
+      if (currentIsCorner && (i > 0 || isClosedLoop)) {
+        const previous = path[(i - 1 + path.length) % path.length];
+        const prevConnections = connections.get(current);
+        willDrawBezierAtCurrent = prevConnections && prevConnections.has(previous) && prevConnections.has(next);
+      }
+
+      // Check if we'll actually draw a Bezier curve at the next corner
+      let willDrawBezierAtNext = false;
+      if (nextIsCorner && (i < path.length - 1 || isClosedLoop)) {
+        const following = path[(i + 2) % path.length];
+        const nextConnections = connections.get(next);
+        willDrawBezierAtNext = nextConnections && nextConnections.has(current) && nextConnections.has(following);
+      }
+
+      // Only shorten segment endpoints if Bezier curves will connect them
+      if (willDrawBezierAtCurrent) {
         x1 = x1 + dx * CORNER_SHORTEN;
         y1 = y1 + dy * CORNER_SHORTEN;
       }
 
-      if (nextIsCorner) {
+      if (willDrawBezierAtNext) {
         x2 = x2 - dx * CORNER_SHORTEN;
         y2 = y2 - dy * CORNER_SHORTEN;
       }
@@ -584,33 +600,26 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
       const isFirst = (i === 0);
       drawWiggledSegment(ctx, x1, y1, x2, y2, WIGGLE_AMPLITUDE, WIGGLE_FREQUENCY, SAMPLES, isFirst);
 
-      // If next cell is a corner, draw Bezier curve to the following segment
-      // For closed loops, allow wrap-around at the last segment
-      const shouldDrawBezier = nextIsCorner && (i < path.length - 1 || isClosedLoop);
-
-      if (shouldDrawBezier) {
+      // If next cell is a corner and we verified the Bezier can be drawn, draw it
+      if (willDrawBezierAtNext) {
         const following = path[(i + 2) % path.length];
         const [r3, c3] = following.split(',').map(Number);
 
-        // Check if following segment exists
-        const nextConnections = connections.get(next);
-        if (nextConnections && nextConnections.has(following)) {
-          let x3 = c3 * cellSize + cellSize / 2;
-          let y3 = r3 * cellSize + cellSize / 2;
+        let x3 = c3 * cellSize + cellSize / 2;
+        let y3 = r3 * cellSize + cellSize / 2;
 
-          const dx2 = x3 - (c2 * cellSize + cellSize / 2);
-          const dy2 = y3 - (r2 * cellSize + cellSize / 2);
+        const dx2 = x3 - (c2 * cellSize + cellSize / 2);
+        const dy2 = y3 - (r2 * cellSize + cellSize / 2);
 
-          const x3_start = (c2 * cellSize + cellSize / 2) + dx2 * CORNER_SHORTEN;
-          const y3_start = (r2 * cellSize + cellSize / 2) + dy2 * CORNER_SHORTEN;
+        const x3_start = (c2 * cellSize + cellSize / 2) + dx2 * CORNER_SHORTEN;
+        const y3_start = (r2 * cellSize + cellSize / 2) + dy2 * CORNER_SHORTEN;
 
-          // Control point at corner center
-          const cx = c2 * cellSize + cellSize / 2;
-          const cy = r2 * cellSize + cellSize / 2;
+        // Control point at corner center
+        const cx = c2 * cellSize + cellSize / 2;
+        const cy = r2 * cellSize + cellSize / 2;
 
-          // Draw quadratic Bezier curve
-          ctx.quadraticCurveTo(cx, cy, x3_start, y3_start);
-        }
+        // Draw quadratic Bezier curve
+        ctx.quadraticCurveTo(cx, cy, x3_start, y3_start);
       }
     }
 
