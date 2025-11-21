@@ -23,7 +23,7 @@ let cellSize = 0;
 let solutionPath = [];
 let hintCells = new Set();
 let hintMode = 'partial'; // 'none' | 'partial' | 'all'
-let borderMode = 'full'; // 'off' | 'center' | 'full'
+let borderMode = 'off'; // 'off' | 'center' | 'full'
 let showSolution = false;
 let hasWon = false;
 
