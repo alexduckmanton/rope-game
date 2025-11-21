@@ -139,18 +139,19 @@ All constraints are satisfied AND the path forms a complete loop visiting every 
 ## File Structure
 
 ```
-loop-puzzle/
+rope-game/
 ├── index.html
 ├── style.css
 ├── src/
-│   ├── main.js           # Entry point, initialization
-│   ├── grid.js           # Grid data structure
-│   ├── generator.js      # Puzzle generation
-│   ├── pathDrawing.js    # Path drawing interactions
-│   ├── validation.js     # Constraint checking
-│   └── renderer.js       # Canvas rendering
-└── README.md
+│   ├── config.js         # Centralized constants (colors, sizing, generation tuning)
+│   ├── utils.js          # Shared utility functions (path math, validation helpers)
+│   ├── main.js           # Game logic, state, interactions (organized in sections)
+│   ├── generator.js      # Puzzle generation (Warnsdorff's heuristic)
+│   └── renderer.js       # Canvas rendering (grid, paths, hints, borders)
+└── package.json
 ```
+
+**main.js Organization:** Code is organized into logical sections (imports, state, connections, validation, drag handlers, events, UI, lifecycle, init) for easy navigation.
 
 -----
 
