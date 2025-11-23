@@ -17,7 +17,7 @@ export function initTutorial() {
   const backBtn = document.getElementById('tutorial-back-btn');
 
   // Event handler
-  const handleBack = () => navigate('/');
+  const handleBack = () => navigate('/', true); // Replace history instead of push
 
   // Attach listener
   backBtn.addEventListener('click', handleBack);

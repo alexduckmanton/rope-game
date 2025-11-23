@@ -488,7 +488,7 @@ export function initGame(difficulty) {
     showSolution = solutionCheckbox.checked;
     render();
   };
-  const backBtnHandler = () => navigate('/');
+  const backBtnHandler = () => navigate('/', true); // Replace history instead of push
   const pointerDownHandler = (e) => handlePointerDown(e);
   const pointerMoveHandler = (e) => handlePointerMove(e);
   const pointerUpHandler = (e) => handlePointerUp(e);
