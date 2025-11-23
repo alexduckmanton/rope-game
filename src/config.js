@@ -16,7 +16,7 @@ export const CONFIG = {
 
   // Rendering
   RENDERING: {
-    CORNER_RADIUS_FACTOR: 0.45,  // Multiplier for cellSize to get corner radius
+    CORNER_RADIUS_FACTOR: 0.35,  // Multiplier for cellSize to get corner radius
     PATH_LINE_WIDTH: 4,          // Width of path lines
     GRID_LINE_WIDTH: 1,          // Width of grid lines
     DOT_RADIUS: 6,               // Radius for isolated cell dots
