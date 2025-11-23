@@ -1,0 +1,14 @@
+[build]
+  # Build command to run
+  command = "npm run build"
+
+  # Directory with the build output (where index.html and _redirects are)
+  publish = "dist"
+
+# SPA redirect fallback (backup in case _redirects file doesn't work)
+# This does the same thing as the _redirects file
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
