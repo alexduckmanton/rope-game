@@ -13,7 +13,6 @@ let currentCleanup = null;
 // Route definitions
 const routes = [
   { path: '/', viewId: 'home-view' },
-  { path: '/home', viewId: 'home-view' },
   { path: '/tutorial', viewId: 'tutorial-view' },
   { path: '/play', viewId: 'play-view' }
 ];
@@ -128,10 +127,5 @@ export function initRouter() {
   });
 
   // Render initial route
-  // If we're at root, replace with /home for consistency
-  if (window.location.pathname === '/') {
-    navigate('/home', true);
-  } else {
-    renderRoute();
-  }
+  renderRoute();
 }

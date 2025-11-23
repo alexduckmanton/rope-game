@@ -17,7 +17,7 @@ export function initTutorial() {
   const backBtn = document.getElementById('tutorial-back-btn');
 
   // Event handler
-  const handleBack = () => navigate('/home');
+  const handleBack = () => navigate('/');
 
   // Attach listener
   backBtn.addEventListener('click', handleBack);
