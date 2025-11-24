@@ -16,8 +16,16 @@ export function initTutorial() {
   // Get button element
   const backBtn = document.getElementById('tutorial-back-btn');
 
-  // Event handler
-  const handleBack = () => navigate('/', true); // Replace history instead of push
+  // Event handler - smart navigation based on how user arrived
+  const handleBack = () => {
+    // If we came from home, go back to original entry
+    // Otherwise (direct URL visit), replace with home
+    if (history.state?.fromHome) {
+      history.back();
+    } else {
+      navigate('/', true);
+    }
+  };
 
   // Attach listener
   backBtn.addEventListener('click', handleBack);

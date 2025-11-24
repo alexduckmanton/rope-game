@@ -18,11 +18,11 @@ export function initHome() {
   const mediumBtn = document.getElementById('medium-btn');
   const hardBtn = document.getElementById('hard-btn');
 
-  // Event handlers
-  const handleTutorial = () => navigate('/tutorial');
-  const handleEasy = () => navigate('/play?difficulty=easy');
-  const handleMedium = () => navigate('/play?difficulty=medium');
-  const handleHard = () => navigate('/play?difficulty=hard');
+  // Event handlers - pass fromHome state to track navigation origin
+  const handleTutorial = () => navigate('/tutorial', false, { fromHome: true });
+  const handleEasy = () => navigate('/play?difficulty=easy', false, { fromHome: true });
+  const handleMedium = () => navigate('/play?difficulty=medium', false, { fromHome: true });
+  const handleHard = () => navigate('/play?difficulty=hard', false, { fromHome: true });
 
   // Attach listeners
   tutorialBtn.addEventListener('click', handleTutorial);

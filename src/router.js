@@ -21,12 +21,13 @@ const routes = [
  * Navigate to a new path
  * @param {string} path - The path to navigate to (e.g., '/home', '/play?difficulty=easy')
  * @param {boolean} replace - If true, replaces current history entry instead of pushing
+ * @param {Object} state - Optional state object to store with history entry
  */
-export function navigate(path, replace = false) {
+export function navigate(path, replace = false, state = {}) {
   if (replace) {
-    history.replaceState({}, '', path);
+    history.replaceState(state, '', path);
   } else {
-    history.pushState({}, '', path);
+    history.pushState(state, '', path);
   }
   renderRoute();
 }

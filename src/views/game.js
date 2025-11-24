@@ -488,7 +488,15 @@ export function initGame(difficulty) {
     showSolution = solutionCheckbox.checked;
     render();
   };
-  const backBtnHandler = () => navigate('/', true); // Replace history instead of push
+  const backBtnHandler = () => {
+    // Smart navigation: if we came from home, go back to original entry
+    // Otherwise (direct URL visit), replace with home
+    if (history.state?.fromHome) {
+      history.back();
+    } else {
+      navigate('/', true);
+    }
+  };
   const pointerDownHandler = (e) => handlePointerDown(e);
   const pointerMoveHandler = (e) => handlePointerMove(e);
   const pointerUpHandler = (e) => handlePointerUp(e);
