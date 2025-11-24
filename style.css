@@ -133,3 +133,132 @@ body {
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ============================================================================
+ * VIEW SYSTEM & TRANSITIONS
+ * ========================================================================= */
+
+.view {
+  display: none;
+  flex-direction: column;
+  height: 100vh;
+  opacity: 0;
+}
+
+.view.active {
+  display: flex;
+  animation: fadeIn 200ms ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ============================================================================
+ * HOME VIEW
+ * ========================================================================= */
+
+.home-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 32px;
+  gap: 48px;
+}
+
+.game-title {
+  font-size: 72px;
+  font-weight: 700;
+  color: #34495E;
+  margin: 0;
+  letter-spacing: -2px;
+}
+
+.game-tagline {
+  font-size: 20px;
+  font-weight: 400;
+  color: #7F8C8D;
+  margin: -32px 0 0 0;
+}
+
+.home-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.btn-large {
+  padding: 16px 32px;
+  font-size: 18px;
+  font-weight: 600;
+  min-height: 56px;
+}
+
+/* Mobile adjustments for home */
+@media (max-width: 600px) {
+  .game-title {
+    font-size: 56px;
+  }
+
+  .game-tagline {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 400px) {
+  .game-title {
+    font-size: 48px;
+  }
+
+  .game-tagline {
+    font-size: 16px;
+  }
+}
+
+/* ============================================================================
+ * TUTORIAL VIEW
+ * ========================================================================= */
+
+.tutorial-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.back-btn {
+  align-self: flex-start;
+  margin-bottom: 20px;
+}
+
+.tutorial-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.tutorial-content h2 {
+  font-size: 32px;
+  font-weight: 600;
+  color: #34495E;
+  margin: 0;
+}
+
+.tutorial-content p {
+  font-size: 18px;
+  color: #7F8C8D;
+  max-width: 500px;
+}

@@ -1,0 +1,5 @@
+# Netlify SPA redirect rule
+# This ensures all routes serve index.html and let client-side router handle navigation
+# The 200 status means "rewrite, not redirect" - URL stays the same
+
+/*    /index.html   200
