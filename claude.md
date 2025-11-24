@@ -140,18 +140,76 @@ All constraints are satisfied AND the path forms a complete loop visiting every 
 
 ```
 rope-game/
-├── index.html
-├── style.css
+├── index.html              # Single-page app with three view containers
+├── style.css               # Global styles + view-specific styles
+├── netlify.toml           # Netlify deployment configuration
+├── public/
+│   └── _redirects         # SPA routing for Netlify (serves index.html for all routes)
 ├── src/
-│   ├── config.js         # Centralized constants (colors, sizing, generation tuning)
-│   ├── utils.js          # Shared utility functions (path math, validation helpers)
-│   ├── main.js           # Game logic, state, interactions (organized in sections)
-│   ├── generator.js      # Puzzle generation (Warnsdorff's heuristic)
-│   └── renderer.js       # Canvas rendering (grid, paths, hints, borders)
+│   ├── main.js            # App entry point, initializes router
+│   ├── router.js          # Client-side routing with History API
+│   ├── config.js          # Centralized constants (colors, sizing, generation tuning)
+│   ├── utils.js           # Shared utility functions (path math, validation helpers)
+│   ├── generator.js       # Puzzle generation (Warnsdorff's heuristic)
+│   ├── renderer.js        # Canvas rendering (grid, paths, hints, borders)
+│   └── views/
+│       ├── home.js        # Home view with difficulty selection
+│       ├── tutorial.js    # Tutorial view (placeholder for future content)
+│       └── game.js        # Game view with extracted game logic
 └── package.json
 ```
 
-**main.js Organization:** Code is organized into logical sections (imports, state, connections, validation, drag handlers, events, UI, lifecycle, init) for easy navigation.
+**Architecture:** Single-page application (SPA) with client-side routing. Each view is a separate module that exports initialization and cleanup functions.
+
+-----
+
+## Navigation & Routing
+
+### Architecture Overview
+
+The app uses a **Single-Page Application (SPA)** architecture with client-side routing via the History API. No page reloads occur during navigation, creating a fast, app-like experience.
+
+### Three Main Views
+
+**1. Home View (default route: `/`)**
+- Landing page with game title "Loopy" and tagline
+- Four navigation buttons: Tutorial, Easy (4x4), Medium (6x6), Hard (8x8)
+- Clean, centered layout with large touch-friendly buttons
+
+**2. Tutorial View (route: `/tutorial`)**
+- Placeholder page for future interactive tutorial content
+- Includes back button to return home
+- Ready for enhancement with step-by-step puzzle tutorials
+
+**3. Play View (route: `/play?difficulty=easy|medium|hard`)**
+- The main game interface with canvas and controls
+- Difficulty is set via URL parameter and determines grid size
+- Includes back button to return home
+- All original game features (New, Restart, Hints, Border, Solution toggles)
+
+### Smart History Management
+
+The router implements intelligent history tracking to maintain a clean navigation stack:
+
+**State Tracking:** When navigating FROM home to a subpage, the router adds metadata to the history state indicating the origin. This allows the back button to behave differently depending on how the user arrived.
+
+**Back Button Logic:**
+- If user navigated from home: Clicking back pops history to return to the original home entry (no duplicate entries)
+- If user arrived via direct URL: Clicking back replaces the current entry with home
+
+**Result:** The history stack always maintains a single clean home entry after using in-app navigation. Browser back from home exits the app entirely.
+
+**Benefits:**
+- No confusing duplicate home entries in history
+- In-app "back" feels like "close/exit this screen"
+- Works correctly with both in-app navigation and direct URL visits
+- Browser back/forward buttons work as expected
+
+### Deployment Considerations
+
+**Netlify Configuration:** The app includes both `_redirects` file and `netlify.toml` configuration to handle SPA routing on Netlify. All routes serve `index.html` with a 200 status (rewrite, not redirect), allowing the client-side router to handle URL matching.
+
+**Direct URL Access:** Users can bookmark or share any route and it will load correctly, even when accessed directly (not through in-app navigation).
 
 -----
 
@@ -187,16 +245,22 @@ rope-game/
 
 ## Future Enhancements (Post-MVP)
 
-- Multiple difficulty levels (grid sizes)
-- Hint system
-- Undo/Redo
+### Completed Features
+- ✅ Multiple difficulty levels (Easy 4x4, Medium 6x6, Hard 8x8)
+- ✅ Hint system (partial/all toggle with validation coloring)
+- ✅ Navigation system with home page
+
+### Planned Enhancements
+- Interactive tutorial with guided puzzle examples
+- Undo/Redo functionality
 - Timer and move counter
 - Daily puzzles
 - Achievement system
 - Dark mode
 - Sound effects (optional, subtle)
-- Save/load puzzle state
+- Save/load puzzle state (localStorage)
 - Share puzzle codes
+- Settings page for preferences
 
 -----
 
@@ -235,17 +299,25 @@ rope-game/
 ## Quick Start Commands
 
 ```bash
-# Option 1: Simple setup (no build tools)
-# Just open index.html in browser
-# Use live-server for hot reload:
-npx live-server
+# Development
+npm install          # Install dependencies
+npm run dev         # Start Vite dev server (http://localhost:5173)
+npm run build       # Build for production (outputs to dist/)
+npm run preview     # Preview production build
 
-# Option 2: With Vite
-npm create vite@latest loop-puzzle -- --template vanilla
-cd loop-puzzle
-npm install
-npm run dev
+# Deployment (Netlify)
+# Push to git, Netlify auto-deploys from branch
+# Build command: npm run build
+# Publish directory: dist
 ```
+
+### Local Development Notes
+
+**Direct URL Testing:** When testing locally with `npm run dev`, direct URL navigation works only through in-app navigation. To test direct URLs properly, either:
+1. Deploy to Netlify (recommended)
+2. Use `npm run build && npm run preview` to test production build locally
+
+The Vite dev server doesn't process the `_redirects` file, but the production build on Netlify does.
 
 -----
 
