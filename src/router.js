@@ -103,7 +103,7 @@ async function initView(viewId, params) {
 
     case 'tutorial-view':
       const { initTutorial } = await import('./views/tutorial.js');
-      return initTutorial();
+      return initTutorial(params);
 
     case 'play-view':
       const { initGame, cleanupGame } = await import('./views/game.js');

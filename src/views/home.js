@@ -19,7 +19,7 @@ export function initHome() {
   const hardBtn = document.getElementById('hard-btn');
 
   // Event handlers - pass fromHome state to track navigation origin
-  const handleTutorial = () => navigate('/tutorial', false, { fromHome: true });
+  const handleTutorial = () => navigate('/tutorial?page=1', false, { fromHome: true });
   const handleEasy = () => navigate('/play?difficulty=easy', false, { fromHome: true });
   const handleMedium = () => navigate('/play?difficulty=medium', false, { fromHome: true });
   const handleHard = () => navigate('/play?difficulty=hard', false, { fromHome: true });

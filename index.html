@@ -47,11 +47,22 @@
 
     <!-- Tutorial View -->
     <div id="tutorial-view" class="view">
-      <div class="tutorial-container">
+      <header class="top-bar">
         <button id="tutorial-back-btn" class="btn back-btn">← Back</button>
-        <div class="tutorial-content">
-          <h2>Tutorial</h2>
-          <p>Coming soon! Interactive tutorial levels will be added here.</p>
+        <button id="tutorial-restart-btn" class="btn">Restart</button>
+      </header>
+      <div class="tutorial-info">
+        <h2 id="tutorial-heading"></h2>
+        <p id="tutorial-instruction"></p>
+      </div>
+      <main class="game-container">
+        <canvas id="tutorial-canvas"></canvas>
+      </main>
+      <div id="tutorial-complete-screen" class="tutorial-complete-screen">
+        <div class="complete-content">
+          <h2>Tutorial complete</h2>
+          <p>You're ready to play!</p>
+          <button id="tutorial-complete-home-btn" class="btn btn-large">Home</button>
         </div>
       </div>
     </div>
