@@ -73,8 +73,30 @@ function checkWin() {
     if (!connections || connections.size !== 2) return false;
   }
 
-  // No hints in tutorials, so just check completeness
-  return true;
+  // Check if all cells form a SINGLE connected loop (not multiple separate loops)
+  // Use BFS to traverse from one cell and verify we can reach all cells
+  const startCell = playerDrawnCells.values().next().value;
+  const visited = new Set();
+  const queue = [startCell];
+  visited.add(startCell);
+
+  while (queue.length > 0) {
+    const currentCell = queue.shift();
+    const connections = playerConnections.get(currentCell);
+
+    if (connections) {
+      for (const connectedCell of connections) {
+        if (!visited.has(connectedCell)) {
+          visited.add(connectedCell);
+          queue.push(connectedCell);
+        }
+      }
+    }
+  }
+
+  // If we visited all cells, it's a single connected loop
+  // If we didn't, there are multiple disconnected loops
+  return visited.size === totalCells;
 }
 
 /* ============================================================================
