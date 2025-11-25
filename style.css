@@ -228,11 +228,6 @@ body {
  * TUTORIAL VIEW
  * ========================================================================= */
 
-.back-btn {
-  align-self: flex-start;
-  margin-bottom: 20px;
-}
-
 .tutorial-info {
   display: flex;
   flex-direction: column;
