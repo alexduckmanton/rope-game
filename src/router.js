@@ -9,6 +9,7 @@
 
 let currentViewId = null;
 let currentCleanup = null;
+let currentUrl = null;
 
 // Route definitions
 const routes = [
@@ -58,9 +59,10 @@ async function renderRoute() {
   const path = window.location.pathname;
   const params = new URLSearchParams(window.location.search);
   const route = matchRoute(path);
+  const newUrl = path + window.location.search;
 
-  // If route hasn't changed, don't re-render
-  if (currentViewId === route.viewId) {
+  // If URL hasn't changed (including query params), don't re-render
+  if (currentUrl === newUrl) {
     return;
   }
 
@@ -80,6 +82,7 @@ async function renderRoute() {
   if (viewElement) {
     viewElement.classList.add('active');
     currentViewId = route.viewId;
+    currentUrl = newUrl;
 
     // Call view-specific initialization
     const cleanup = await initView(route.viewId, params);
