@@ -25,7 +25,7 @@ const TUTORIAL_CONFIGS = {
   '2': {
     gridSize: 4,
     heading: 'Tutorial 2/4',
-    instruction: 'Make a loop that touches every square.\nTap to erase parts of your loop.',
+    instruction: 'Loops must touch every square.\nTap to erase parts of your loop.',
     nextRoute: '/tutorial?page=3',
     hasHints: false
   },
