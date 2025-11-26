@@ -7,9 +7,10 @@
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
-import { isAdjacent, buildSolutionTurnMap, countTurnsInArea, determineConnectionToBreak, findShortestPath } from '../utils.js';
+import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop, showAlertAsync } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
+import { createGameCore } from '../gameCore.js';
 
 /* ============================================================================
  * STATE VARIABLES
@@ -36,133 +37,29 @@ let hintMode = 'partial';
 let borderMode = 'off';
 let showSolution = false;
 let hasWon = false;
+let hasShownPartialWinFeedback = false;
 
-// Player path state
-let playerDrawnCells = new Set();
-let playerConnections = new Map();
-
-// Drag interaction state
-let isDragging = false;
-let dragPath = [];
-let cellsAddedThisDrag = new Set();
-let hasDragMoved = false;
+// Game core instance
+let gameCore;
 
 // Event listener references for cleanup
 let eventListeners = [];
 
 /* ============================================================================
- * PLAYER CELL & CONNECTION MANAGEMENT
- * ========================================================================= */
-
-function clearPlayerCell(row, col) {
-  const cellKey = `${row},${col}`;
-  playerDrawnCells.delete(cellKey);
-  const connections = playerConnections.get(cellKey);
-  if (connections) {
-    for (const connectedCell of connections) {
-      playerConnections.get(connectedCell)?.delete(cellKey);
-    }
-    playerConnections.delete(cellKey);
-  }
-}
-
-function getCellFromPointer(event) {
-  const rect = canvas.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
-  const col = Math.floor(x / cellSize);
-  const row = Math.floor(y / cellSize);
-
-  if (row >= 0 && row < gridSize && col >= 0 && col < gridSize) {
-    return { row, col, key: `${row},${col}` };
-  }
-  return null;
-}
-
-function removeConnection(cellKeyA, cellKeyB) {
-  playerConnections.get(cellKeyA)?.delete(cellKeyB);
-  playerConnections.get(cellKeyB)?.delete(cellKeyA);
-}
-
-function ensureConnectionMap(cellKey) {
-  if (!playerConnections.has(cellKey)) {
-    playerConnections.set(cellKey, new Set());
-  }
-}
-
-function resetDragState() {
-  isDragging = false;
-  dragPath = [];
-  cellsAddedThisDrag = new Set();
-  hasDragMoved = false;
-}
-
-function cleanupOrphanedCells() {
-  let foundOrphan = true;
-  while (foundOrphan) {
-    foundOrphan = false;
-    for (const cellKey of playerDrawnCells) {
-      const connections = playerConnections.get(cellKey);
-      if (!connections || connections.size === 0) {
-        playerDrawnCells.delete(cellKey);
-        playerConnections.delete(cellKey);
-        foundOrphan = true;
-        break;
-      }
-    }
-  }
-}
-
-/* ============================================================================
- * PATH CONNECTION LOGIC
- * ========================================================================= */
-
-function forceConnection(cellKeyA, cellKeyB) {
-  const [r1, c1] = cellKeyA.split(',').map(Number);
-  const [r2, c2] = cellKeyB.split(',').map(Number);
-
-  if (!isAdjacent(r1, c1, r2, c2)) return false;
-  if (playerConnections.get(cellKeyA)?.has(cellKeyB)) return false;
-
-  ensureConnectionMap(cellKeyA);
-  ensureConnectionMap(cellKeyB);
-
-  const connectionsA = playerConnections.get(cellKeyA);
-  if (connectionsA.size >= 2) {
-    const toBreak = determineConnectionToBreak(cellKeyA, cellKeyB, connectionsA);
-    removeConnection(cellKeyA, toBreak);
-  }
-
-  const connectionsB = playerConnections.get(cellKeyB);
-  if (connectionsB.size >= 2) {
-    const toBreak = determineConnectionToBreak(cellKeyB, cellKeyA, connectionsB);
-    removeConnection(cellKeyB, toBreak);
-  }
-
-  playerConnections.get(cellKeyA).add(cellKeyB);
-  playerConnections.get(cellKeyB).add(cellKeyA);
-
-  return true;
-}
-
-function findPathToCell(fromKey, toKey) {
-  return findShortestPath(fromKey, toKey, gridSize);
-}
-
-/* ============================================================================
  * VALIDATION
  * ========================================================================= */
 
+function checkStructuralWin() {
+  const { playerDrawnCells, playerConnections } = gameCore.state;
+  return checkStructuralLoop(playerDrawnCells, playerConnections, gridSize);
+}
+
 function checkWin() {
-  const totalCells = gridSize * gridSize;
+  // First check structural validity
+  if (!checkStructuralWin()) return false;
 
-  if (playerDrawnCells.size !== totalCells) return false;
-
-  for (const cellKey of playerDrawnCells) {
-    const connections = playerConnections.get(cellKey);
-    if (!connections || connections.size !== 2) return false;
-  }
-
+  // Validate hint turn counts
+  const { playerDrawnCells, playerConnections } = gameCore.state;
   const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
   const solutionTurnMap = buildSolutionTurnMap(solutionPath);
 
@@ -174,138 +71,6 @@ function checkWin() {
   }
 
   return true;
-}
-
-/* ============================================================================
- * DRAG INTERACTION HELPERS
- * ========================================================================= */
-
-function tryCloseLoop(currentDragPath) {
-  if (currentDragPath.length < 2) return false;
-  const lastCell = currentDragPath[currentDragPath.length - 1];
-  const firstCell = currentDragPath[0];
-
-  if (playerConnections.get(lastCell)?.has(firstCell) || forceConnection(lastCell, firstCell)) {
-    dragPath.push(firstCell);
-    cleanupOrphanedCells();
-    render();
-    return true;
-  }
-  return false;
-}
-
-function handleBacktrack(backtrackIndex) {
-  for (let i = dragPath.length - 1; i > backtrackIndex; i--) {
-    const cellToRemove = dragPath[i];
-    const prevCell = dragPath[i - 1];
-    removeConnection(prevCell, cellToRemove);
-  }
-  dragPath = dragPath.slice(0, backtrackIndex + 1);
-  cleanupOrphanedCells();
-  render();
-}
-
-function extendDragPath(newCellKey, currentCellKey) {
-  const path = findPathToCell(currentCellKey, newCellKey);
-  if (!path || path.length === 0) return;
-
-  let prevInDrag = currentCellKey;
-  for (const pathCell of path) {
-    if (!playerDrawnCells.has(pathCell)) {
-      playerDrawnCells.add(pathCell);
-      ensureConnectionMap(pathCell);
-      cellsAddedThisDrag.add(pathCell);
-    }
-
-    if (playerConnections.get(prevInDrag)?.has(pathCell)) {
-      dragPath.push(pathCell);
-      prevInDrag = pathCell;
-    } else if (forceConnection(prevInDrag, pathCell)) {
-      dragPath.push(pathCell);
-      prevInDrag = pathCell;
-    } else {
-      break;
-    }
-  }
-  cleanupOrphanedCells();
-  render();
-}
-
-/* ============================================================================
- * EVENT HANDLERS
- * ========================================================================= */
-
-function handlePointerDown(event) {
-  event.preventDefault();
-  if (hasWon) return;
-
-  const cell = getCellFromPointer(event);
-  if (!cell) return;
-
-  canvas.setPointerCapture(event.pointerId);
-  isDragging = true;
-  hasDragMoved = false;
-  dragPath = [cell.key];
-  cellsAddedThisDrag = new Set();
-
-  if (!playerDrawnCells.has(cell.key)) {
-    playerDrawnCells.add(cell.key);
-    ensureConnectionMap(cell.key);
-    cellsAddedThisDrag.add(cell.key);
-  }
-
-  render();
-}
-
-function handlePointerMove(event) {
-  if (!isDragging) return;
-  event.preventDefault();
-
-  const cell = getCellFromPointer(event);
-  if (!cell) return;
-
-  const currentCell = dragPath[dragPath.length - 1];
-  if (cell.key === currentCell) return;
-
-  hasDragMoved = true;
-
-  const backtrackIndex = dragPath.indexOf(cell.key);
-  if (backtrackIndex !== -1 && backtrackIndex < dragPath.length - 1) {
-    if (backtrackIndex === 0) {
-      if (tryCloseLoop(dragPath)) {
-        return;
-      }
-    }
-    handleBacktrack(backtrackIndex);
-    return;
-  }
-
-  extendDragPath(cell.key, currentCell);
-}
-
-function handlePointerUp(event) {
-  if (!isDragging) return;
-
-  canvas.releasePointerCapture(event.pointerId);
-
-  const cell = getCellFromPointer(event);
-
-  if (!hasDragMoved && cell && dragPath.length === 1 && dragPath[0] === cell.key) {
-    if (!cellsAddedThisDrag.has(cell.key)) {
-      const [row, col] = cell.key.split(',').map(Number);
-      clearPlayerCell(row, col);
-    }
-  }
-
-  resetDragState();
-  cleanupOrphanedCells();
-  render();
-}
-
-function handlePointerCancel(event) {
-  canvas.releasePointerCapture(event.pointerId);
-  resetDragState();
-  cleanupOrphanedCells();
 }
 
 /* ============================================================================
@@ -377,6 +142,8 @@ function calculateCellSize() {
 
 function resizeCanvas() {
   cellSize = calculateCellSize();
+  gameCore.setCellSize(cellSize);
+
   const totalSize = cellSize * gridSize;
   const dpr = window.devicePixelRatio || 1;
 
@@ -390,6 +157,7 @@ function resizeCanvas() {
 }
 
 function render() {
+  const { playerDrawnCells, playerConnections } = gameCore.state;
   const totalSize = cellSize * gridSize;
 
   clearCanvas(ctx, totalSize, totalSize);
@@ -402,30 +170,43 @@ function render() {
 
   renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
-  if (!hasWon && checkWin()) {
-    hasWon = true;
-    renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        alert('You win!');
-      }, 0);
-    });
+  if (!hasWon && checkStructuralWin()) {
+    // Check if this is a full win or partial win (valid loop but wrong hints)
+    if (checkWin()) {
+      // Full win - all validation passed
+      hasWon = true;
+      hasShownPartialWinFeedback = false; // Reset flag
+      renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
+      showAlertAsync('You win!');
+    } else if (!hasShownPartialWinFeedback) {
+      // Partial win - valid loop but hints don't match
+      // Only show feedback once per structural completion
+      hasShownPartialWinFeedback = true;
+
+      // Show feedback alert
+      showAlertAsync('Nice loop, but not all numbers have the correct amount of bends.');
+    }
+  } else {
+    // If structural win is no longer valid, reset the feedback flag
+    if (!checkStructuralWin()) {
+      hasShownPartialWinFeedback = false;
+    }
   }
 }
 
 function generateNewPuzzle() {
   solutionPath = generateSolutionPath(gridSize);
   hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY);
-  playerDrawnCells.clear();
-  playerConnections.clear();
+  gameCore.restartPuzzle();
   hasWon = false;
+  hasShownPartialWinFeedback = false;
   render();
 }
 
 function restartPuzzle() {
-  playerDrawnCells.clear();
-  playerConnections.clear();
+  gameCore.restartPuzzle();
   hasWon = false;
+  hasShownPartialWinFeedback = false;
   render();
 }
 
@@ -464,13 +245,24 @@ export function initGame(difficulty) {
   backBtn = document.getElementById('back-btn');
 
   // Reset state
-  playerDrawnCells.clear();
-  playerConnections.clear();
   hintMode = 'partial';
   borderMode = 'off';
   showSolution = false;
   hasWon = false;
+  hasShownPartialWinFeedback = false;
   eventListeners = [];
+
+  // Create game core instance
+  gameCore = createGameCore({
+    gridSize,
+    canvas,
+    onRender: () => {
+      // Only render if not already won
+      if (!hasWon) {
+        render();
+      }
+    }
+  });
 
   // Set up event listeners and store references for cleanup
   const resizeHandler = () => resizeCanvas();
@@ -497,10 +289,14 @@ export function initGame(difficulty) {
       navigate('/', true);
     }
   };
-  const pointerDownHandler = (e) => handlePointerDown(e);
-  const pointerMoveHandler = (e) => handlePointerMove(e);
-  const pointerUpHandler = (e) => handlePointerUp(e);
-  const pointerCancelHandler = (e) => handlePointerCancel(e);
+
+  // Use gameCore methods for pointer events
+  const pointerDownHandler = (e) => {
+    if (!hasWon) gameCore.handlePointerDown(e);
+  };
+  const pointerMoveHandler = (e) => gameCore.handlePointerMove(e);
+  const pointerUpHandler = (e) => gameCore.handlePointerUp(e);
+  const pointerCancelHandler = (e) => gameCore.handlePointerCancel(e);
 
   window.addEventListener('resize', resizeHandler);
   newBtn.addEventListener('click', newBtnHandler);
@@ -551,6 +347,8 @@ export function cleanupGame() {
   }
   eventListeners = [];
 
-  // Reset drag state
-  resetDragState();
+  // Reset drag state in core
+  if (gameCore) {
+    gameCore.resetDragState();
+  }
 }
