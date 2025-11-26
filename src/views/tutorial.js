@@ -4,7 +4,8 @@
  * Teaches players the game mechanics through simple empty grid puzzles
  */
 
-import { renderGrid, clearCanvas, renderPlayerPath } from '../renderer.js';
+import { renderGrid, clearCanvas, renderPlayerPath, renderCellNumbers, buildPlayerTurnMap } from '../renderer.js';
+import { buildSolutionTurnMap, countTurnsInArea } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
@@ -16,15 +17,46 @@ import { createGameCore } from '../gameCore.js';
 const TUTORIAL_CONFIGS = {
   '1': {
     gridSize: 2,
-    heading: 'Tutorial 1/2',
+    heading: 'Tutorial 1/3',
     instruction: 'Drag to make a loop',
-    nextRoute: '/tutorial?page=2'
+    nextRoute: '/tutorial?page=2',
+    hasHints: false
   },
   '2': {
     gridSize: 4,
-    heading: 'Tutorial 2/2',
+    heading: 'Tutorial 2/3',
     instruction: 'Make a loop that touches every square.\nTap to erase parts of your loop.',
-    nextRoute: '/tutorial?page=complete'
+    nextRoute: '/tutorial?page=3',
+    hasHints: false
+  },
+  '3': {
+    gridSize: 4,
+    heading: 'Tutorial 3/3',
+    instruction: 'Numbers show how many bends your loop has in that square, and the squares it touches.',
+    nextRoute: '/tutorial?page=complete',
+    hasHints: true,
+    // Snake pattern solution path for 4x4 grid
+    // This creates 3 turns in the 3x3 area around [2,1]
+    solutionPath: [
+      {row: 0, col: 0},
+      {row: 0, col: 1},
+      {row: 0, col: 2},
+      {row: 0, col: 3},
+      {row: 1, col: 3},
+      {row: 1, col: 2},
+      {row: 1, col: 1},
+      {row: 1, col: 0},
+      {row: 2, col: 0},
+      {row: 2, col: 1},
+      {row: 2, col: 2},
+      {row: 2, col: 3},
+      {row: 3, col: 3},
+      {row: 3, col: 2},
+      {row: 3, col: 1},
+      {row: 3, col: 0}
+    ],
+    hintCells: new Set(['2,1']),
+    borderMode: 'center'
   }
 };
 
@@ -47,8 +79,11 @@ let instructionEl;
 let completeScreen;
 let completeHomeBtn;
 
-// Game state (no hints for tutorials)
+// Game state
 let hasWon = false;
+let solutionPath = [];
+let hintCells = new Set();
+let borderMode = 'off';
 
 // Game core instance
 let gameCore;
@@ -96,7 +131,22 @@ function checkWin() {
 
   // If we visited all cells, it's a single connected loop
   // If we didn't, there are multiple disconnected loops
-  return visited.size === totalCells;
+  if (visited.size !== totalCells) return false;
+
+  // For tutorials with hints, validate hint turn counts (like the main game)
+  if (currentConfig && currentConfig.hasHints) {
+    const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
+    const solutionTurnMap = buildSolutionTurnMap(solutionPath);
+
+    for (const cellKey of hintCells) {
+      const [row, col] = cellKey.split(',').map(Number);
+      const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
+      const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
+      if (expectedTurnCount !== actualTurnCount) return false;
+    }
+  }
+
+  return true;
 }
 
 /* ============================================================================
@@ -135,7 +185,11 @@ function render() {
   clearCanvas(ctx, totalSize, totalSize);
   renderGrid(ctx, gridSize, cellSize);
 
-  // No hints or solution in tutorials
+  // Render hints for tutorial 3, otherwise no hints
+  if (currentConfig && currentConfig.hasHints) {
+    renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, 'all', playerDrawnCells, playerConnections, borderMode);
+  }
+
   renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
   if (!hasWon && checkWin()) {
@@ -195,6 +249,17 @@ function initTutorialGame(config) {
 
   // Reset state
   hasWon = false;
+
+  // Set up hints and border for tutorial 3
+  if (config.hasHints) {
+    solutionPath = config.solutionPath;
+    hintCells = config.hintCells;
+    borderMode = config.borderMode;
+  } else {
+    solutionPath = [];
+    hintCells = new Set();
+    borderMode = 'off';
+  }
 
   // Create game core instance
   gameCore = createGameCore({
