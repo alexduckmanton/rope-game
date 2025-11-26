@@ -56,7 +56,7 @@ const TUTORIAL_CONFIGS = {
       {row: 3, col: 0}
     ],
     hintCells: new Set(['2,1']),
-    borderMode: 'center'
+    borderMode: 'full'
   }
 };
 
@@ -187,7 +187,7 @@ function render() {
 
   // Render hints for tutorial 3, otherwise no hints
   if (currentConfig && currentConfig.hasHints) {
-    renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, 'all', playerDrawnCells, playerConnections, borderMode);
+    renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, 'partial', playerDrawnCells, playerConnections, borderMode);
   }
 
   renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
