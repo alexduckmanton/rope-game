@@ -37,6 +37,7 @@ let hintMode = 'partial';
 let borderMode = 'off';
 let showSolution = false;
 let hasWon = false;
+let hasShownPartialWinFeedback = false;
 
 // Game core instance
 let gameCore;
@@ -208,20 +209,29 @@ function render() {
     if (checkWin()) {
       // Full win - all validation passed
       hasWon = true;
+      hasShownPartialWinFeedback = false; // Reset flag
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
       requestAnimationFrame(() => {
         setTimeout(() => {
           alert('You win!');
         }, 0);
       });
-    } else {
+    } else if (!hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
+      // Only show feedback once per structural completion
+      hasShownPartialWinFeedback = true;
+
       // Show feedback alert
       requestAnimationFrame(() => {
         setTimeout(() => {
           alert('Nice loop, but not all numbers have the correct amount of bends.');
         }, 0);
       });
+    }
+  } else {
+    // If structural win is no longer valid, reset the feedback flag
+    if (!checkStructuralWin()) {
+      hasShownPartialWinFeedback = false;
     }
   }
 }
@@ -231,12 +241,14 @@ function generateNewPuzzle() {
   hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY);
   gameCore.restartPuzzle();
   hasWon = false;
+  hasShownPartialWinFeedback = false;
   render();
 }
 
 function restartPuzzle() {
   gameCore.restartPuzzle();
   hasWon = false;
+  hasShownPartialWinFeedback = false;
   render();
 }
 
@@ -279,6 +291,7 @@ export function initGame(difficulty) {
   borderMode = 'off';
   showSolution = false;
   hasWon = false;
+  hasShownPartialWinFeedback = false;
   eventListeners = [];
 
   // Create game core instance

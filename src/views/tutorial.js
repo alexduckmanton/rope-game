@@ -81,6 +81,7 @@ let completeHomeBtn;
 
 // Game state
 let hasWon = false;
+let hasShownPartialWinFeedback = false;
 let solutionPath = [];
 let hintCells = new Set();
 let borderMode = 'off';
@@ -203,6 +204,7 @@ function render() {
     if (checkWin()) {
       // Full win - all validation passed
       hasWon = true;
+      hasShownPartialWinFeedback = false; // Reset flag
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
       requestAnimationFrame(() => {
         setTimeout(() => {
@@ -213,8 +215,11 @@ function render() {
           }
         }, 0);
       });
-    } else if (currentConfig && currentConfig.hasHints) {
+    } else if (currentConfig && currentConfig.hasHints && !hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
+      // Only show feedback once per structural completion
+      hasShownPartialWinFeedback = true;
+
       // Calculate actual turn count for feedback
       const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
       const cellKey = Array.from(hintCells)[0]; // Get the hint cell (tutorial 3 has only one)
@@ -228,12 +233,18 @@ function render() {
         }, 0);
       });
     }
+  } else {
+    // If structural win is no longer valid, reset the feedback flag
+    if (!checkStructuralWin()) {
+      hasShownPartialWinFeedback = false;
+    }
   }
 }
 
 function restartPuzzle() {
   gameCore.restartPuzzle();
   hasWon = false;
+  hasShownPartialWinFeedback = false;
   render();
 }
 
@@ -273,6 +284,7 @@ function initTutorialGame(config) {
 
   // Reset state
   hasWon = false;
+  hasShownPartialWinFeedback = false;
 
   // Set up hints and border for tutorial 3
   if (config.hasHints) {
