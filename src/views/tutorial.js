@@ -197,7 +197,7 @@ function render() {
     renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
     requestAnimationFrame(() => {
       setTimeout(() => {
-        alert('You got it!');
+        alert('You made a loop!');
         // Navigate to next tutorial or complete screen
         if (currentConfig && currentConfig.nextRoute) {
           navigate(currentConfig.nextRoute);
