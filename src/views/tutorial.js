@@ -17,23 +17,23 @@ import { createGameCore } from '../gameCore.js';
 const TUTORIAL_CONFIGS = {
   '1': {
     gridSize: 2,
-    heading: 'Tutorial 1/3',
+    heading: 'Tutorial 1/4',
     instruction: 'Drag to make a loop',
     nextRoute: '/tutorial?page=2',
     hasHints: false
   },
   '2': {
     gridSize: 4,
-    heading: 'Tutorial 2/3',
-    instruction: 'Make a loop that touches every square.\nTap to erase parts of your loop.',
+    heading: 'Tutorial 2/4',
+    instruction: 'Loops must touch every square.\nTap to erase parts of your loop.',
     nextRoute: '/tutorial?page=3',
     hasHints: false
   },
   '3': {
     gridSize: 4,
-    heading: 'Tutorial 3/3',
+    heading: 'Tutorial 3/4',
     instruction: 'Numbers count bends. This loop must have 3 bends in the squares touching the number.',
-    nextRoute: '/tutorial?page=complete',
+    nextRoute: '/tutorial?page=4',
     hasHints: true,
     // Snake pattern solution path for 4x4 grid
     // This creates 3 turns in the 3x3 area around [2,1]
@@ -56,6 +56,35 @@ const TUTORIAL_CONFIGS = {
       {row: 3, col: 0}
     ],
     hintCells: new Set(['2,1']),
+    borderMode: 'off'
+  },
+  '4': {
+    gridSize: 4,
+    heading: 'Tutorial 4/4',
+    instruction: 'Try another with two numbers.',
+    nextRoute: '/tutorial?page=complete',
+    hasHints: true,
+    // Vertical snake pattern solution path for 4x4 grid
+    // This creates 2 turns in the 3x3 area around [3,0] and 2 turns around [1,2]
+    solutionPath: [
+      {row: 0, col: 0},
+      {row: 1, col: 0},
+      {row: 2, col: 0},
+      {row: 3, col: 0},
+      {row: 3, col: 1},
+      {row: 2, col: 1},
+      {row: 1, col: 1},
+      {row: 0, col: 1},
+      {row: 0, col: 2},
+      {row: 1, col: 2},
+      {row: 2, col: 2},
+      {row: 3, col: 2},
+      {row: 3, col: 3},
+      {row: 2, col: 3},
+      {row: 1, col: 3},
+      {row: 0, col: 3}
+    ],
+    hintCells: new Set(['3,0', '1,2']),
     borderMode: 'off'
   }
 };
@@ -183,14 +212,30 @@ function render() {
       // Only show feedback once per structural completion
       hasShownPartialWinFeedback = true;
 
-      // Calculate actual turn count for feedback
+      // Calculate turn counts for feedback
       const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
-      const cellKey = Array.from(hintCells)[0]; // Get the hint cell (tutorial 3 has only one)
-      const [row, col] = cellKey.split(',').map(Number);
-      const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
+      const solutionTurnMap = buildSolutionTurnMap(solutionPath);
+
+      // Find which hints don't match and build feedback message
+      const mismatches = [];
+      for (const cellKey of hintCells) {
+        const [row, col] = cellKey.split(',').map(Number);
+        const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
+        const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
+        if (expectedTurnCount !== actualTurnCount) {
+          mismatches.push({ expected: expectedTurnCount, actual: actualTurnCount });
+        }
+      }
 
       // Show feedback alert
-      showAlertAsync(`This loop has ${actualTurnCount} bends in the squares touching the 3. Try a different loop shape to complete this tutorial.`);
+      if (mismatches.length === 1) {
+        // Single hint feedback (tutorial 3)
+        const { expected, actual } = mismatches[0];
+        showAlertAsync(`This loop has ${actual} bends in the squares touching the ${expected}. Try a different loop shape to complete this tutorial.`);
+      } else {
+        // Multiple hints feedback (tutorial 4+)
+        showAlertAsync(`This loop doesn't have the right number of bends for the numbers. Try a different loop shape to complete this tutorial.`);
+      }
     }
   } else {
     // If structural win is no longer valid, reset the feedback flag
