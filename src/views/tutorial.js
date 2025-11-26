@@ -95,7 +95,7 @@ let eventListeners = [];
  * VALIDATION
  * ========================================================================= */
 
-function checkWin() {
+function checkStructuralWin() {
   const { playerDrawnCells, playerConnections } = gameCore.state;
   const totalCells = gridSize * gridSize;
 
@@ -131,10 +131,16 @@ function checkWin() {
 
   // If we visited all cells, it's a single connected loop
   // If we didn't, there are multiple disconnected loops
-  if (visited.size !== totalCells) return false;
+  return visited.size === totalCells;
+}
+
+function checkWin() {
+  // First check structural validity
+  if (!checkStructuralWin()) return false;
 
   // For tutorials with hints, validate hint turn counts (like the main game)
   if (currentConfig && currentConfig.hasHints) {
+    const { playerDrawnCells, playerConnections } = gameCore.state;
     const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
     const solutionTurnMap = buildSolutionTurnMap(solutionPath);
 
@@ -192,18 +198,36 @@ function render() {
 
   renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
-  if (!hasWon && checkWin()) {
-    hasWon = true;
-    renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        alert('You made a loop!');
-        // Navigate to next tutorial or complete screen
-        if (currentConfig && currentConfig.nextRoute) {
-          navigate(currentConfig.nextRoute);
-        }
-      }, 0);
-    });
+  if (!hasWon && checkStructuralWin()) {
+    // Check if this is a full win or partial win (valid loop but wrong hints)
+    if (checkWin()) {
+      // Full win - all validation passed
+      hasWon = true;
+      renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          alert('You made a loop!');
+          // Navigate to next tutorial or complete screen
+          if (currentConfig && currentConfig.nextRoute) {
+            navigate(currentConfig.nextRoute);
+          }
+        }, 0);
+      });
+    } else if (currentConfig && currentConfig.hasHints) {
+      // Partial win - valid loop but hints don't match
+      // Calculate actual turn count for feedback
+      const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
+      const cellKey = Array.from(hintCells)[0]; // Get the hint cell (tutorial 3 has only one)
+      const [row, col] = cellKey.split(',').map(Number);
+      const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
+
+      // Show feedback alert
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          alert(`Your loop has ${actualTurnCount} bends in the squares touching the 3. Try a different loop shape to complete this tutorial.`);
+        }, 0);
+      });
+    }
   }
 }
 
