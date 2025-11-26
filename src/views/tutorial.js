@@ -32,7 +32,7 @@ const TUTORIAL_CONFIGS = {
   '3': {
     gridSize: 4,
     heading: 'Tutorial 3/3',
-    instruction: 'Numbers count bends. In this example, your loop must bend 3 times in any of the squares the number touches.',
+    instruction: 'Numbers count bends. Your loop must have 3 bends in the squares touching the number.',
     nextRoute: '/tutorial?page=complete',
     hasHints: true,
     // Snake pattern solution path for 4x4 grid
