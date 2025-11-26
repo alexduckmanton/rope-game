@@ -229,7 +229,7 @@ function render() {
       // Show feedback alert
       requestAnimationFrame(() => {
         setTimeout(() => {
-          alert(`Your loop has ${actualTurnCount} bends in the squares touching the 3. Try a different loop shape to complete this tutorial.`);
+          alert(`This loop has ${actualTurnCount} bends in the squares touching the 3. Try a different loop shape to complete this tutorial.`);
         }, 0);
       });
     }
