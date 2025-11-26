@@ -252,3 +252,63 @@ export function findShortestPath(fromKey, toKey, gridSize) {
   // No path found
   return null;
 }
+
+/**
+ * Check if the player has drawn a valid single closed loop
+ * @param {Set} playerDrawnCells - Set of cell keys that have been drawn
+ * @param {Map} playerConnections - Map of cell keys to their connected neighbors
+ * @param {number} gridSize - Grid size
+ * @returns {boolean} True if all cells visited and form a single closed loop
+ */
+export function checkStructuralLoop(playerDrawnCells, playerConnections, gridSize) {
+  const totalCells = gridSize * gridSize;
+
+  // Check if all cells are visited
+  if (playerDrawnCells.size !== totalCells) return false;
+
+  // Check if each cell has exactly 2 connections (closed loop)
+  for (const cellKey of playerDrawnCells) {
+    const connections = playerConnections.get(cellKey);
+    if (!connections || connections.size !== 2) return false;
+  }
+
+  // Check if all cells form a SINGLE connected loop (not multiple separate loops)
+  // Use BFS to traverse from one cell and verify we can reach all cells
+  const startCell = playerDrawnCells.values().next().value;
+  const visited = new Set();
+  const queue = [startCell];
+  visited.add(startCell);
+
+  while (queue.length > 0) {
+    const currentCell = queue.shift();
+    const connections = playerConnections.get(currentCell);
+
+    if (connections) {
+      for (const connectedCell of connections) {
+        if (!visited.has(connectedCell)) {
+          visited.add(connectedCell);
+          queue.push(connectedCell);
+        }
+      }
+    }
+  }
+
+  // If we visited all cells, it's a single connected loop
+  // If we didn't, there are multiple disconnected loops
+  return visited.size === totalCells;
+}
+
+/**
+ * Show an alert message asynchronously with optional callback
+ * Uses requestAnimationFrame + setTimeout to ensure render completes before alert
+ * @param {string} message - The alert message to display
+ * @param {Function} [callback] - Optional callback to run after alert is dismissed
+ */
+export function showAlertAsync(message, callback) {
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      alert(message);
+      if (callback) callback();
+    }, 0);
+  });
+}

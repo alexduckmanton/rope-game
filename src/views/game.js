@@ -7,7 +7,7 @@
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
-import { buildSolutionTurnMap, countTurnsInArea } from '../utils.js';
+import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop, showAlertAsync } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
@@ -51,41 +51,7 @@ let eventListeners = [];
 
 function checkStructuralWin() {
   const { playerDrawnCells, playerConnections } = gameCore.state;
-  const totalCells = gridSize * gridSize;
-
-  // Check if all cells are visited
-  if (playerDrawnCells.size !== totalCells) return false;
-
-  // Check if each cell has exactly 2 connections (closed loop)
-  for (const cellKey of playerDrawnCells) {
-    const connections = playerConnections.get(cellKey);
-    if (!connections || connections.size !== 2) return false;
-  }
-
-  // Check if all cells form a SINGLE connected loop (not multiple separate loops)
-  // Use BFS to traverse from one cell and verify we can reach all cells
-  const startCell = playerDrawnCells.values().next().value;
-  const visited = new Set();
-  const queue = [startCell];
-  visited.add(startCell);
-
-  while (queue.length > 0) {
-    const currentCell = queue.shift();
-    const connections = playerConnections.get(currentCell);
-
-    if (connections) {
-      for (const connectedCell of connections) {
-        if (!visited.has(connectedCell)) {
-          visited.add(connectedCell);
-          queue.push(connectedCell);
-        }
-      }
-    }
-  }
-
-  // If we visited all cells, it's a single connected loop
-  // If we didn't, there are multiple disconnected loops
-  return visited.size === totalCells;
+  return checkStructuralLoop(playerDrawnCells, playerConnections, gridSize);
 }
 
 function checkWin() {
@@ -211,22 +177,14 @@ function render() {
       hasWon = true;
       hasShownPartialWinFeedback = false; // Reset flag
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          alert('You win!');
-        }, 0);
-      });
+      showAlertAsync('You win!');
     } else if (!hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
       // Only show feedback once per structural completion
       hasShownPartialWinFeedback = true;
 
       // Show feedback alert
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          alert('Nice loop, but not all numbers have the correct amount of bends.');
-        }, 0);
-      });
+      showAlertAsync('Nice loop, but not all numbers have the correct amount of bends.');
     }
   } else {
     // If structural win is no longer valid, reset the feedback flag
