@@ -113,6 +113,17 @@ All constraints are satisfied AND the path forms a complete loop visiting every 
 - Subtle shadow on tap
 - No heavy borders
 
+**Bottom Sheet Pattern:**
+
+- Slides up from bottom with playful bounce animation (300ms)
+- White background with rounded top corners (16px)
+- Soft shadow for depth (80px blur, 10% opacity, no dark overlay)
+- Settings displayed as list items with grey dividers (#E0E0E0)
+- Changes apply immediately (no save/cancel buttons)
+- Click outside to dismiss
+- Hidden in tutorial view (game view only)
+- Bottom padding buffer prevents gap during bounce overshoot
+
 ### Animations
 
 **Path Drawing:**
@@ -133,6 +144,13 @@ All constraints are satisfied AND the path forms a complete loop visiting every 
 - Constraint numbers fade to green
 - Subtle confetti or particle effect (optional)
 - "Puzzle Solved" message fades in
+
+**Settings Bottom Sheet:**
+
+- Slide up: Ease-out with subtle bounce (cubic-bezier(0.34, 1.3, 0.64, 1))
+- Slide down: Steep ease-in, no bounce (cubic-bezier(0.6, 0, 0.9, 1))
+- Shadow fades in/out with sheet movement (300ms)
+- Padding buffer (40px) prevents gap during bounce overshoot
 
 -----
 
@@ -185,7 +203,8 @@ The app uses a **Single-Page Application (SPA)** architecture with client-side r
 - The main game interface with canvas and controls
 - Difficulty is set via URL parameter and determines grid size
 - Includes back button to return home
-- All original game features (New, Restart, Hints, Border, Solution toggles)
+- Controls: Back, New, Restart buttons + Settings gear icon
+- Settings bottom sheet for Hints, Border, and Solution toggles
 
 ### Smart History Management
 
@@ -249,6 +268,7 @@ The router implements intelligent history tracking to maintain a clean navigatio
 - ✅ Multiple difficulty levels (Easy 4x4, Medium 6x6, Hard 8x8)
 - ✅ Hint system (partial/all toggle with validation coloring)
 - ✅ Navigation system with home page
+- ✅ Settings bottom sheet with immediate-apply controls
 
 ### Planned Enhancements
 - Interactive tutorial with guided puzzle examples
@@ -260,7 +280,6 @@ The router implements intelligent history tracking to maintain a clean navigatio
 - Sound effects (optional, subtle)
 - Save/load puzzle state (localStorage)
 - Share puzzle codes
-- Settings page for preferences
 
 -----
 
