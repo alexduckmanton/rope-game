@@ -355,6 +355,18 @@ body {
   box-shadow: 0 0 80px rgba(0, 0, 0, 0);
 }
 
+/* White extension below sheet to hide gap during bounce overshoot */
+.settings-sheet::after {
+  content: '';
+  position: absolute;
+  bottom: -50px;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background-color: white;
+  z-index: -1;
+}
+
 .settings-overlay.visible .settings-sheet {
   transform: translateY(0);
   box-shadow: 0 0 80px rgba(0, 0, 0, 0.1);
