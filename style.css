@@ -346,7 +346,7 @@ body {
   right: 0;
   background-color: white;
   border-radius: 16px 16px 0 0;
-  transform: translateY(100%);
+  transform: translateY(calc(100% + 20px));
   transition: transform 300ms ease-out, box-shadow 300ms ease-out;
   max-height: 80vh;
   overflow-y: auto;
