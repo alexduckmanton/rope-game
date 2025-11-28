@@ -29,6 +29,9 @@ let hintsCheckbox;
 let borderCheckbox;
 let solutionCheckbox;
 let backBtn;
+let settingsBtn;
+let settingsOverlay;
+let settingsCloseBtn;
 
 // Puzzle state
 let solutionPath = [];
@@ -125,6 +128,14 @@ function cycleBorderMode() {
   }
   setTimeout(updateBorderCheckboxState, 0);
   render();
+}
+
+function showSettings() {
+  settingsOverlay.classList.add('visible');
+}
+
+function hideSettings() {
+  settingsOverlay.classList.remove('visible');
 }
 
 /* ============================================================================
@@ -243,6 +254,9 @@ export function initGame(difficulty) {
   borderCheckbox = document.getElementById('border-checkbox');
   solutionCheckbox = document.getElementById('solution-checkbox');
   backBtn = document.getElementById('back-btn');
+  settingsBtn = document.getElementById('settings-btn');
+  settingsOverlay = document.getElementById('settings-overlay');
+  settingsCloseBtn = document.getElementById('settings-close-btn');
 
   // Reset state
   hintMode = 'partial';
@@ -289,6 +303,14 @@ export function initGame(difficulty) {
       navigate('/', true);
     }
   };
+  const settingsBtnHandler = () => showSettings();
+  const settingsCloseBtnHandler = () => hideSettings();
+  const settingsOverlayHandler = (e) => {
+    // Close when clicking on the overlay background (not the sheet itself)
+    if (e.target === settingsOverlay) {
+      hideSettings();
+    }
+  };
 
   // Use gameCore methods for pointer events
   const pointerDownHandler = (e) => {
@@ -305,6 +327,9 @@ export function initGame(difficulty) {
   borderCheckbox.addEventListener('click', borderHandler);
   solutionCheckbox.addEventListener('change', solutionHandler);
   backBtn.addEventListener('click', backBtnHandler);
+  settingsBtn.addEventListener('click', settingsBtnHandler);
+  settingsCloseBtn.addEventListener('click', settingsCloseBtnHandler);
+  settingsOverlay.addEventListener('click', settingsOverlayHandler);
   canvas.addEventListener('pointerdown', pointerDownHandler);
   canvas.addEventListener('pointermove', pointerMoveHandler);
   canvas.addEventListener('pointerup', pointerUpHandler);
@@ -319,6 +344,9 @@ export function initGame(difficulty) {
     { element: borderCheckbox, event: 'click', handler: borderHandler },
     { element: solutionCheckbox, event: 'change', handler: solutionHandler },
     { element: backBtn, event: 'click', handler: backBtnHandler },
+    { element: settingsBtn, event: 'click', handler: settingsBtnHandler },
+    { element: settingsCloseBtn, event: 'click', handler: settingsCloseBtnHandler },
+    { element: settingsOverlay, event: 'click', handler: settingsOverlayHandler },
     { element: canvas, event: 'pointerdown', handler: pointerDownHandler },
     { element: canvas, event: 'pointermove', handler: pointerMoveHandler },
     { element: canvas, event: 'pointerup', handler: pointerUpHandler },
