@@ -13,6 +13,7 @@ body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: #F5F5F5;
   min-height: 100vh;
+  min-height: 100dvh;
   overflow: hidden;
   touch-action: none;
   -webkit-touch-callout: none;
@@ -24,6 +25,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
 }
 
 .top-bar {
@@ -142,6 +144,7 @@ body {
   display: none;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   opacity: 0;
 }
 
