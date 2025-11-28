@@ -230,6 +230,73 @@ function calculateBorderLayers(hintCells, gridSize) {
 }
 
 /**
+ * Render pulsing backgrounds for hint validation areas
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {number} gridSize - Grid size (e.g., 4 for 4x4)
+ * @param {number} cellSize - Size of each cell in pixels
+ * @param {Array<{row: number, col: number}>} solutionPath - The solution path
+ * @param {Set<string>} hintCells - Set of cells that have hints
+ * @param {number} animationTime - Current animation time in milliseconds
+ * @param {Set<string>} playerDrawnCells - Set of "row,col" strings for drawn cells
+ * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
+ */
+export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells = new Set(), playerConnections = new Map()) {
+  if (!hintCells || hintCells.size === 0) return;
+
+  // Build turn maps for validation
+  const solutionTurnMap = buildSolutionTurnMap(solutionPath);
+  const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
+
+  // Assign colors to hint cells (same as in renderCellNumbers)
+  const hintCellsArray = Array.from(hintCells);
+  const hintColorMap = new Map();
+  hintCellsArray.forEach((cellKey, index) => {
+    hintColorMap.set(cellKey, CONFIG.COLORS.HINT_COLORS[index % CONFIG.COLORS.HINT_COLORS.length]);
+  });
+
+  // Calculate pulse opacity using sine wave
+  // Goes from 0 to max opacity over PULSE_DURATION ms
+  const cycle = (animationTime % CONFIG.HINT.PULSE_DURATION) / CONFIG.HINT.PULSE_DURATION;
+  const opacity = Math.abs(Math.sin(cycle * Math.PI)) * CONFIG.HINT.PULSE_MAX_OPACITY;
+
+  // Save context state
+  ctx.save();
+
+  // Render pulsing background for each hint's validation area
+  for (const cellKey of hintCells) {
+    const [row, col] = cellKey.split(',').map(Number);
+
+    // Check if this hint is validated (same logic as renderCellNumbers)
+    const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
+    const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
+    const isValid = expectedTurnCount === actualTurnCount;
+
+    // Use green when validated, original color when not
+    const hintColor = isValid ? CONFIG.COLORS.HINT_VALIDATED : hintColorMap.get(cellKey);
+
+    // Calculate validation area (3x3 around hint, bounded by grid)
+    const minRow = Math.max(0, row - 1);
+    const maxRow = Math.min(gridSize - 1, row + 1);
+    const minCol = Math.max(0, col - 1);
+    const maxCol = Math.min(gridSize - 1, col + 1);
+
+    // Calculate rectangle dimensions
+    const x = minCol * cellSize;
+    const y = minRow * cellSize;
+    const width = (maxCol - minCol + 1) * cellSize;
+    const height = (maxRow - minRow + 1) * cellSize;
+
+    // Draw pulsing background
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = hintColor;
+    ctx.fillRect(x, y, width, height);
+  }
+
+  // Restore context state
+  ctx.restore();
+}
+
+/**
  * Render numbers in each cell showing count of turns in adjacent cells
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {number} gridSize - Grid size (e.g., 6 for 6x6)
