@@ -131,11 +131,21 @@ function cycleBorderMode() {
 }
 
 function showSettings() {
+  // Show the overlay (sheet is still off-screen due to transform)
+  settingsOverlay.style.display = 'block';
+  // Force reflow to ensure display:block is applied before transition
+  settingsOverlay.offsetHeight;
+  // Trigger slide animation
   settingsOverlay.classList.add('visible');
 }
 
 function hideSettings() {
+  // Remove visible class to trigger slide-out animation
   settingsOverlay.classList.remove('visible');
+  // Wait for animation to complete (300ms), then remove from render tree
+  setTimeout(() => {
+    settingsOverlay.style.display = 'none';
+  }, 300);
 }
 
 /* ============================================================================

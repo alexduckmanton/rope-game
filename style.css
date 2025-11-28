@@ -332,6 +332,7 @@ body {
   height: 100%;
   z-index: 1000;
   pointer-events: none;
+  display: none;
 }
 
 .settings-overlay.visible {
@@ -346,7 +347,7 @@ body {
   right: 0;
   background-color: white;
   border-radius: 16px 16px 0 0;
-  transform: translateY(calc(100% + 20px));
+  transform: translateY(100%);
   transition: transform 300ms ease-out, box-shadow 300ms ease-out;
   max-height: 80vh;
   overflow-y: auto;
