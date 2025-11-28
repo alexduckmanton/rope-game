@@ -339,7 +339,7 @@ body {
 .settings-overlay::before {
   content: '';
   position: fixed;
-  bottom: -50px;
+  bottom: 0;
   left: 0;
   right: 0;
   height: 50px;
