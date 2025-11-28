@@ -26,6 +26,8 @@ export const CONFIG = {
   HINT: {
     PROBABILITY: 0.3,            // Probability of showing a hint (0-1)
     FONT_SIZE_FACTOR: 0.75,      // Multiplier for cellSize to get font size
+    PULSE_DURATION: 2000,        // Full pulse cycle duration in milliseconds (1s fade in + 1s fade out)
+    PULSE_MAX_OPACITY: 0.2,      // Maximum opacity during pulse (20%)
   },
 
   // Border styling

@@ -4,7 +4,7 @@
  * Teaches players the game mechanics through simple empty grid puzzles
  */
 
-import { renderGrid, clearCanvas, renderPlayerPath, renderCellNumbers, buildPlayerTurnMap } from '../renderer.js';
+import { renderGrid, clearCanvas, renderPlayerPath, renderCellNumbers, buildPlayerTurnMap, renderHintPulse } from '../renderer.js';
 import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop, showAlertAsync } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
@@ -118,6 +118,10 @@ let borderMode = 'off';
 // Game core instance
 let gameCore;
 
+// Animation tracking
+let animationFrameId = null;
+let isAnimationFramePending = false;
+
 // Event listener references for cleanup
 let eventListeners = [];
 
@@ -181,10 +185,20 @@ function resizeCanvas() {
 }
 
 function render() {
+  // Clear the pending flag since we're now rendering
+  isAnimationFramePending = false;
+
   const { playerDrawnCells, playerConnections } = gameCore.state;
   const totalSize = cellSize * gridSize;
 
   clearCanvas(ctx, totalSize, totalSize);
+
+  // Render pulsing hint backgrounds (before grid for proper layering)
+  if (currentConfig && currentConfig.hasHints) {
+    const animationTime = Date.now();
+    renderHintPulse(ctx, gridSize, cellSize, hintCells, animationTime);
+  }
+
   renderGrid(ctx, gridSize, cellSize);
 
   // Render hints for tutorial 3, otherwise no hints
@@ -193,6 +207,12 @@ function render() {
   }
 
   renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
+
+  // Continue animation loop for tutorials with hints (only if not already pending)
+  if (currentConfig && currentConfig.hasHints && !isAnimationFramePending) {
+    isAnimationFramePending = true;
+    animationFrameId = requestAnimationFrame(render);
+  }
 
   if (!hasWon && checkStructuralWin()) {
     // Check if this is a full win or partial win (valid loop but wrong hints)
@@ -366,6 +386,13 @@ export function initTutorial(params) {
 
     // Return cleanup function
     return () => {
+      // Cancel animation frame if running
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+        isAnimationFramePending = false;
+      }
+
       for (const { element, event, handler } of eventListeners) {
         element.removeEventListener(event, handler);
       }
@@ -427,6 +454,13 @@ export function initTutorial(params) {
 
   // Return cleanup function
   return () => {
+    // Cancel animation frame if running
+    if (animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+      isAnimationFramePending = false;
+    }
+
     for (const { element, event, handler } of eventListeners) {
       element.removeEventListener(event, handler);
     }
