@@ -25,6 +25,7 @@ All constraints are satisfied AND the path forms a complete loop visiting every 
 - **HTML5 Canvas** or **SVG** for grid rendering
 - **Vanilla JavaScript** (or TypeScript) for game logic
 - **CSS3** for animations and UI
+- **Lucide Icons** for UI icons (tree-shakeable, minimal bundle size)
 - **No framework required** for MVP (keep it lightweight)
 - Optional: **Vite** for dev server and build tooling
 
@@ -113,6 +114,19 @@ All constraints are satisfied AND the path forms a complete loop visiting every 
 - Subtle shadow on tap
 - No heavy borders
 
+**Icons:**
+
+The app uses Lucide icons with a tree-shakeable import pattern to minimize bundle size. Icons are centralized in a single initialization module and rendered via data attributes in HTML.
+
+- **Library Choice:** Lucide provides consistent, minimal SVG icons that match the app's clean aesthetic
+- **Bundle Optimization:** Only icons actively used are included in the production bundle (approximately 2-3KB for current icons)
+- **Design Consistency:** Icons inherit color from parent elements via currentColor, ensuring they match the UI color palette automatically
+- **Standard Sizing:** Icons use explicit width/height attributes (18px for inline icons, 20px for standalone buttons, 24px for larger close buttons)
+- **Current Usage:** Arrow-left (back navigation), Settings (gear icon), X (close/dismiss)
+- **Extensibility:** New icons are added by importing them in the centralized module, making icon management predictable and maintainable
+
+**Alignment Pattern:** Icons paired with text (like the back button) use flexbox with align-items: center and a small gap for consistent vertical alignment.
+
 **Bottom Sheet Pattern:**
 
 - Slides up from bottom with playful bounce animation (300ms)
@@ -164,8 +178,9 @@ rope-game/
 ├── public/
 │   └── _redirects         # SPA routing for Netlify (serves index.html for all routes)
 ├── src/
-│   ├── main.js            # App entry point, initializes router
+│   ├── main.js            # App entry point, initializes router and icons
 │   ├── router.js          # Client-side routing with History API
+│   ├── icons.js           # Lucide icon initialization (tree-shakeable imports)
 │   ├── config.js          # Centralized constants (colors, sizing, generation tuning)
 │   ├── utils.js           # Shared utility functions (path math, validation helpers)
 │   ├── generator.js       # Puzzle generation (Warnsdorff's heuristic)
