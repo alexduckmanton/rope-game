@@ -8,6 +8,7 @@
  */
 
 import { initRouter } from './router.js';
+import { initIcons } from './icons.js';
 
 /**
  * Initialize the application
@@ -46,6 +47,9 @@ function init() {
     }
     lastTouchEnd = now;
   }, { passive: false });
+
+  // Initialize Lucide icons
+  initIcons();
 
   // Initialize router
   initRouter();
