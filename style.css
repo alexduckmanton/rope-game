@@ -338,7 +338,7 @@ body {
 /* White extension below sheet to hide gap during bounce overshoot */
 .settings-overlay::before {
   content: '';
-  position: fixed;
+  position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
