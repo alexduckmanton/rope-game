@@ -23,6 +23,7 @@ let cellSize = 0;
 // DOM elements
 let canvas;
 let ctx;
+let gameTitle;
 let newBtn;
 let restartBtn;
 let hintsCheckbox;
@@ -258,6 +259,7 @@ export function initGame(difficulty) {
   // Get DOM elements
   canvas = document.getElementById('game-canvas');
   ctx = canvas.getContext('2d');
+  gameTitle = document.getElementById('game-title');
   newBtn = document.getElementById('new-btn');
   restartBtn = document.getElementById('restart-btn');
   hintsCheckbox = document.getElementById('hints-checkbox');
@@ -267,6 +269,14 @@ export function initGame(difficulty) {
   settingsBtn = document.getElementById('settings-btn');
   settingsOverlay = document.getElementById('settings-overlay');
   settingsCloseBtn = document.getElementById('settings-close-btn');
+
+  // Set title based on difficulty
+  const difficultyTitles = {
+    'easy': 'Easy',
+    'medium': 'Medium',
+    'hard': 'Hard'
+  };
+  gameTitle.textContent = difficultyTitles[difficulty] || 'Game';
 
   // Reset state
   hintMode = 'partial';

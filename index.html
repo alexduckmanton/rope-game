@@ -48,8 +48,15 @@
     <!-- Tutorial View -->
     <div id="tutorial-view" class="view">
       <header class="top-bar">
-        <button id="tutorial-back-btn" class="btn">← Back</button>
-        <button id="tutorial-restart-btn" class="btn">Restart</button>
+        <button id="tutorial-back-btn" class="icon-btn" aria-label="Back">
+          <i data-lucide="arrow-left" width="24" height="24"></i>
+        </button>
+        <h1 class="top-bar-title">Tutorial</h1>
+        <div class="top-bar-actions">
+          <button id="tutorial-restart-btn" class="icon-btn" aria-label="Restart tutorial">
+            <i data-lucide="refresh-ccw" width="24" height="24"></i>
+          </button>
+        </div>
       </header>
       <div class="tutorial-info">
         <h2 id="tutorial-heading"></h2>
@@ -70,12 +77,21 @@
     <!-- Play View (Game) -->
     <div id="play-view" class="view">
       <header class="top-bar">
-        <button id="back-btn" class="btn"><i data-lucide="arrow-left" width="18" height="18"></i> Back</button>
-        <button id="new-btn" class="btn">New</button>
-        <button id="restart-btn" class="btn">Restart</button>
-        <button id="settings-btn" class="btn settings-btn" aria-label="Settings">
-          <i data-lucide="settings" width="20" height="20"></i>
+        <button id="back-btn" class="icon-btn" aria-label="Back">
+          <i data-lucide="arrow-left" width="24" height="24"></i>
         </button>
+        <h1 id="game-title" class="top-bar-title">Game</h1>
+        <div class="top-bar-actions">
+          <button id="new-btn" class="icon-btn" aria-label="New puzzle">
+            <i data-lucide="dices" width="24" height="24"></i>
+          </button>
+          <button id="restart-btn" class="icon-btn" aria-label="Restart puzzle">
+            <i data-lucide="refresh-ccw" width="24" height="24"></i>
+          </button>
+          <button id="settings-btn" class="icon-btn" aria-label="Settings">
+            <i data-lucide="settings" width="24" height="24"></i>
+          </button>
+        </div>
       </header>
       <main class="game-container">
         <canvas id="game-canvas"></canvas>

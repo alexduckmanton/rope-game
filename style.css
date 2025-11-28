@@ -28,13 +28,61 @@ body {
   height: 100dvh;
 }
 
+/* Material Design 3 Top App Bar */
 .top-bar {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 16px;
-  padding: 16px;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  padding: 0 4px;
   background-color: #F5F5F5;
+}
+
+.top-bar-title {
+  flex: 1;
+  margin: 0 16px;
+  font-size: 22px;
+  font-weight: 500;
+  color: #34495E;
+  letter-spacing: 0;
+  line-height: 28px;
+}
+
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+/* Icon-only buttons for Material Design 3 */
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #34495E;
+  border-radius: 50%;
+  transition: background-color 100ms ease;
+  flex-shrink: 0;
+}
+
+.icon-btn:hover {
+  background-color: rgba(52, 73, 94, 0.08);
+}
+
+.icon-btn:active {
+  background-color: rgba(52, 73, 94, 0.12);
+}
+
+.icon-btn svg {
+  display: block;
+  width: 24px;
+  height: 24px;
 }
 
 .btn {
@@ -60,17 +108,6 @@ body {
 .btn:active {
   transform: scale(0.98);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-/* Back button with icon - align icon and text vertically */
-#back-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-#back-btn svg {
-  display: block;
 }
 
 .grid-size-select {
@@ -319,20 +356,6 @@ body {
 /* ============================================================================
  * SETTINGS BOTTOM SHEET
  * ========================================================================= */
-
-/* Settings button in top bar */
-.settings-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-  min-width: 48px;
-}
-
-.settings-btn svg {
-  display: block;
-  color: #34495E;
-}
 
 /* Overlay - invisible but captures clicks for dismiss functionality */
 .settings-overlay {
