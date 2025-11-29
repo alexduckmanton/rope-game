@@ -280,9 +280,15 @@ function generateNewPuzzle() {
 
 function restartPuzzle() {
   gameCore.restartPuzzle();
+
+  // Only restart timer if the game was already won (timer was stopped)
+  // If game is in progress, keep the timer running
+  if (hasWon) {
+    startTimer();
+  }
+
   hasWon = false;
   hasShownPartialWinFeedback = false;
-  startTimer();
   render();
 }
 
