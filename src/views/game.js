@@ -24,6 +24,7 @@ let cellSize = 0;
 let canvas;
 let ctx;
 let gameTitle;
+let gameTimerEl;
 let newBtn;
 let restartBtn;
 let hintsCheckbox;
@@ -42,6 +43,11 @@ let borderMode = 'off';
 let showSolution = false;
 let hasWon = false;
 let hasShownPartialWinFeedback = false;
+
+// Timer state
+let timerStartTime = 0;
+let timerInterval = null;
+let elapsedSeconds = 0;
 
 // Game core instance
 let gameCore;
@@ -75,6 +81,45 @@ function checkWin() {
   }
 
   return true;
+}
+
+/* ============================================================================
+ * TIMER FUNCTIONS
+ * ========================================================================= */
+
+function formatTime(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
+
+function updateTimerDisplay() {
+  if (gameTimerEl) {
+    gameTimerEl.textContent = formatTime(elapsedSeconds);
+  }
+}
+
+function startTimer() {
+  // Stop any existing timer
+  stopTimer();
+
+  // Reset timer state
+  timerStartTime = Date.now();
+  elapsedSeconds = 0;
+  updateTimerDisplay();
+
+  // Start interval to update every second
+  timerInterval = setInterval(() => {
+    elapsedSeconds = Math.floor((Date.now() - timerStartTime) / 1000);
+    updateTimerDisplay();
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
 }
 
 /* ============================================================================
@@ -198,8 +243,15 @@ function render() {
       // Full win - all validation passed
       hasWon = true;
       hasShownPartialWinFeedback = false; // Reset flag
+      stopTimer();
+
+      // Capture time BEFORE any rendering that might cause re-renders
+      const finalTime = formatTime(elapsedSeconds);
+
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
-      showAlertAsync('You win!');
+
+      // Show alert with completion time
+      showAlertAsync(`You made a loop in ${finalTime}!`);
     } else if (!hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
       // Only show feedback once per structural completion
@@ -222,11 +274,19 @@ function generateNewPuzzle() {
   gameCore.restartPuzzle();
   hasWon = false;
   hasShownPartialWinFeedback = false;
+  startTimer();
   render();
 }
 
 function restartPuzzle() {
   gameCore.restartPuzzle();
+
+  // Only restart timer if the game was already won (timer was stopped)
+  // If game is in progress, keep the timer running
+  if (hasWon) {
+    startTimer();
+  }
+
   hasWon = false;
   hasShownPartialWinFeedback = false;
   render();
@@ -260,6 +320,7 @@ export function initGame(difficulty) {
   canvas = document.getElementById('game-canvas');
   ctx = canvas.getContext('2d');
   gameTitle = document.getElementById('game-title');
+  gameTimerEl = document.getElementById('game-timer');
   newBtn = document.getElementById('new-btn');
   restartBtn = document.getElementById('restart-btn');
   hintsCheckbox = document.getElementById('hints-checkbox');
@@ -389,6 +450,9 @@ export function initGame(difficulty) {
  * Called when navigating away from game view
  */
 export function cleanupGame() {
+  // Stop timer
+  stopTimer();
+
   // Remove all event listeners
   for (const { element, event, handler } of eventListeners) {
     element.removeEventListener(event, handler);
