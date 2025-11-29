@@ -105,6 +105,7 @@ The app uses custom web fonts for a polished, consistent appearance across all p
 - **Performance Optimization:** Critical font files are preloaded via JavaScript using Vite's URL import system, ensuring fonts start downloading immediately on page load before CSS parsing completes. Fonts load in approximately 100-200ms on typical connections.
 - **Bundle Size:** Total font payload is approximately 120KB for all weights (400, 500, 600, 700 of Inter plus Monoton), gzipped to around 30KB. Only latin and latin-ext subsets are included via unicode-range optimization.
 - **Fallback Chain:** System fonts (system-ui, -apple-system, Segoe UI) are provided as fallbacks in case font loading fails, though with font-display: block this means text appears in system fonts only if fonts completely fail to load within the 3-second timeout.
+- **OpenType Features:** The game timer uses tabular numerals (monospaced digits) via Inter's OpenType features to prevent layout shift as the timer counts up. This ensures all digits occupy equal width, keeping the timer visually stable.
 
 **Tradeoffs Accepted:**
 

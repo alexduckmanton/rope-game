@@ -436,6 +436,11 @@ body {
   text-align: center;
 }
 
+/* Timer-specific styling: use tabular numerals to prevent layout shift */
+#game-timer {
+  font-variant-numeric: tabular-nums;
+}
+
 .tutorial-complete-screen {
   display: none;
   position: absolute;
