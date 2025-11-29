@@ -289,12 +289,13 @@ body {
 
 #tutorial-view .game-container {
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
   padding: 20px;
 }
 
 #tutorial-view .game-container p {
   font-size: 16px;
+  line-height: 1.5em;
   color: #7F8C8D;
   margin: 0;
   max-width: 500px;
