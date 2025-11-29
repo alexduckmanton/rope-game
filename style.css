@@ -300,6 +300,10 @@ body {
   white-space: pre-line;
 }
 
+#tutorial-view .game-container {
+  padding-top: 16px;
+}
+
 .tutorial-complete-screen {
   display: none;
   position: absolute;
