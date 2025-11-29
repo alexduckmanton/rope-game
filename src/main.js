@@ -10,10 +10,45 @@
 import { initRouter } from './router.js';
 import { initIcons } from './icons.js';
 
+// Preload critical fonts for faster loading
+// Using Vite's ?url import to get correct paths in dev and production
+import inter400 from '@fontsource/inter/files/inter-latin-400-normal.woff2?url';
+import inter500 from '@fontsource/inter/files/inter-latin-500-normal.woff2?url';
+import inter600 from '@fontsource/inter/files/inter-latin-600-normal.woff2?url';
+import inter700 from '@fontsource/inter/files/inter-latin-700-normal.woff2?url';
+import monoton400 from '@fontsource/monoton/files/monoton-latin-400-normal.woff2?url';
+
+/**
+ * Preload fonts to start downloading immediately
+ * Creates <link rel="preload"> elements for critical fonts
+ */
+function preloadFonts() {
+  const fonts = [
+    { url: inter400, name: 'Inter 400' },
+    { url: inter500, name: 'Inter 500' },
+    { url: inter600, name: 'Inter 600' },
+    { url: inter700, name: 'Inter 700' },
+    { url: monoton400, name: 'Monoton 400' }
+  ];
+
+  fonts.forEach(font => {
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'font';
+    link.type = 'font/woff2';
+    link.href = font.url;
+    link.crossOrigin = 'anonymous';
+    document.head.appendChild(link);
+  });
+}
+
 /**
  * Initialize the application
  */
 function init() {
+  // Preload fonts first for fastest loading
+  preloadFonts();
+
   // Prevent all forms of zooming on mobile devices
 
   // Prevent Safari gesture events (pinch zoom)
