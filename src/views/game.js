@@ -247,14 +247,11 @@ function render() {
 
       // Capture time BEFORE any rendering that might cause re-renders
       const finalTime = formatTime(elapsedSeconds);
-      console.log('Game won! Time:', finalTime, 'elapsedSeconds:', elapsedSeconds);
 
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
-      // Show alert after a small delay to ensure rendering is complete
-      const message = 'You made a loop in ' + finalTime + '!';
-      console.log('About to show alert:', message);
-      showAlertAsync(message);
+      // Show alert with completion time
+      showAlertAsync(`You made a loop in ${finalTime}!`);
     } else if (!hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
       // Only show feedback once per structural completion
