@@ -101,6 +101,7 @@ let cellSize = 0;
 // DOM elements
 let canvas;
 let ctx;
+let tutorialTitle;
 let restartBtn;
 let backBtn;
 let headingEl;
@@ -279,7 +280,6 @@ function restartPuzzle() {
 function showCompletScreen() {
   // Hide game elements
   canvas.style.display = 'none';
-  headingEl.style.display = 'none';
   instructionEl.style.display = 'none';
   restartBtn.style.display = 'none';
 
@@ -290,7 +290,6 @@ function showCompletScreen() {
 function hideCompleteScreen() {
   // Show game elements
   canvas.style.display = 'block';
-  headingEl.style.display = 'block';
   instructionEl.style.display = 'block';
   restartBtn.style.display = 'block';
 
@@ -303,7 +302,7 @@ function initTutorialGame(config) {
   gridSize = config.gridSize;
 
   // Set tutorial info
-  headingEl.textContent = config.heading;
+  tutorialTitle.textContent = config.heading;
   instructionEl.textContent = config.instruction;
 
   // Reset state
@@ -352,6 +351,7 @@ export function initTutorial(params) {
   // Get DOM elements
   canvas = document.getElementById('tutorial-canvas');
   ctx = canvas.getContext('2d');
+  tutorialTitle = document.getElementById('tutorial-title');
   restartBtn = document.getElementById('tutorial-restart-btn');
   backBtn = document.getElementById('tutorial-back-btn');
   headingEl = document.getElementById('tutorial-heading');
@@ -364,6 +364,7 @@ export function initTutorial(params) {
 
   // Handle complete screen
   if (page === 'complete') {
+    tutorialTitle.textContent = 'Tutorial';
     showCompletScreen();
 
     // Setup complete home button

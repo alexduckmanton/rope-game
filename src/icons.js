@@ -8,9 +8,11 @@
  * - ArrowLeft: Back navigation button
  * - Settings: Settings/gear button
  * - X: Close button for bottom sheets
+ * - Dices: New puzzle button
+ * - RefreshCcw: Restart puzzle button
  */
 
-import { createIcons, ArrowLeft, Settings, X } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -28,7 +30,9 @@ export function initIcons() {
     icons: {
       ArrowLeft,
       Settings,
-      X
+      X,
+      Dices,
+      RefreshCcw
     },
     attrs: {
       'stroke-width': '2',
