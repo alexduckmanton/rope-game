@@ -303,6 +303,26 @@ body {
   text-align: center;
 }
 
+/* ============================================================================
+ * PLAY VIEW
+ * ========================================================================= */
+
+#play-view .game-container {
+  flex-direction: column;
+  gap: 24px;
+  padding: 20px;
+}
+
+#play-view .game-container p {
+  font-size: 16px;
+  line-height: 1.5em;
+  color: #7F8C8D;
+  margin: 0;
+  max-width: 500px;
+  white-space: pre-line;
+  text-align: center;
+}
+
 .tutorial-complete-screen {
   display: none;
   position: absolute;
