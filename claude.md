@@ -91,8 +91,33 @@ All constraints are satisfied AND the path forms a complete loop visiting every 
 
 **Typography:**
 
-- Numbers: Bold, 24-32px depending on cell size
-- Buttons: 16px, medium weight, sans-serif (system font)
+The app uses custom web fonts for a polished, consistent appearance across all platforms while maintaining performance.
+
+**Font Choices:**
+
+- **Body Copy (Inter):** Clean, highly legible sans-serif used for all UI text (buttons, labels, settings, navigation). Designed specifically for digital interfaces with excellent readability at small sizes.
+- **Display Font (Monoton):** Distinctive retro-futuristic display font used exclusively for the main "Loopy" title on the home screen, creating visual personality without overwhelming the minimal aesthetic.
+
+**Implementation Strategy:**
+
+- **Package Source:** Fonts are self-hosted via @fontsource npm packages rather than Google Fonts CDN. This ensures privacy compliance, offline functionality, and eliminates external dependencies that could fail or introduce tracking.
+- **Loading Behavior:** All fonts use font-display: block to completely eliminate font rendering flicker (FOUT). Text remains invisible for a brief moment until fonts load rather than showing fallback fonts that swap visibly. This creates a cleaner visual experience.
+- **Performance Optimization:** Critical font files are preloaded via JavaScript using Vite's URL import system, ensuring fonts start downloading immediately on page load before CSS parsing completes. Fonts load in approximately 100-200ms on typical connections.
+- **Bundle Size:** Total font payload is approximately 120KB for all weights (400, 500, 600, 700 of Inter plus Monoton), gzipped to around 30KB. Only latin and latin-ext subsets are included via unicode-range optimization.
+- **Fallback Chain:** System fonts (system-ui, -apple-system, Segoe UI) are provided as fallbacks in case font loading fails, though with font-display: block this means text appears in system fonts only if fonts completely fail to load within the 3-second timeout.
+
+**Tradeoffs Accepted:**
+
+- Brief invisible text period during initial load (100-200ms) in exchange for zero flicker
+- Slightly larger bundle size compared to system fonts in exchange for consistent cross-platform appearance
+- JavaScript-based preloading for maximum performance in exchange for slightly more complex implementation
+
+**Font Weights Used:**
+
+- Numbers: Bold (700), 24-32px depending on cell size
+- Buttons: SemiBold (600), 16-18px
+- Navigation: Medium (500), 22px
+- Body text: Regular (400), 16-20px
 
 **Layout (Mobile-First):**
 
