@@ -244,9 +244,17 @@ function render() {
       hasWon = true;
       hasShownPartialWinFeedback = false; // Reset flag
       stopTimer();
+
+      // Capture time BEFORE any rendering that might cause re-renders
+      const finalTime = formatTime(elapsedSeconds);
+      console.log('Game won! Time:', finalTime, 'elapsedSeconds:', elapsedSeconds);
+
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
-      const timeString = formatTime(elapsedSeconds);
-      showAlertAsync(`You made a loop in ${timeString}!`);
+
+      // Show alert after a small delay to ensure rendering is complete
+      const message = 'You made a loop in ' + finalTime + '!';
+      console.log('About to show alert:', message);
+      showAlertAsync(message);
     } else if (!hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
       // Only show feedback once per structural completion
