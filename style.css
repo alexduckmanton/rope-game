@@ -280,24 +280,27 @@ body {
  * ========================================================================= */
 
 .tutorial-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 20px 0 20px;
-  text-align: center;
+  display: none;
 }
 
 .tutorial-info h2 {
   display: none;
 }
 
-.tutorial-info p {
+#tutorial-view .game-container {
+  flex-direction: column;
+  gap: 24px;
+  padding: 20px;
+}
+
+#tutorial-view .game-container p {
   font-size: 16px;
+  line-height: 1.5em;
   color: #7F8C8D;
   margin: 0;
   max-width: 500px;
   white-space: pre-line;
+  text-align: center;
 }
 
 .tutorial-complete-screen {
