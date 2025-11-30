@@ -9,6 +9,7 @@
 
 import { initRouter } from './router.js';
 import { initIcons } from './icons.js';
+import { cleanupOldSaves } from './persistence.js';
 
 // Preload critical fonts for faster loading
 // Using Vite's ?url import to get correct paths in dev and production
@@ -48,6 +49,9 @@ function preloadFonts() {
 function init() {
   // Preload fonts first for fastest loading
   preloadFonts();
+
+  // Clean up old saved games from previous days
+  cleanupOldSaves();
 
   // Prevent all forms of zooming on mobile devices
 
