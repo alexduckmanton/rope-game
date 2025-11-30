@@ -621,6 +621,9 @@ export function initGame(difficulty) {
   const visibilityChangeHandler = () => {
     if (document.hidden) {
       pauseTimer();
+      // Save immediately when backgrounding to preserve timer state
+      // Bypass throttle to ensure we don't lose progress
+      saveGameState(captureGameState());
     } else {
       resumeTimer();
     }
@@ -700,6 +703,11 @@ export function initGame(difficulty) {
  * Called when navigating away from game view
  */
 export function cleanupGame() {
+  // Save current state immediately before cleanup
+  // This ensures we don't lose timer state or recent draws when navigating away
+  // Bypasses throttle for immediate save
+  saveGameState(captureGameState());
+
   // Stop timer
   stopTimer();
 
