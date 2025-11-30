@@ -12,6 +12,7 @@ import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
+import { saveGameState, loadGameState, clearGameState, createDebouncedSave } from '../persistence.js';
 
 /* ============================================================================
  * STATE VARIABLES
@@ -66,6 +67,33 @@ let gameCore;
 // Event listener references for cleanup
 let eventListeners = [];
 
+// Debounced save function (max 1 save per 5 seconds)
+let debouncedSave = createDebouncedSave(5000);
+
+/* ============================================================================
+ * PERSISTENCE HELPERS
+ * ========================================================================= */
+
+/**
+ * Capture current game state for saving
+ */
+function captureGameState() {
+  const { playerDrawnCells, playerConnections } = gameCore.state;
+
+  return {
+    puzzleId: currentPuzzleId,
+    difficulty: currentGameDifficulty,
+    gridSize,
+    isUnlimitedMode,
+    playerDrawnCells,
+    playerConnections,
+    elapsedSeconds,
+    hasWon,
+    solutionPath,
+    hintCells
+  };
+}
+
 /* ============================================================================
  * VALIDATION
  * ========================================================================= */
@@ -111,13 +139,20 @@ function updateTimerDisplay() {
   }
 }
 
-function startTimer() {
+function startTimer(resumeFromSeconds = 0) {
   // Stop any existing timer
   stopTimer();
 
-  // Reset timer state (including pause state)
-  timerStartTime = Date.now();
-  elapsedSeconds = 0;
+  // Set up timer state
+  // If resuming, adjust start time so elapsed time calculation is correct
+  if (resumeFromSeconds > 0) {
+    elapsedSeconds = resumeFromSeconds;
+    timerStartTime = Date.now() - (resumeFromSeconds * 1000);
+  } else {
+    elapsedSeconds = 0;
+    timerStartTime = Date.now();
+  }
+
   isPaused = false;
   pauseStartTime = 0;
   updateTimerDisplay();
@@ -350,9 +385,16 @@ function render() {
       hasShownPartialWinFeedback = false;
     }
   }
+
+  // Save game state (debounced to max once per 5 seconds)
+  debouncedSave(captureGameState());
 }
 
 function generateNewPuzzle() {
+  // Clear any saved progress when generating a new puzzle
+  // (Important for unlimited mode when user clicks "New")
+  clearGameState(currentPuzzleId, currentGameDifficulty, isUnlimitedMode);
+
   if (isDailyMode) {
     // Generate daily puzzle with seeded random
     const seed = getDailySeed(currentGameDifficulty);
@@ -371,6 +413,58 @@ function generateNewPuzzle() {
   hasShownPartialWinFeedback = false;
   startTimer();
   render();
+}
+
+/**
+ * Load saved game state or generate new puzzle
+ * Called during initialization to restore progress if available
+ */
+function loadOrGeneratePuzzle() {
+  // Try to load saved state
+  const savedState = loadGameState(currentPuzzleId, currentGameDifficulty, isUnlimitedMode);
+
+  if (savedState) {
+    // Saved state exists - restore the game
+    console.log('Restoring saved game state');
+
+    // For daily puzzles, regenerate the puzzle from seed
+    // (we don't save puzzle data for daily since it's deterministic)
+    if (isDailyMode) {
+      const seed = getDailySeed(currentGameDifficulty);
+      const random = createSeededRandom(seed);
+      solutionPath = generateSolutionPath(gridSize, random);
+      hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, random);
+    } else {
+      // For unlimited mode, restore the saved puzzle data
+      // (we can't regenerate it since it was truly random)
+      solutionPath = savedState.solutionPath;
+      hintCells = savedState.hintCells;
+    }
+
+    // Restore player progress
+    gameCore.state.playerDrawnCells = savedState.playerDrawnCells;
+    gameCore.state.playerConnections = savedState.playerConnections;
+
+    // Restore win state
+    hasWon = savedState.hasWon;
+    hasShownPartialWinFeedback = false;
+
+    // Restore and resume timer
+    if (hasWon) {
+      // If game was already won, don't start timer
+      elapsedSeconds = savedState.elapsedSeconds;
+      updateTimerDisplay();
+    } else {
+      // Resume timer from saved elapsed time
+      startTimer(savedState.elapsedSeconds);
+    }
+
+    // Render the restored state
+    render();
+  } else {
+    // No saved state - generate fresh puzzle
+    generateNewPuzzle();
+  }
 }
 
 function restartPuzzle() {
@@ -584,8 +678,8 @@ export function initGame(difficulty) {
   // Initial canvas setup
   resizeCanvas();
 
-  // Generate initial puzzle
-  generateNewPuzzle();
+  // Load saved game or generate new puzzle
+  loadOrGeneratePuzzle();
 
   // Set initial checkbox state
   updateCheckboxState();
