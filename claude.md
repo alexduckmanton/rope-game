@@ -360,6 +360,66 @@ The app offers two distinct play experiences:
 
 -----
 
+## Timer Behavior
+
+### Automatic Pause on Tab Blur
+
+The game timer automatically pauses when the browser tab becomes hidden and resumes when the tab becomes visible again, ensuring fair and accurate timing for puzzle completion.
+
+**Implementation Approach:**
+
+The timer uses the Page Visibility API to detect when the document becomes hidden, which occurs in the following scenarios:
+- User switches to a different browser tab
+- User minimizes the browser window
+- User closes the browser (pause happens just before close)
+- Mobile users switch to a different app
+
+**Design Decisions:**
+
+**1. Page Visibility API (Chosen)**
+   - Industry standard specifically designed for detecting tab visibility
+   - Excellent browser support across all modern browsers (stable since 2015)
+   - Semantically correct for "is the tab visible to the user?"
+   - Low false positive rate - only fires when tab genuinely becomes hidden
+   - Recommended approach by MDN and modern web development best practices
+
+**2. Timestamp-Based Pause Mechanism**
+   - Timer tracks the exact timestamp when pause occurs
+   - On resume, the original start time is shifted forward by the pause duration
+   - This approach maintains accuracy regardless of how long the tab was hidden
+   - Timer display updates are skipped during pause (setInterval continues but checks pause state)
+   - No visual indication of pause state - timer simply freezes at current time
+
+**3. Scenarios NOT Detected**
+   - Alt+Tab to different application (window blur, but tab remains visible)
+   - Multiple browser windows where tab is visible but window lacks focus
+   - Focus on DevTools in separate window
+   - These are acceptable limitations for a browser-based puzzle game
+
+**Edge Case Handling:**
+
+- **Pausing when already paused:** Guards prevent double-pausing and state corruption
+- **Timer stopped (game won):** Pause logic safely ignores attempts to pause stopped timer
+- **New puzzle while paused:** Starting new timer automatically resets pause state
+- **Rapid tab switching:** Timestamp-based calculation remains accurate across multiple pause/resume cycles
+- **Cleanup:** Visibility event listener is properly registered and removed with view lifecycle
+
+**Benefits:**
+
+- **Fair competition:** Daily puzzle times exclude time spent away from the game
+- **Better user experience:** Players can step away without penalty or time anxiety
+- **Accurate metrics:** Completion times reflect actual puzzle-solving duration
+- **Simple implementation:** Approximately 40 lines of code with no dependencies
+- **No user configuration needed:** Works automatically without settings or toggles
+
+**Tradeoffs Accepted:**
+
+- Desktop Alt+Tab scenarios not detected (acceptable for casual browser game)
+- No visual "PAUSED" indicator displayed (timer simply stops advancing)
+- Trust-based system until backend validation added (consistent with daily puzzle approach)
+
+-----
+
 ## MVP Feature Checklist
 
 ### Core Gameplay
@@ -398,6 +458,7 @@ The app offers two distinct play experiences:
 - ✅ Navigation system with home page
 - ✅ Settings bottom sheet with immediate-apply controls
 - ✅ Timer with difficulty display (format: "Difficulty • MM:SS")
+- ✅ Automatic timer pausing when tab becomes hidden
 - ✅ Unlimited practice mode with in-session difficulty switching
 - ✅ iOS-style segmented control for difficulty selection
 - ✅ Daily puzzles with date-based deterministic generation
