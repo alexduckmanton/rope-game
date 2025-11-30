@@ -626,3 +626,65 @@ body {
 .settings-toggle-label span {
   flex: 1;
 }
+
+/* Settings control for non-toggle items (like difficulty segmented control) */
+.settings-control {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  width: 100%;
+}
+
+.settings-control-label {
+  font-size: 16px;
+  font-weight: 500;
+  color: #34495E;
+}
+
+/* iOS-style segmented control */
+.segmented-control {
+  display: flex;
+  background-color: #E8E8E8;
+  border-radius: 9px;
+  padding: 2px;
+  gap: 0;
+}
+
+.segment-btn {
+  flex: 1;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #34495E;
+  background-color: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background-color 200ms ease, color 100ms ease;
+  min-height: 32px;
+  white-space: nowrap;
+}
+
+.segment-btn:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.segment-btn.active {
+  background-color: white;
+  color: #34495E;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.segment-btn.active:hover {
+  background-color: white;
+}
+
+/* Hide difficulty setting by default (only show in unlimited mode) */
+#difficulty-settings-item {
+  display: none;
+}
+
+#difficulty-settings-item.visible {
+  display: block;
+}

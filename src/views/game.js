@@ -19,6 +19,8 @@ import { createGameCore } from '../gameCore.js';
 // Game configuration
 let gridSize = 4;
 let cellSize = 0;
+let isUnlimitedMode = false;
+let currentUnlimitedDifficulty = 'easy';
 
 // DOM elements
 let canvas;
@@ -34,6 +36,9 @@ let backBtn;
 let settingsBtn;
 let settingsOverlay;
 let settingsCloseBtn;
+let difficultySettingsItem;
+let segmentedControl;
+let segmentButtons;
 
 // Puzzle state
 let solutionPath = [];
@@ -194,6 +199,44 @@ function hideSettings() {
   }, 300);
 }
 
+function updateSegmentedControlState() {
+  if (!segmentButtons) return;
+
+  segmentButtons.forEach(btn => {
+    const difficulty = btn.getAttribute('data-difficulty');
+    if (difficulty === currentUnlimitedDifficulty) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+function changeDifficulty(newDifficulty) {
+  if (currentUnlimitedDifficulty === newDifficulty) return;
+
+  currentUnlimitedDifficulty = newDifficulty;
+  gridSize = getGridSizeFromDifficulty(newDifficulty);
+
+  // Update segmented control UI
+  updateSegmentedControlState();
+
+  // Recreate game core with new grid size
+  gameCore = createGameCore({
+    gridSize,
+    canvas,
+    onRender: () => {
+      if (!hasWon) {
+        render();
+      }
+    }
+  });
+
+  // Resize canvas and regenerate puzzle
+  resizeCanvas();
+  generateNewPuzzle();
+}
+
 /* ============================================================================
  * GAME LIFECYCLE & RENDERING
  * ========================================================================= */
@@ -310,11 +353,20 @@ function getGridSizeFromDifficulty(difficulty) {
 
 /**
  * Initialize the game view
- * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @param {string} difficulty - 'easy', 'medium', 'hard', or 'unlimited'
  */
 export function initGame(difficulty) {
+  // Detect unlimited mode
+  isUnlimitedMode = (difficulty === 'unlimited');
+
   // Set grid size from difficulty
-  gridSize = getGridSizeFromDifficulty(difficulty);
+  if (isUnlimitedMode) {
+    // In unlimited mode, start with easy difficulty
+    currentUnlimitedDifficulty = 'easy';
+    gridSize = getGridSizeFromDifficulty('easy');
+  } else {
+    gridSize = getGridSizeFromDifficulty(difficulty);
+  }
 
   // Get DOM elements
   canvas = document.getElementById('game-canvas');
@@ -330,14 +382,25 @@ export function initGame(difficulty) {
   settingsBtn = document.getElementById('settings-btn');
   settingsOverlay = document.getElementById('settings-overlay');
   settingsCloseBtn = document.getElementById('settings-close-btn');
+  difficultySettingsItem = document.getElementById('difficulty-settings-item');
+  segmentedControl = document.getElementById('difficulty-segmented-control');
+  segmentButtons = segmentedControl ? segmentedControl.querySelectorAll('.segment-btn') : [];
 
   // Set title based on difficulty
   const difficultyTitles = {
     'easy': 'Easy',
     'medium': 'Medium',
-    'hard': 'Hard'
+    'hard': 'Hard',
+    'unlimited': 'Unlimited'
   };
   gameTitle.textContent = difficultyTitles[difficulty] || 'Game';
+
+  // Show/hide difficulty control based on mode
+  if (isUnlimitedMode && difficultySettingsItem) {
+    difficultySettingsItem.classList.add('visible');
+  } else if (difficultySettingsItem) {
+    difficultySettingsItem.classList.remove('visible');
+  }
 
   // Reset state
   hintMode = 'partial';
@@ -433,6 +496,21 @@ export function initGame(difficulty) {
     { element: canvas, event: 'pointerup', handler: pointerUpHandler },
     { element: canvas, event: 'pointercancel', handler: pointerCancelHandler }
   ];
+
+  // Set up difficulty segmented control (only in unlimited mode)
+  if (isUnlimitedMode && segmentButtons) {
+    segmentButtons.forEach(btn => {
+      const segmentHandler = () => {
+        const newDifficulty = btn.getAttribute('data-difficulty');
+        changeDifficulty(newDifficulty);
+      };
+      btn.addEventListener('click', segmentHandler);
+      eventListeners.push({ element: btn, event: 'click', handler: segmentHandler });
+    });
+
+    // Set initial active state
+    updateSegmentedControlState();
+  }
 
   // Initial canvas setup
   resizeCanvas();
