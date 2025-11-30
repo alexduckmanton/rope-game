@@ -21,6 +21,7 @@ let gridSize = 4;
 let cellSize = 0;
 let isUnlimitedMode = false;
 let currentUnlimitedDifficulty = 'easy';
+let currentGameDifficulty = 'easy';
 
 // DOM elements
 let canvas;
@@ -100,7 +101,8 @@ function formatTime(seconds) {
 
 function updateTimerDisplay() {
   if (gameTimerEl) {
-    gameTimerEl.textContent = formatTime(elapsedSeconds);
+    const difficultyLabel = currentGameDifficulty.charAt(0).toUpperCase() + currentGameDifficulty.slice(1);
+    gameTimerEl.textContent = `${difficultyLabel} • ${formatTime(elapsedSeconds)}`;
   }
 }
 
@@ -216,6 +218,7 @@ function changeDifficulty(newDifficulty) {
   if (currentUnlimitedDifficulty === newDifficulty) return;
 
   currentUnlimitedDifficulty = newDifficulty;
+  currentGameDifficulty = newDifficulty;
   gridSize = getGridSizeFromDifficulty(newDifficulty);
 
   // Update segmented control UI
@@ -363,8 +366,10 @@ export function initGame(difficulty) {
   if (isUnlimitedMode) {
     // In unlimited mode, start with easy difficulty
     currentUnlimitedDifficulty = 'easy';
+    currentGameDifficulty = 'easy';
     gridSize = getGridSizeFromDifficulty('easy');
   } else {
+    currentGameDifficulty = difficulty;
     gridSize = getGridSizeFromDifficulty(difficulty);
   }
 
@@ -386,14 +391,8 @@ export function initGame(difficulty) {
   segmentedControl = document.getElementById('difficulty-segmented-control');
   segmentButtons = segmentedControl ? segmentedControl.querySelectorAll('.segment-btn') : [];
 
-  // Set title based on difficulty
-  const difficultyTitles = {
-    'easy': 'Easy',
-    'medium': 'Medium',
-    'hard': 'Hard',
-    'unlimited': 'Unlimited'
-  };
-  gameTitle.textContent = difficultyTitles[difficulty] || 'Game';
+  // Clear title text (difficulty is shown in timer display)
+  gameTitle.textContent = '';
 
   // Show/hide difficulty control based on mode
   if (isUnlimitedMode && difficultySettingsItem) {
