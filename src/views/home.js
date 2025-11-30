@@ -17,18 +17,21 @@ export function initHome() {
   const easyBtn = document.getElementById('easy-btn');
   const mediumBtn = document.getElementById('medium-btn');
   const hardBtn = document.getElementById('hard-btn');
+  const unlimitedBtn = document.getElementById('unlimited-btn');
 
   // Event handlers - pass fromHome state to track navigation origin
   const handleTutorial = () => navigate('/tutorial?page=1', false, { fromHome: true });
   const handleEasy = () => navigate('/play?difficulty=easy', false, { fromHome: true });
   const handleMedium = () => navigate('/play?difficulty=medium', false, { fromHome: true });
   const handleHard = () => navigate('/play?difficulty=hard', false, { fromHome: true });
+  const handleUnlimited = () => navigate('/play?difficulty=unlimited', false, { fromHome: true });
 
   // Attach listeners
   tutorialBtn.addEventListener('click', handleTutorial);
   easyBtn.addEventListener('click', handleEasy);
   mediumBtn.addEventListener('click', handleMedium);
   hardBtn.addEventListener('click', handleHard);
+  unlimitedBtn.addEventListener('click', handleUnlimited);
 
   // Return cleanup function
   return () => {
@@ -36,5 +39,6 @@ export function initHome() {
     easyBtn.removeEventListener('click', handleEasy);
     mediumBtn.removeEventListener('click', handleMedium);
     hardBtn.removeEventListener('click', handleHard);
+    unlimitedBtn.removeEventListener('click', handleUnlimited);
   };
 }

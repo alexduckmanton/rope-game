@@ -41,6 +41,7 @@
           <button id="easy-btn" class="btn btn-large">Easy</button>
           <button id="medium-btn" class="btn btn-large">Medium</button>
           <button id="hard-btn" class="btn btn-large">Hard</button>
+          <button id="unlimited-btn" class="btn btn-large">Unlimited</button>
         </div>
       </div>
     </div>
@@ -51,7 +52,7 @@
         <button id="tutorial-back-btn" class="icon-btn" aria-label="Back">
           <i data-lucide="arrow-left" width="24" height="24"></i>
         </button>
-        <h1 id="tutorial-title" class="top-bar-title">Tutorial</h1>
+        <h1 id="tutorial-title" class="top-bar-title"></h1>
         <div class="top-bar-actions">
           <button id="tutorial-restart-btn" class="icon-btn" aria-label="Restart tutorial">
             <i data-lucide="refresh-ccw" width="24" height="24"></i>
@@ -80,7 +81,7 @@
         <button id="back-btn" class="icon-btn" aria-label="Back">
           <i data-lucide="arrow-left" width="24" height="24"></i>
         </button>
-        <h1 id="game-title" class="top-bar-title">Game</h1>
+        <h1 id="game-title" class="top-bar-title"></h1>
         <div class="top-bar-actions">
           <button id="new-btn" class="icon-btn" aria-label="New puzzle">
             <i data-lucide="dices" width="24" height="24"></i>
@@ -108,6 +109,15 @@
             </button>
           </div>
           <div class="settings-list">
+            <div class="settings-item" id="difficulty-settings-item">
+              <div class="settings-control">
+                <div class="segmented-control" id="difficulty-segmented-control">
+                  <button class="segment-btn" data-difficulty="easy">Easy</button>
+                  <button class="segment-btn" data-difficulty="medium">Medium</button>
+                  <button class="segment-btn" data-difficulty="hard">Hard</button>
+                </div>
+              </div>
+            </div>
             <div class="settings-item">
               <label class="settings-toggle-label">
                 <input type="checkbox" id="hints-checkbox">
