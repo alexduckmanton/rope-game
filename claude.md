@@ -64,7 +64,51 @@ All constraints are satisfied AND the path forms a complete loop visiting every 
 - Verify the puzzle has exactly one solution
 - Remove redundant constraints if possible
 
-### 2. Visual Feedback
+### 2. Daily Puzzle System
+
+**Deterministic Generation Approach:**
+
+The daily puzzle system creates identical puzzles for all players on the same local date using a seeded pseudorandom number generator (PRNG) rather than backend storage.
+
+**Key Design Decisions:**
+
+1. **Seeded Random Number Generation**
+   - Uses Mulberry32 algorithm for deterministic, high-quality pseudorandom numbers
+   - Same seed always produces identical puzzle, hints, and solution path
+   - Seed format: YYYYMMDD concatenated with difficulty offset (0=easy, 1=medium, 2=hard)
+   - Example: November 30, 2025 Easy = seed 202511300
+
+2. **Local Timezone Strategy**
+   - Each player's puzzle changes at their local midnight, not UTC
+   - Same as popular daily puzzle games (NYT Crossword, Wordle)
+   - Players in different timezones see different puzzles on the same UTC day
+   - Simplifies UX - no confusion about when "today's puzzle" updates
+
+3. **No Backend Required**
+   - Deterministic algorithm eliminates need for puzzle storage or caching
+   - All generation happens client-side on demand
+   - Reduces infrastructure costs and complexity
+   - Works offline after initial page load
+
+4. **Puzzle Identity System**
+   - Each puzzle has unique ID: date string plus difficulty (e.g., "2025-11-30-easy")
+   - Enables future social features: leaderboards, result sharing, statistics
+   - Natural key for completion tracking in localStorage
+
+**Randomization Points:**
+- Warnsdorff algorithm starting position (seeded)
+- Tie-breaking when multiple cells have same priority (seeded)
+- Hint cell selection probability (seeded)
+
+**Cross-Browser Consistency:**
+The PRNG uses only bitwise operations guaranteed to be deterministic across all JavaScript engines, ensuring players get identical puzzles regardless of browser or device.
+
+**Tradeoffs Accepted:**
+- Puzzle quality varies by date (some dates produce easier/harder puzzles than others)
+- Players can change system clock to preview future puzzles (acceptable for casual game)
+- No server-side validation of completion times (trust-based until backend added)
+
+### 3. Visual Feedback
 
 **Constraint States:**
 
@@ -211,12 +255,13 @@ rope-game/
 │   ├── icons.js           # Lucide icon initialization (tree-shakeable imports)
 │   ├── config.js          # Centralized constants (colors, sizing, generation tuning)
 │   ├── utils.js           # Shared utility functions (path math, validation helpers)
+│   ├── seededRandom.js    # Deterministic PRNG for daily puzzles (Mulberry32 algorithm)
 │   ├── generator.js       # Puzzle generation (Warnsdorff's heuristic)
 │   ├── renderer.js        # Canvas rendering (grid, paths, hints, borders)
 │   └── views/
-│       ├── home.js        # Home view with difficulty selection
+│       ├── home.js        # Home view with difficulty selection and date display
 │       ├── tutorial.js    # Tutorial view (placeholder for future content)
-│       └── game.js        # Game view with extracted game logic
+│       └── game.js        # Game view with daily/unlimited mode logic
 └── package.json
 ```
 
@@ -233,9 +278,11 @@ The app uses a **Single-Page Application (SPA)** architecture with client-side r
 ### Three Main Views
 
 **1. Home View (default route: `/`)**
-- Landing page with game title "Loopy" and tagline
+- Landing page with game title "Loopy"
+- Displays current date (formatted as "30 November 2025") as the tagline
 - Five navigation buttons: Tutorial, Easy (4x4), Medium (6x6), Hard (8x8), Unlimited
 - Clean, centered layout with large touch-friendly buttons
+- Date updates automatically based on local timezone
 
 **2. Tutorial View (route: `/tutorial`)**
 - Placeholder page for future interactive tutorial content
@@ -249,7 +296,8 @@ The app uses a **Single-Page Application (SPA)** architecture with client-side r
 - Navigation bar title intentionally left blank (difficulty shown in timer display instead)
 - Timer display format: "Difficulty • MM:SS" (e.g., "Hard • 1:23")
 - Includes back button to return home
-- Controls: Back, New, Restart buttons + Settings gear icon
+- Controls: Back, Restart buttons + Settings gear icon (New button appears only in Unlimited mode)
+- Daily puzzle modes (Easy, Medium, Hard) hide the New button since everyone plays the same daily puzzle
 - Settings bottom sheet with context-aware controls based on game mode
 
 ### Smart History Management
@@ -274,16 +322,21 @@ The router implements intelligent history tracking to maintain a clean navigatio
 
 The app offers two distinct play experiences:
 
-**Standard Modes (Easy, Medium, Hard)**
+**Daily Puzzle Modes (Easy, Medium, Hard)**
 - Fixed grid sizes: Easy (4x4), Medium (6x6), Hard (8x8)
-- Intended for future implementation of daily date-based puzzles
-- Each difficulty will eventually generate the same puzzle for all players on a given day
+- Everyone playing on the same local date receives identical puzzles
+- Puzzles are generated using date-based deterministic randomization
+- All players see the same hint cells and solution path for a given date and difficulty
+- New button is hidden since daily puzzles cannot be regenerated
+- Restart button allows replaying the same daily puzzle
+- Puzzle changes automatically at local midnight
 - Settings bottom sheet shows only standard toggles: Hints, Border, Solution
 
 **Unlimited Mode**
 - Practice mode allowing unlimited puzzle replays at any difficulty
-- Uses random seed generation for variety (not date-based)
+- Uses true random generation (not date-based) for infinite variety
 - Defaults to Easy difficulty (4x4 grid) on entry
+- New button is visible and generates fresh random puzzles
 - Settings bottom sheet includes an additional iOS-style segmented control at the top
 - Segmented control allows switching between Easy, Medium, and Hard within the same session
 - Changing difficulty immediately regenerates the puzzle and resets the timer
@@ -291,10 +344,13 @@ The app offers two distinct play experiences:
 - All other settings (Hints, Border, Solution) persist when switching difficulties
 
 **Design Rationale:**
-- Segmented control is hidden in standard modes to keep the UI clean
-- Unlimited mode displays actual difficulty (e.g., "Easy • 1:23") rather than mode name
+- Daily puzzles create shared experience and enable future social features (leaderboards, sharing results)
+- Local timezone ensures puzzles change at midnight for each player regardless of location
+- Deterministic generation eliminates need for backend storage or caching
+- Puzzle IDs (format: "2025-11-30-easy") provide natural keys for future stats tracking
+- Segmented control is hidden in daily modes to keep the UI clean and prevent confusion
+- Unlimited mode provides practice environment without daily constraints
 - Difficulty switching triggers full puzzle regeneration with timer reset for fair practice sessions
-- The separation prepares the architecture for future daily puzzle implementation without requiring refactoring
 
 ### Deployment Considerations
 
@@ -344,17 +400,22 @@ The app offers two distinct play experiences:
 - ✅ Timer with difficulty display (format: "Difficulty • MM:SS")
 - ✅ Unlimited practice mode with in-session difficulty switching
 - ✅ iOS-style segmented control for difficulty selection
+- ✅ Daily puzzles with date-based deterministic generation
+- ✅ Local timezone support for puzzle rotation
+- ✅ Puzzle ID system for future social features
 
 ### Planned Enhancements
 - Interactive tutorial with guided puzzle examples
 - Undo/Redo functionality
 - Move counter
-- Daily puzzles (date-based seeds for Easy, Medium, Hard modes)
+- Daily puzzle completion tracking (localStorage)
+- Streak counter and statistics
+- Leaderboards and social sharing for daily puzzles
 - Achievement system
 - Dark mode
 - Sound effects (optional, subtle)
-- Save/load puzzle state (localStorage)
-- Share puzzle codes
+- Share puzzle results with times
+- Archive mode to replay previous daily puzzles
 
 -----
 
@@ -417,21 +478,26 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 
 ## Expected Behavior Summary
 
-### Standard Mode Flow (Easy/Medium/Hard)
-1. **User selects difficulty from home** → Enters game with fixed grid size
-2. **Navigation shows blank title** → Difficulty displayed in timer (e.g., "Medium • 0:00")
-3. **User draws path** → Blue path extends smoothly with drag, timer counts up
-4. **User completes loop** → Constraints turn green if satisfied, yellow if violated
-5. **Victory** → Timer stops, completion message shows time (e.g., "You made a loop in 1:23!")
-6. **New Puzzle** → Generates random puzzle, timer resets to 0:00
+### Daily Puzzle Mode Flow (Easy/Medium/Hard)
+1. **Home screen shows current date** → Tagline displays formatted date (e.g., "30 November 2025")
+2. **User selects difficulty from home** → Enters game with fixed grid size and today's daily puzzle
+3. **Navigation shows blank title** → Difficulty displayed in timer (e.g., "Medium • 0:00")
+4. **Puzzle is deterministic** → Everyone playing Medium on the same local date sees identical puzzle
+5. **User draws path** → Blue path extends smoothly with drag, timer counts up
+6. **User completes loop** → Constraints turn green if satisfied, yellow if violated
+7. **Victory** → Timer stops, completion message shows time (e.g., "You made a loop in 1:23!")
+8. **No New button** → Button is hidden since daily puzzles cannot be regenerated
+9. **Restart available** → User can restart and replay the same daily puzzle
+10. **Tomorrow** → New puzzle automatically available at local midnight
 
 ### Unlimited Mode Flow
 1. **User selects Unlimited from home** → Enters game defaulting to Easy (4x4)
 2. **Timer shows current difficulty** → Displays "Easy • 0:00" (not "Unlimited")
-3. **User opens settings** → Sees segmented control (Easy/Medium/Hard) at top of sheet
-4. **User switches to Hard** → Grid rebuilds as 8x8, puzzle regenerates, timer resets, difficulty label updates to "Hard • 0:00"
-5. **Settings persist** → Hints, Border, and Solution toggles remain unchanged when switching difficulty
-6. **Unlimited replays** → User can practice any difficulty repeatedly without restriction
+3. **New button visible** → Generates fresh random puzzle each time
+4. **User opens settings** → Sees segmented control (Easy/Medium/Hard) at top of sheet
+5. **User switches to Hard** → Grid rebuilds as 8x8, puzzle regenerates, timer resets, difficulty label updates to "Hard • 0:00"
+6. **Settings persist** → Hints, Border, and Solution toggles remain unchanged when switching difficulty
+7. **Unlimited replays** → User can practice any difficulty repeatedly with true random generation
 
 ### Universal Interactions
 - **Tap empty cell** → Path starts, cell is drawn
