@@ -159,6 +159,8 @@ The app uses Lucide icons with a tree-shakeable import pattern to minimize bundl
 - White background with rounded top corners (16px)
 - Soft shadow for depth (80px blur, 10% opacity, no dark overlay)
 - Settings displayed as list items with grey dividers (#E0E0E0)
+- Context-aware content: difficulty segmented control appears only in Unlimited mode
+- iOS-style segmented control for difficulty switching (gray background, white active state with shadow)
 - Changes apply immediately (no save/cancel buttons)
 - Click outside to dismiss
 - Hidden in tutorial view (game view only)
@@ -232,20 +234,23 @@ The app uses a **Single-Page Application (SPA)** architecture with client-side r
 
 **1. Home View (default route: `/`)**
 - Landing page with game title "Loopy" and tagline
-- Four navigation buttons: Tutorial, Easy (4x4), Medium (6x6), Hard (8x8)
+- Five navigation buttons: Tutorial, Easy (4x4), Medium (6x6), Hard (8x8), Unlimited
 - Clean, centered layout with large touch-friendly buttons
 
 **2. Tutorial View (route: `/tutorial`)**
 - Placeholder page for future interactive tutorial content
 - Includes back button to return home
+- Navigation title is center-aligned and empty initially (set by JavaScript)
 - Ready for enhancement with step-by-step puzzle tutorials
 
-**3. Play View (route: `/play?difficulty=easy|medium|hard`)**
+**3. Play View (route: `/play?difficulty=easy|medium|hard|unlimited`)**
 - The main game interface with canvas and controls
 - Difficulty is set via URL parameter and determines grid size
+- Navigation bar title intentionally left blank (difficulty shown in timer display instead)
+- Timer display format: "Difficulty • MM:SS" (e.g., "Hard • 1:23")
 - Includes back button to return home
 - Controls: Back, New, Restart buttons + Settings gear icon
-- Settings bottom sheet for Hints, Border, and Solution toggles
+- Settings bottom sheet with context-aware controls based on game mode
 
 ### Smart History Management
 
@@ -264,6 +269,32 @@ The router implements intelligent history tracking to maintain a clean navigatio
 - In-app "back" feels like "close/exit this screen"
 - Works correctly with both in-app navigation and direct URL visits
 - Browser back/forward buttons work as expected
+
+### Game Modes
+
+The app offers two distinct play experiences:
+
+**Standard Modes (Easy, Medium, Hard)**
+- Fixed grid sizes: Easy (4x4), Medium (6x6), Hard (8x8)
+- Intended for future implementation of daily date-based puzzles
+- Each difficulty will eventually generate the same puzzle for all players on a given day
+- Settings bottom sheet shows only standard toggles: Hints, Border, Solution
+
+**Unlimited Mode**
+- Practice mode allowing unlimited puzzle replays at any difficulty
+- Uses random seed generation for variety (not date-based)
+- Defaults to Easy difficulty (4x4 grid) on entry
+- Settings bottom sheet includes an additional iOS-style segmented control at the top
+- Segmented control allows switching between Easy, Medium, and Hard within the same session
+- Changing difficulty immediately regenerates the puzzle and resets the timer
+- Timer display shows the currently selected difficulty level, not "Unlimited"
+- All other settings (Hints, Border, Solution) persist when switching difficulties
+
+**Design Rationale:**
+- Segmented control is hidden in standard modes to keep the UI clean
+- Unlimited mode displays actual difficulty (e.g., "Easy • 1:23") rather than mode name
+- Difficulty switching triggers full puzzle regeneration with timer reset for fair practice sessions
+- The separation prepares the architecture for future daily puzzle implementation without requiring refactoring
 
 ### Deployment Considerations
 
@@ -310,12 +341,15 @@ The router implements intelligent history tracking to maintain a clean navigatio
 - ✅ Hint system (partial/all toggle with validation coloring)
 - ✅ Navigation system with home page
 - ✅ Settings bottom sheet with immediate-apply controls
+- ✅ Timer with difficulty display (format: "Difficulty • MM:SS")
+- ✅ Unlimited practice mode with in-session difficulty switching
+- ✅ iOS-style segmented control for difficulty selection
 
 ### Planned Enhancements
 - Interactive tutorial with guided puzzle examples
 - Undo/Redo functionality
-- Timer and move counter
-- Daily puzzles
+- Move counter
+- Daily puzzles (date-based seeds for Easy, Medium, Hard modes)
 - Achievement system
 - Dark mode
 - Sound effects (optional, subtle)
@@ -383,11 +417,26 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 
 ## Expected Behavior Summary
 
-1. **User opens app** → See 5×5 grid with constraint numbers
-2. **User taps empty cell** → Path starts, cell is drawn
-3. **User taps existing cell** → Cell is erased (along with any orphaned cells)
-4. **User drags** → Blue path extends smoothly, automatically breaking old connections when crossing existing paths
-5. **User drags backward** → Recent path is undone (backtracking)
-6. **User completes loop** → Constraints turn green if satisfied, yellow if violated
-7. **All green** → Victory animation, can tap "New Puzzle"
-8. **Stuck** → Tap "Restart" to clear path and try again
+### Standard Mode Flow (Easy/Medium/Hard)
+1. **User selects difficulty from home** → Enters game with fixed grid size
+2. **Navigation shows blank title** → Difficulty displayed in timer (e.g., "Medium • 0:00")
+3. **User draws path** → Blue path extends smoothly with drag, timer counts up
+4. **User completes loop** → Constraints turn green if satisfied, yellow if violated
+5. **Victory** → Timer stops, completion message shows time (e.g., "You made a loop in 1:23!")
+6. **New Puzzle** → Generates random puzzle, timer resets to 0:00
+
+### Unlimited Mode Flow
+1. **User selects Unlimited from home** → Enters game defaulting to Easy (4x4)
+2. **Timer shows current difficulty** → Displays "Easy • 0:00" (not "Unlimited")
+3. **User opens settings** → Sees segmented control (Easy/Medium/Hard) at top of sheet
+4. **User switches to Hard** → Grid rebuilds as 8x8, puzzle regenerates, timer resets, difficulty label updates to "Hard • 0:00"
+5. **Settings persist** → Hints, Border, and Solution toggles remain unchanged when switching difficulty
+6. **Unlimited replays** → User can practice any difficulty repeatedly without restriction
+
+### Universal Interactions
+- **Tap empty cell** → Path starts, cell is drawn
+- **Tap existing cell** → Cell is erased (along with any orphaned cells)
+- **Drag** → Blue path extends smoothly, automatically breaking old connections when crossing existing paths
+- **Drag backward** → Recent path is undone (backtracking)
+- **Restart button** → Clears path but keeps timer running (unless game was already won)
+- **Back button** → Returns to home page
