@@ -345,24 +345,64 @@ export function cleanupOldSaves() {
 }
 
 /**
- * Create a debounced save function
- * Ensures we don't spam localStorage on every move
- * @param {number} delayMs - Debounce delay in milliseconds
- * @returns {Function} Debounced save function
+ * Create a throttled save function with trailing save
+ *
+ * Behavior:
+ * - First save: Happens immediately
+ * - Cooldown: 5 seconds after each save where no saves occur
+ * - During cooldown: If moves are made, flag is set and state is stored
+ * - After cooldown: If flag is set, saves immediately and starts new cooldown
+ *
+ * This ensures:
+ * - Players don't lose more than 5 seconds of progress
+ * - Rapid moves during cooldown are batched into one save
+ * - Final state is always saved after player stops drawing
+ *
+ * @param {number} cooldownMs - Cooldown period in milliseconds
+ * @returns {Function} Throttled save function
  */
-export function createDebouncedSave(delayMs = 5000) {
-  let timeoutId = null;
+export function createDebouncedSave(cooldownMs = 5000) {
+  let lastSaveTime = 0;
+  let hasPendingChanges = false;
+  let pendingState = null;
+  let cooldownTimer = null;
 
-  return function debouncedSave(state) {
-    // Cancel any pending save
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
+  return function throttledSave(state) {
+    const now = Date.now();
+    const timeSinceLastSave = now - lastSaveTime;
 
-    // Schedule new save
-    timeoutId = setTimeout(() => {
+    if (timeSinceLastSave >= cooldownMs) {
+      // Cooldown period has passed - save immediately
       saveGameState(state);
-      timeoutId = null;
-    }, delayMs);
+      lastSaveTime = now;
+      hasPendingChanges = false;
+      pendingState = null;
+
+      // Clear any pending timer
+      if (cooldownTimer) {
+        clearTimeout(cooldownTimer);
+        cooldownTimer = null;
+      }
+    } else {
+      // Still in cooldown - mark for later save
+      hasPendingChanges = true;
+      pendingState = state;
+
+      // Schedule save for when cooldown expires (if not already scheduled)
+      if (!cooldownTimer) {
+        const remainingTime = cooldownMs - timeSinceLastSave;
+        cooldownTimer = setTimeout(() => {
+          if (hasPendingChanges && pendingState) {
+            saveGameState(pendingState);
+            lastSaveTime = Date.now();
+            hasPendingChanges = false;
+            pendingState = null;
+          }
+          cooldownTimer = null;
+        }, remainingTime);
+      }
+      // If timer already scheduled, pendingState is just updated
+      // Multiple calls during cooldown all update the same state variable
+    }
   };
 }
