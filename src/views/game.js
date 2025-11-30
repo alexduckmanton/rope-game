@@ -339,7 +339,8 @@ function resizeCanvas() {
   canvas.style.height = totalSize + 'px';
 
   ctx.scale(dpr, dpr);
-  render();
+  // Don't render here - let caller decide if render is needed
+  // This prevents saving empty state before loadOrGeneratePuzzle() runs
 }
 
 function render() {
@@ -579,7 +580,10 @@ export function initGame(difficulty) {
   });
 
   // Set up event listeners and store references for cleanup
-  const resizeHandler = () => resizeCanvas();
+  const resizeHandler = () => {
+    resizeCanvas();
+    render();
+  };
   const newBtnHandler = () => generateNewPuzzle();
   const restartBtnHandler = () => restartPuzzle();
   const hintsHandler = (e) => {
