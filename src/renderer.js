@@ -77,14 +77,15 @@ export function renderPath(ctx, path, cellSize) {
  * Generate hint cells with random selection
  * @param {number} gridSize - Grid size (e.g., 6 for 6x6)
  * @param {number} probability - Probability (0-1) that each cell shows its hint
+ * @param {function(): number} randomFn - Optional random function (defaults to Math.random)
  * @returns {Set<string>} Set of "row,col" strings for cells that should show hints
  */
-export function generateHintCells(gridSize, probability = 0.3) {
+export function generateHintCells(gridSize, probability = 0.3, randomFn = Math.random) {
   const hintCells = new Set();
 
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
-      if (Math.random() < probability) {
+      if (randomFn() < probability) {
         hintCells.add(`${row},${col}`);
       }
     }

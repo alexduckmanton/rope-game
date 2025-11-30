@@ -11,6 +11,7 @@ import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop, showAlertA
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
+import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
 
 /* ============================================================================
  * STATE VARIABLES
@@ -20,8 +21,10 @@ import { createGameCore } from '../gameCore.js';
 let gridSize = 4;
 let cellSize = 0;
 let isUnlimitedMode = false;
+let isDailyMode = false;
 let currentUnlimitedDifficulty = 'easy';
 let currentGameDifficulty = 'easy';
+let currentPuzzleId = null;
 
 // DOM elements
 let canvas;
@@ -221,6 +224,10 @@ function changeDifficulty(newDifficulty) {
   currentGameDifficulty = newDifficulty;
   gridSize = getGridSizeFromDifficulty(newDifficulty);
 
+  // Unlimited mode never uses daily puzzles
+  isDailyMode = false;
+  currentPuzzleId = null;
+
   // Update segmented control UI
   updateSegmentedControlState();
 
@@ -315,8 +322,19 @@ function render() {
 }
 
 function generateNewPuzzle() {
-  solutionPath = generateSolutionPath(gridSize);
-  hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY);
+  if (isDailyMode) {
+    // Generate daily puzzle with seeded random
+    const seed = getDailySeed(currentGameDifficulty);
+    const random = createSeededRandom(seed);
+
+    solutionPath = generateSolutionPath(gridSize, random);
+    hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, random);
+  } else {
+    // Unlimited mode - truly random puzzles
+    solutionPath = generateSolutionPath(gridSize);
+    hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY);
+  }
+
   gameCore.restartPuzzle();
   hasWon = false;
   hasShownPartialWinFeedback = false;
@@ -362,15 +380,20 @@ export function initGame(difficulty) {
   // Detect unlimited mode
   isUnlimitedMode = (difficulty === 'unlimited');
 
+  // Daily mode is any non-unlimited difficulty (easy, medium, hard)
+  isDailyMode = !isUnlimitedMode;
+
   // Set grid size from difficulty
   if (isUnlimitedMode) {
     // In unlimited mode, start with easy difficulty
     currentUnlimitedDifficulty = 'easy';
     currentGameDifficulty = 'easy';
     gridSize = getGridSizeFromDifficulty('easy');
+    currentPuzzleId = null; // Unlimited mode has no puzzle ID
   } else {
     currentGameDifficulty = difficulty;
     gridSize = getGridSizeFromDifficulty(difficulty);
+    currentPuzzleId = getPuzzleId(difficulty); // Set daily puzzle ID
   }
 
   // Get DOM elements
@@ -399,6 +422,13 @@ export function initGame(difficulty) {
     difficultySettingsItem.classList.add('visible');
   } else if (difficultySettingsItem) {
     difficultySettingsItem.classList.remove('visible');
+  }
+
+  // Hide "New" button in daily modes (only show in unlimited mode)
+  if (isDailyMode && newBtn) {
+    newBtn.style.display = 'none';
+  } else if (newBtn) {
+    newBtn.style.display = '';
   }
 
   // Reset state
