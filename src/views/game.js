@@ -343,7 +343,7 @@ function resizeCanvas() {
   // This prevents saving empty state before loadOrGeneratePuzzle() runs
 }
 
-function render() {
+function render(triggerSave = true) {
   const { playerDrawnCells, playerConnections } = gameCore.state;
   const totalSize = cellSize * gridSize;
 
@@ -387,8 +387,11 @@ function render() {
     }
   }
 
-  // Save game state (debounced to max once per 5 seconds)
-  debouncedSave(captureGameState());
+  // Save game state (throttled to max once per 5 seconds)
+  // Only save if triggered by user interaction, not by restore/display changes
+  if (triggerSave) {
+    debouncedSave(captureGameState());
+  }
 }
 
 function generateNewPuzzle() {
@@ -461,8 +464,8 @@ function loadOrGeneratePuzzle() {
       startTimer(savedState.elapsedSeconds);
     }
 
-    // Render the restored state
-    render();
+    // Render the restored state (don't save - it's already in localStorage)
+    render(false);
   } else {
     // No saved state - generate fresh puzzle
     console.log('[Game] No saved state found, generating new puzzle');
