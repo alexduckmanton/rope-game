@@ -421,11 +421,12 @@ function generateNewPuzzle() {
  */
 function loadOrGeneratePuzzle() {
   // Try to load saved state
+  console.log('[Game] loadOrGeneratePuzzle called. puzzleId:', currentPuzzleId, 'difficulty:', currentGameDifficulty, 'unlimited:', isUnlimitedMode);
   const savedState = loadGameState(currentPuzzleId, currentGameDifficulty, isUnlimitedMode);
 
   if (savedState) {
     // Saved state exists - restore the game
-    console.log('Restoring saved game state');
+    console.log('[Game] Restoring saved game state');
 
     // For daily puzzles, regenerate the puzzle from seed
     // (we don't save puzzle data for daily since it's deterministic)
@@ -463,6 +464,7 @@ function loadOrGeneratePuzzle() {
     render();
   } else {
     // No saved state - generate fresh puzzle
+    console.log('[Game] No saved state found, generating new puzzle');
     generateNewPuzzle();
   }
 }

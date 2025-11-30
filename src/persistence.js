@@ -237,6 +237,7 @@ export function saveGameState(state) {
     const json = JSON.stringify(serialized);
 
     localStorage.setItem(key, json);
+    console.log('[Persistence] Saved game state to:', key);
     return true;
   } catch (error) {
     // localStorage might be full, disabled, or in private browsing mode
@@ -255,28 +256,33 @@ export function saveGameState(state) {
 export function loadGameState(puzzleId, difficulty, isUnlimitedMode) {
   try {
     const key = getStorageKey(puzzleId, difficulty, isUnlimitedMode);
+    console.log('[Persistence] Attempting to load from:', key);
     const json = localStorage.getItem(key);
 
-    if (!json) return null;
+    if (!json) {
+      console.log('[Persistence] No saved state found');
+      return null;
+    }
 
     const saved = JSON.parse(json);
 
     // Validate saved state
     if (!isValidSavedState(saved)) {
-      console.warn('Invalid saved state, ignoring');
+      console.warn('[Persistence] Invalid saved state, ignoring');
       return null;
     }
 
     // For daily puzzles, ensure the puzzleId matches
     // (in case there's a clock change or corrupted data)
     if (!isUnlimitedMode && saved.puzzleId !== puzzleId) {
-      console.warn('Puzzle ID mismatch, ignoring saved state');
+      console.warn('[Persistence] Puzzle ID mismatch, ignoring saved state. Expected:', puzzleId, 'Got:', saved.puzzleId);
       return null;
     }
 
+    console.log('[Persistence] Successfully loaded saved state');
     return deserializeGameState(saved);
   } catch (error) {
-    console.warn('Failed to load game state:', error);
+    console.warn('[Persistence] Failed to load game state:', error);
     return null;
   }
 }
@@ -290,9 +296,10 @@ export function loadGameState(puzzleId, difficulty, isUnlimitedMode) {
 export function clearGameState(puzzleId, difficulty, isUnlimitedMode) {
   try {
     const key = getStorageKey(puzzleId, difficulty, isUnlimitedMode);
+    console.log('[Persistence] Clearing saved state from:', key);
     localStorage.removeItem(key);
   } catch (error) {
-    console.warn('Failed to clear game state:', error);
+    console.warn('[Persistence] Failed to clear game state:', error);
   }
 }
 
