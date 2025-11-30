@@ -424,6 +424,13 @@ export function initGame(difficulty) {
     difficultySettingsItem.classList.remove('visible');
   }
 
+  // Hide "New" button in daily modes (only show in unlimited mode)
+  if (isDailyMode && newBtn) {
+    newBtn.style.display = 'none';
+  } else if (newBtn) {
+    newBtn.style.display = '';
+  }
+
   // Reset state
   hintMode = 'partial';
   borderMode = 'off';
