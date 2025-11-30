@@ -47,9 +47,10 @@ const FALLBACK_CYCLES = {
 /**
  * Generate a random Hamiltonian cycle on a grid
  * @param {number} size - Grid size (e.g., 8 for 8x8)
+ * @param {function(): number} randomFn - Optional random function (defaults to Math.random)
  * @returns {Array<{row: number, col: number}>} Array of cell coordinates forming the path
  */
-export function generateSolutionPath(size) {
+export function generateSolutionPath(size, randomFn = Math.random) {
   const totalCells = size * size;
 
   // Determine number of Warnsdorff attempts based on grid size
@@ -59,9 +60,9 @@ export function generateSolutionPath(size) {
   // Try Warnsdorff's heuristic multiple times
   // Very fast (~0.5ms per attempt) with ~25% success rate per attempt
   for (let attempt = 0; attempt < attempts; attempt++) {
-    const startRow = Math.floor(Math.random() * size);
-    const startCol = Math.floor(Math.random() * size);
-    const path = tryWarnsdorff(size, startRow, startCol, totalCells);
+    const startRow = Math.floor(randomFn() * size);
+    const startCol = Math.floor(randomFn() * size);
+    const path = tryWarnsdorff(size, startRow, startCol, totalCells, randomFn);
 
     if (path) {
       return path; // Success! Found a valid cycle
@@ -90,9 +91,10 @@ function getAttemptCount(size) {
  *
  * Fast (~0.5ms) but not guaranteed to find cycles. Success rate ~25-30% for 8x8.
  *
+ * @param {function(): number} randomFn - Random function for tie-breaking
  * @returns {Array|null} Valid Hamiltonian cycle path, or null if failed
  */
-function tryWarnsdorff(size, startRow, startCol, totalCells) {
+function tryWarnsdorff(size, startRow, startCol, totalCells, randomFn = Math.random) {
   const visited = Array(size).fill(null).map(() => Array(size).fill(false));
   const path = [];
 
@@ -130,7 +132,7 @@ function tryWarnsdorff(size, startRow, startCol, totalCells) {
     // If multiple have same minimum, pick randomly for variety
     const minDegree = neighbors[0].degree;
     const candidates = neighbors.filter(n => n.degree === minDegree);
-    const next = candidates[Math.floor(Math.random() * candidates.length)];
+    const next = candidates[Math.floor(randomFn() * candidates.length)];
 
     row = next.row;
     col = next.col;

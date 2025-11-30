@@ -5,6 +5,7 @@
  */
 
 import { navigate } from '../router.js';
+import { getFormattedDate } from '../seededRandom.js';
 
 /**
  * Initialize the home view
@@ -12,6 +13,12 @@ import { navigate } from '../router.js';
  * @returns {Function|null} Cleanup function (none needed for home view)
  */
 export function initHome() {
+  // Update tagline with current date
+  const tagline = document.querySelector('.game-tagline');
+  if (tagline) {
+    tagline.textContent = getFormattedDate();
+  }
+
   // Get button elements
   const tutorialBtn = document.getElementById('tutorial-btn');
   const easyBtn = document.getElementById('easy-btn');
