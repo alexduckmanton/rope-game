@@ -57,6 +57,8 @@ let hasShownPartialWinFeedback = false;
 let timerStartTime = 0;
 let timerInterval = null;
 let elapsedSeconds = 0;
+let isPaused = false;
+let pauseStartTime = 0;
 
 // Game core instance
 let gameCore;
@@ -113,15 +115,20 @@ function startTimer() {
   // Stop any existing timer
   stopTimer();
 
-  // Reset timer state
+  // Reset timer state (including pause state)
   timerStartTime = Date.now();
   elapsedSeconds = 0;
+  isPaused = false;
+  pauseStartTime = 0;
   updateTimerDisplay();
 
   // Start interval to update every second
   timerInterval = setInterval(() => {
-    elapsedSeconds = Math.floor((Date.now() - timerStartTime) / 1000);
-    updateTimerDisplay();
+    // Only update if not paused
+    if (!isPaused) {
+      elapsedSeconds = Math.floor((Date.now() - timerStartTime) / 1000);
+      updateTimerDisplay();
+    }
   }, 1000);
 }
 
@@ -130,6 +137,30 @@ function stopTimer() {
     clearInterval(timerInterval);
     timerInterval = null;
   }
+  // Reset pause state when stopping timer
+  isPaused = false;
+  pauseStartTime = 0;
+}
+
+function pauseTimer() {
+  // Only pause if timer is running and not already paused
+  if (!timerInterval || isPaused) return;
+
+  isPaused = true;
+  pauseStartTime = Date.now();
+}
+
+function resumeTimer() {
+  // Only resume if actually paused
+  if (!isPaused) return;
+
+  // Calculate pause duration and shift start time forward
+  // This keeps the elapsed time calculation correct
+  const pauseDuration = Date.now() - pauseStartTime;
+  timerStartTime += pauseDuration;
+
+  isPaused = false;
+  pauseStartTime = 0;
 }
 
 /* ============================================================================
@@ -484,6 +515,13 @@ export function initGame(difficulty) {
       hideSettings();
     }
   };
+  const visibilityChangeHandler = () => {
+    if (document.hidden) {
+      pauseTimer();
+    } else {
+      resumeTimer();
+    }
+  };
 
   // Use gameCore methods for pointer events
   const pointerDownHandler = (e) => {
@@ -503,6 +541,7 @@ export function initGame(difficulty) {
   settingsBtn.addEventListener('click', settingsBtnHandler);
   settingsCloseBtn.addEventListener('click', settingsCloseBtnHandler);
   settingsOverlay.addEventListener('click', settingsOverlayHandler);
+  document.addEventListener('visibilitychange', visibilityChangeHandler);
   canvas.addEventListener('pointerdown', pointerDownHandler);
   canvas.addEventListener('pointermove', pointerMoveHandler);
   canvas.addEventListener('pointerup', pointerUpHandler);
@@ -520,6 +559,7 @@ export function initGame(difficulty) {
     { element: settingsBtn, event: 'click', handler: settingsBtnHandler },
     { element: settingsCloseBtn, event: 'click', handler: settingsCloseBtnHandler },
     { element: settingsOverlay, event: 'click', handler: settingsOverlayHandler },
+    { element: document, event: 'visibilitychange', handler: visibilityChangeHandler },
     { element: canvas, event: 'pointerdown', handler: pointerDownHandler },
     { element: canvas, event: 'pointermove', handler: pointerMoveHandler },
     { element: canvas, event: 'pointerup', handler: pointerUpHandler },
