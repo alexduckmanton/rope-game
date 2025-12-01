@@ -286,6 +286,10 @@ function updateSegmentedControlState() {
 function changeDifficulty(newDifficulty) {
   if (currentUnlimitedDifficulty === newDifficulty) return;
 
+  // Save current difficulty's state before switching
+  // This preserves progress when switching between difficulties
+  saveGameState(captureGameState());
+
   currentUnlimitedDifficulty = newDifficulty;
   currentGameDifficulty = newDifficulty;
   gridSize = getGridSizeFromDifficulty(newDifficulty);
@@ -308,9 +312,12 @@ function changeDifficulty(newDifficulty) {
     }
   });
 
-  // Resize canvas and regenerate puzzle
+  // Resize canvas
   resizeCanvas();
-  generateNewPuzzle();
+
+  // Load saved game for new difficulty, or generate if none exists
+  // This ensures switching back to a difficulty restores your progress
+  loadOrGeneratePuzzle();
 }
 
 /* ============================================================================
