@@ -1,246 +1,102 @@
 # Loop - Puzzle Game
 
-## Game Premise
+## Quick Reference
 
-**Loop** is a minimalist path-drawing puzzle game where players create a single continuous loop through a grid, guided by numbered constraints.
+### Key Modules & Responsibilities
+
+| Module | Purpose | Key Functions & Exports |
+|--------|---------|-------------------------|
+| `main.js` | App entry point | Initializes router, icons, font preloading |
+| `router.js` | Client-side routing | `initRouter()` - History API navigation |
+| `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
+| `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle |
+| `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCells()` |
+| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()` |
+| `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles |
+| `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `buildPlayerTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `findShortestPath()` |
+| `config.js` | Configuration constants | `CONFIG` - Colors, sizes, generation tuning, rendering params |
+
+### Core Concepts
+
+- **Turn**: Path changes direction within a cell. Corner = 1 turn, straight = 0 turns.
+- **Constraint (Hint)**: Number showing expected turn count in surrounding 3x3 area (includes diagonals + self).
+- **Victory**: Complete loop visiting all cells exactly once + all constraints satisfied.
+- **Daily Puzzle**: Deterministic generation using date-based seed (YYYYMMDD + difficulty offset 0/1/2).
+- **Unlimited Mode**: True random generation (not date-based), allows infinite practice with difficulty switching.
+
+### Grid Sizes
+
+| Difficulty | Grid Size | Total Cells | Warnsdorff Attempts |
+|------------|-----------|-------------|---------------------|
+| Easy       | 4x4       | 16          | 20                  |
+| Medium     | 6x6       | 36          | 50                  |
+| Hard       | 8x8       | 64          | 100                 |
+
+### Storage Keys
+
+- Daily puzzles: `loop-game:daily:2025-11-30-easy`
+- Unlimited mode: `loop-game:unlimited:medium` (one slot per difficulty)
+- Settings: `loop-game:settings` (global, shared across all modes)
+
+-----
+
+## Game Rules & Mechanics
 
 ### Core Rules
 
 1. **Draw ONE continuous path** that visits every cell exactly once and returns to the starting point
-1. **Path can only move UP, DOWN, LEFT, RIGHT** (no diagonals)
-1. **Numbered cells are clues** that indicate how many turns (corners/bends) the path must make in the surrounding 9-cell area (all 8 adjacent cells including diagonals, plus the numbered cell itself)
-1. **The number counts a 3x3 grid centered on itself** - this includes orthogonal neighbors, diagonal neighbors, and the numbered cell itself
-1. A "turn" = when the path changes direction within a cell (straight = 0 turns, corner = 1 turn)
+2. **Path can only move UP, DOWN, LEFT, RIGHT** (no diagonals)
+3. **Numbered cells are clues** that indicate how many turns (corners/bends) the path must make in the surrounding 3x3 area
+4. **The number counts a 3x3 grid centered on itself** - includes orthogonal neighbors, diagonal neighbors, and the numbered cell itself
+5. A "turn" = when the path changes direction within a cell (straight = 0 turns, corner = 1 turn)
 
 ### Victory Condition
 
 All constraints are satisfied AND the path forms a complete loop visiting every cell exactly once.
 
------
+### Constraint Validation Algorithm
 
-## Tech Stack
+**What is a "Turn"?**
 
-### Recommended Stack (Modern, No Backend)
+A turn occurs when a path changes direction within a cell. The algorithm analyzes connections between cells:
+- **Straight path** (→→→ or ↑↑↑): 0 turns - previous, current, and next cells are collinear
+- **Corner path** (↑→→ or ←↓→): 1 turn - path changes direction at this cell
 
-- **HTML5 Canvas** or **SVG** for grid rendering
-- **Vanilla JavaScript** (or TypeScript) for game logic
-- **CSS3** for animations and UI
-- **Lucide Icons** for UI icons (tree-shakeable, minimal bundle size)
-- **No framework required** for MVP (keep it lightweight)
-- Optional: **Vite** for dev server and build tooling
+**Validation Area:**
 
-### Alternative Stack (Component-Based)
+Each numbered hint validates the 3x3 area centered on itself (8 neighbors + self = 9 cells max, fewer at edges).
 
-- **React** for UI management
-- **Canvas** for grid rendering
+**Implementation:**
 
-### Mobile Gestures
+1. `buildSolutionTurnMap(solutionPath)` - Analyzes solution path to mark which cells are turns
+   - For each cell, checks if previous→current→next are collinear (straight) or not (turn)
+   - Returns `Map<cellKey, isTurn>`
 
-- **Pointer Events API** (handles both mouse and touch)
-- Support for:
-  - Drag to draw (continuous path creation)
-  - Single tap to erase existing cells
-  - Drag backward to undo recent drawing (backtracking)
-  - Automatic connection breaking when drawing through existing paths
-  - All interactions should feel native and responsive
+2. `buildPlayerTurnMap(playerDrawnCells, playerConnections)` - Analyzes player's drawn path
+   - For each drawn cell with exactly 2 connections, checks if connections are collinear
+   - Returns `Map<cellKey, isTurn>`
 
------
+3. `countTurnsInArea(row, col, gridSize, turnMap)` - Counts turns in 3x3 region
+   - Iterates through 9 adjacent cells (including center)
+   - Sums up cells where `turnMap.get(cellKey) === true`
 
-## Implementation Guide
-
-### 1. Puzzle Generation Algorithm
-
-**High-Level Approach:**
-
-1. **Generate a valid solution path first**
-- Start at random cell
-- Use recursive backtracking to create a path visiting all cells once
-- Ensure it forms a closed loop
-2. **Calculate constraints from the solution**
-- For each cell, count turns in the surrounding 9-cell area (8 neighbors + self)
-- Only place numbers for cells that add interesting constraints
-- Avoid over-constraining (too many numbers = too easy)
-3. **Test solvability**
-- Verify the puzzle has exactly one solution
-- Remove redundant constraints if possible
-
-### 2. Daily Puzzle System
-
-**Deterministic Generation Approach:**
-
-The daily puzzle system creates identical puzzles for all players on the same local date using a seeded pseudorandom number generator (PRNG) rather than backend storage.
-
-**Key Design Decisions:**
-
-1. **Seeded Random Number Generation**
-   - Uses Mulberry32 algorithm for deterministic, high-quality pseudorandom numbers
-   - Same seed always produces identical puzzle, hints, and solution path
-   - Seed format: YYYYMMDD concatenated with difficulty offset (0=easy, 1=medium, 2=hard)
-   - Example: November 30, 2025 Easy = seed 202511300
-
-2. **Local Timezone Strategy**
-   - Each player's puzzle changes at their local midnight, not UTC
-   - Same as popular daily puzzle games (NYT Crossword, Wordle)
-   - Players in different timezones see different puzzles on the same UTC day
-   - Simplifies UX - no confusion about when "today's puzzle" updates
-
-3. **No Backend Required**
-   - Deterministic algorithm eliminates need for puzzle storage or caching
-   - All generation happens client-side on demand
-   - Reduces infrastructure costs and complexity
-   - Works offline after initial page load
-
-4. **Puzzle Identity System**
-   - Each puzzle has unique ID: date string plus difficulty (e.g., "2025-11-30-easy")
-   - Enables future social features: leaderboards, result sharing, statistics
-   - Natural key for completion tracking in localStorage
-
-**Randomization Points:**
-- Warnsdorff algorithm starting position (seeded)
-- Tie-breaking when multiple cells have same priority (seeded)
-- Hint cell selection probability (seeded)
-
-**Cross-Browser Consistency:**
-The PRNG uses only bitwise operations guaranteed to be deterministic across all JavaScript engines, ensuring players get identical puzzles regardless of browser or device.
-
-**Tradeoffs Accepted:**
-- Puzzle quality varies by date (some dates produce easier/harder puzzles than others)
-- Players can change system clock to preview future puzzles (acceptable for casual game)
-- No server-side validation of completion times (trust-based until backend added)
-
-### 3. Visual Feedback
-
-**Constraint States:**
-
-- **Gray**: Not yet evaluable (path incomplete)
-- **Yellow**: Constraint violated (wrong turn count)
-- **Green**: Constraint satisfied
-- **Red**: Impossible to satisfy with current path
+4. Validation compares `expectedTurnCount` (from solution) vs `actualTurnCount` (from player)
+   - Hint colored green when counts match, otherwise uses assigned color from palette
 
 -----
 
-## UI/UX Specifications
+## Architecture Overview
 
-### Minimalist Design
+### Tech Stack
 
-**Color Palette:**
+- **Vanilla JavaScript (ES modules)** - No framework, lightweight and fast
+- **HTML5 Canvas** - Grid and path rendering with smooth curves
+- **CSS3** - Animations, layouts, bottom sheet transitions
+- **Vite** - Dev server and build tooling (fast HMR, tree-shaking)
+- **Lucide Icons** - Tree-shakeable SVG icons (~2-3KB bundle)
+- **Fonts**: Inter (UI text) and Monoton (title only), self-hosted via @fontsource
 
-- Background: `#F5F5F5` (light gray)
-- Grid lines: `#E0E0E0` (subtle gray)
-- Path: `#4A90E2` (calm blue)
-- Numbers: `#2C3E50` (dark blue-gray)
-- Constraint satisfied: `#27AE60` (green)
-- Constraint violated: `#F39C12` (amber, not harsh red)
-- UI elements: `#34495E` (dark gray)
-
-**Typography:**
-
-The app uses custom web fonts for a polished, consistent appearance across all platforms while maintaining performance.
-
-**Font Choices:**
-
-- **Body Copy (Inter):** Clean, highly legible sans-serif used for all UI text (buttons, labels, settings, navigation). Designed specifically for digital interfaces with excellent readability at small sizes.
-- **Display Font (Monoton):** Distinctive retro-futuristic display font used exclusively for the main "Loopy" title on the home screen, creating visual personality without overwhelming the minimal aesthetic.
-
-**Implementation Strategy:**
-
-- **Package Source:** Fonts are self-hosted via @fontsource npm packages rather than Google Fonts CDN. This ensures privacy compliance, offline functionality, and eliminates external dependencies that could fail or introduce tracking.
-- **Loading Behavior:** All fonts use font-display: block to completely eliminate font rendering flicker (FOUT). Text remains invisible for a brief moment until fonts load rather than showing fallback fonts that swap visibly. This creates a cleaner visual experience.
-- **Performance Optimization:** Critical font files are preloaded via JavaScript using Vite's URL import system, ensuring fonts start downloading immediately on page load before CSS parsing completes. Fonts load in approximately 100-200ms on typical connections.
-- **Bundle Size:** Total font payload is approximately 120KB for all weights (400, 500, 600, 700 of Inter plus Monoton), gzipped to around 30KB. Only latin and latin-ext subsets are included via unicode-range optimization.
-- **Fallback Chain:** System fonts (system-ui, -apple-system, Segoe UI) are provided as fallbacks in case font loading fails, though with font-display: block this means text appears in system fonts only if fonts completely fail to load within the 3-second timeout.
-- **OpenType Features:** The game timer uses tabular numerals (monospaced digits) via Inter's OpenType features to prevent layout shift as the timer counts up. This ensures all digits occupy equal width, keeping the timer visually stable.
-
-**Tradeoffs Accepted:**
-
-- Brief invisible text period during initial load (100-200ms) in exchange for zero flicker
-- Slightly larger bundle size compared to system fonts in exchange for consistent cross-platform appearance
-- JavaScript-based preloading for maximum performance in exchange for slightly more complex implementation
-
-**Font Weights Used:**
-
-- Numbers: Bold (700), 24-32px depending on cell size
-- Buttons: SemiBold (600), 16-18px
-- Navigation: Medium (500), 22px
-- Body text: Regular (400), 16-20px
-
-**Layout (Mobile-First):**
-
-```
-+---------------------------+
-|       [New] [Restart]     | <- Top bar, fixed
-+---------------------------+
-|                           |
-|       [GRID 5x5]          | <- Canvas, centered
-|                           |
-|                           |
-+---------------------------+
-```
-
-**Button Styling:**
-
-- Minimal, flat design
-- Rounded corners (8px)
-- Subtle shadow on tap
-- No heavy borders
-
-**Icons:**
-
-The app uses Lucide icons with a tree-shakeable import pattern to minimize bundle size. Icons are centralized in a single initialization module and rendered via data attributes in HTML.
-
-- **Library Choice:** Lucide provides consistent, minimal SVG icons that match the app's clean aesthetic
-- **Bundle Optimization:** Only icons actively used are included in the production bundle (approximately 2-3KB for current icons)
-- **Design Consistency:** Icons inherit color from parent elements via currentColor, ensuring they match the UI color palette automatically
-- **Standard Sizing:** Icons use explicit width/height attributes (18px for inline icons, 20px for standalone buttons, 24px for larger close buttons)
-- **Current Usage:** Arrow-left (back navigation), Settings (gear icon), X (close/dismiss)
-- **Extensibility:** New icons are added by importing them in the centralized module, making icon management predictable and maintainable
-
-**Alignment Pattern:** Icons paired with text (like the back button) use flexbox with align-items: center and a small gap for consistent vertical alignment.
-
-**Bottom Sheet Pattern:**
-
-- Slides up from bottom with playful bounce animation (300ms)
-- White background with rounded top corners (16px)
-- Soft shadow for depth (80px blur, 10% opacity, no dark overlay)
-- Settings displayed as list items with grey dividers (#E0E0E0)
-- Context-aware content: difficulty segmented control appears only in Unlimited mode
-- iOS-style segmented control for difficulty switching (gray background, white active state with shadow)
-- Changes apply immediately (no save/cancel buttons)
-- Click outside to dismiss
-- Hidden in tutorial view (game view only)
-- Bottom padding buffer prevents gap during bounce overshoot
-
-### Animations
-
-**Path Drawing:**
-
-- Smooth line rendering (60fps)
-- Slight "trail" effect as you draw
-- Animate path thickness on completion
-
-**Constraint Feedback:**
-
-- Number color transitions smoothly (300ms ease)
-- Subtle pulse animation when constraint satisfied
-- Gentle shake if constraint violated (avoid harsh feedback)
-
-**Victory Animation:**
-
-- Path color shifts through gradient
-- Constraint numbers fade to green
-- Subtle confetti or particle effect (optional)
-- "Puzzle Solved" message fades in
-
-**Settings Bottom Sheet:**
-
-- Slide up: Ease-out with subtle bounce (cubic-bezier(0.34, 1.3, 0.64, 1))
-- Slide down: Steep ease-in, no bounce (cubic-bezier(0.6, 0, 0.9, 1))
-- Shadow fades in/out with sheet movement (300ms)
-- Padding buffer (40px) prevents gap during bounce overshoot
-
------
-
-## File Structure
+### File Structure
 
 ```
 rope-game/
@@ -257,6 +113,7 @@ rope-game/
 │   ├── utils.js           # Shared utility functions (path math, validation helpers)
 │   ├── seededRandom.js    # Deterministic PRNG for daily puzzles (Mulberry32 algorithm)
 │   ├── generator.js       # Puzzle generation (Warnsdorff's heuristic)
+│   ├── gameCore.js        # Game state and interaction logic (pointer events, drag handling)
 │   ├── renderer.js        # Canvas rendering (grid, paths, hints, borders)
 │   ├── persistence.js     # localStorage save/load/cleanup with throttled writes
 │   └── views/
@@ -266,331 +123,254 @@ rope-game/
 └── package.json
 ```
 
-**Architecture:** Single-page application (SPA) with client-side routing. Each view is a separate module that exports initialization and cleanup functions. The persistence module handles automatic save/restore across all game modes.
-
 -----
 
-## Navigation & Routing
+## Key Systems
 
-### Architecture Overview
+### Puzzle Generation
 
-The app uses a **Single-Page Application (SPA)** architecture with client-side routing via the History API. No page reloads occur during navigation, creating a fast, app-like experience.
+**Algorithm: Warnsdorff's Heuristic**
 
-### Three Main Views
+Generates Hamiltonian cycles (paths visiting all cells exactly once forming a loop).
 
-**1. Home View (default route: `/`)**
-- Landing page with game title "Loopy"
-- Displays current date (formatted as "30 November 2025") as the tagline
-- Five navigation buttons: Tutorial, Easy (4x4), Medium (6x6), Hard (8x8), Unlimited
-- Clean, centered layout with large touch-friendly buttons
-- Date updates automatically based on local timezone
+**Strategy:**
+1. Try Warnsdorff's heuristic multiple times (fast, ~0.5ms per attempt, ~25% success rate)
+2. Fallback to pre-generated valid cycle if all attempts fail (extremely rare with 100 attempts)
 
-**2. Tutorial View (route: `/tutorial`)**
-- Placeholder page for future interactive tutorial content
-- Includes back button to return home
-- Navigation title is center-aligned and empty initially (set by JavaScript)
-- Ready for enhancement with step-by-step puzzle tutorials
+**Warnsdorff's Rule:** Always move to the neighbor with the fewest unvisited neighbors. This greedy strategy avoids dead ends by saving well-connected cells for later.
 
-**3. Play View (route: `/play?difficulty=easy|medium|hard|unlimited`)**
-- The main game interface with canvas and controls
-- Difficulty is set via URL parameter and determines grid size
-- Navigation bar title intentionally left blank (difficulty shown in timer display instead)
-- Timer display format: "Difficulty • MM:SS" (e.g., "Hard • 1:23")
-- Includes back button to return home
-- Controls: Back, Restart buttons + Settings gear icon (New button appears only in Unlimited mode)
-- Daily puzzle modes (Easy, Medium, Hard) hide the New button since everyone plays the same daily puzzle
-- Settings bottom sheet with context-aware controls based on game mode
+**Hint Cell Selection:** After generating solution path, `generateHintCells()` randomly selects ~30% of cells to show hints using seeded random for daily puzzles or true random for unlimited mode.
 
-### Smart History Management
+**Performance:** ~50ms average for 8x8, >99.99% success rate
 
-The router implements intelligent history tracking to maintain a clean navigation stack:
+### Daily Puzzle System
 
-**State Tracking:** When navigating FROM home to a subpage, the router adds metadata to the history state indicating the origin. This allows the back button to behave differently depending on how the user arrived.
+**Architecture:** Deterministic generation using date-based seeded PRNG (no backend required).
 
-**Back Button Logic:**
-- If user navigated from home: Clicking back pops history to return to the original home entry (no duplicate entries)
-- If user arrived via direct URL: Clicking back replaces the current entry with home
+**Key Design:**
 
-**Result:** The history stack always maintains a single clean home entry after using in-app navigation. Browser back from home exits the app entirely.
+| Aspect | Implementation |
+|--------|----------------|
+| **Seed Format** | YYYYMMDD + difficulty offset (0=easy, 1=medium, 2=hard) |
+| **Example** | Nov 30, 2025 Medium = seed `202511301` |
+| **Algorithm** | Mulberry32 PRNG (bitwise operations, cross-browser deterministic) |
+| **Timezone** | Local timezone (puzzle changes at player's local midnight) |
+| **Consistency** | Same seed always produces identical puzzle, hints, and solution path |
+| **Puzzle ID** | Format: `"2025-11-30-medium"` (natural key for stats tracking) |
 
-**Benefits:**
-- No confusing duplicate home entries in history
-- In-app "back" feels like "close/exit this screen"
-- Works correctly with both in-app navigation and direct URL visits
-- Browser back/forward buttons work as expected
-
-### Game Modes
-
-The app offers two distinct play experiences:
-
-**Daily Puzzle Modes (Easy, Medium, Hard)**
-- Fixed grid sizes: Easy (4x4), Medium (6x6), Hard (8x8)
-- Everyone playing on the same local date receives identical puzzles
-- Puzzles are generated using date-based deterministic randomization
-- All players see the same hint cells and solution path for a given date and difficulty
-- New button is hidden since daily puzzles cannot be regenerated
-- Restart button allows replaying the same daily puzzle
-- Puzzle changes automatically at local midnight
-- Settings bottom sheet shows only standard toggles: Hints, Border, Solution
-
-**Unlimited Mode**
-- Practice mode allowing unlimited puzzle replays at any difficulty
-- Uses true random generation (not date-based) for infinite variety
-- Defaults to Easy difficulty (4x4 grid) on entry
-- New button is visible and generates fresh random puzzles
-- Settings bottom sheet includes an additional iOS-style segmented control at the top
-- Segmented control allows switching between Easy, Medium, and Hard within the same session
-- Changing difficulty immediately regenerates the puzzle and resets the timer
-- Timer display shows the currently selected difficulty level, not "Unlimited"
-- All other settings (Hints, Border, Solution) persist when switching difficulties
-
-**Design Rationale:**
-- Daily puzzles create shared experience and enable future social features (leaderboards, sharing results)
-- Local timezone ensures puzzles change at midnight for each player regardless of location
-- Deterministic generation eliminates need for backend storage or caching
-- Puzzle IDs (format: "2025-11-30-easy") provide natural keys for future stats tracking
-- Segmented control is hidden in daily modes to keep the UI clean and prevent confusion
-- Unlimited mode provides practice environment without daily constraints
-- Difficulty switching triggers full puzzle regeneration with timer reset for fair practice sessions
-
-### Deployment Considerations
-
-**Netlify Configuration:** The app includes both `_redirects` file and `netlify.toml` configuration to handle SPA routing on Netlify. All routes serve `index.html` with a 200 status (rewrite, not redirect), allowing the client-side router to handle URL matching.
-
-**Direct URL Access:** Users can bookmark or share any route and it will load correctly, even when accessed directly (not through in-app navigation).
-
------
-
-## Timer Behavior
-
-### Automatic Pause on Tab Blur
-
-The game timer automatically pauses when the browser tab becomes hidden and resumes when the tab becomes visible again, ensuring fair and accurate timing for puzzle completion.
-
-**Implementation Approach:**
-
-The timer uses the Page Visibility API to detect when the document becomes hidden, which occurs in the following scenarios:
-- User switches to a different browser tab
-- User minimizes the browser window
-- User closes the browser (pause happens just before close)
-- Mobile users switch to a different app
-
-**Design Decisions:**
-
-**1. Page Visibility API (Chosen)**
-   - Industry standard specifically designed for detecting tab visibility
-   - Excellent browser support across all modern browsers (stable since 2015)
-   - Semantically correct for "is the tab visible to the user?"
-   - Low false positive rate - only fires when tab genuinely becomes hidden
-   - Recommended approach by MDN and modern web development best practices
-
-**2. Timestamp-Based Pause Mechanism**
-   - Timer tracks the exact timestamp when pause occurs
-   - On resume, the original start time is shifted forward by the pause duration
-   - This approach maintains accuracy regardless of how long the tab was hidden
-   - Timer display updates are skipped during pause (setInterval continues but checks pause state)
-   - No visual indication of pause state - timer simply freezes at current time
-
-**3. Scenarios NOT Detected**
-   - Alt+Tab to different application (window blur, but tab remains visible)
-   - Multiple browser windows where tab is visible but window lacks focus
-   - Focus on DevTools in separate window
-   - These are acceptable limitations for a browser-based puzzle game
-
-**Edge Case Handling:**
-
-- **Pausing when already paused:** Guards prevent double-pausing and state corruption
-- **Timer stopped (game won):** Pause logic safely ignores attempts to pause stopped timer
-- **New puzzle while paused:** Starting new timer automatically resets pause state
-- **Rapid tab switching:** Timestamp-based calculation remains accurate across multiple pause/resume cycles
-- **Cleanup:** Visibility event listener is properly registered and removed with view lifecycle
-
-**Benefits:**
-
-- **Fair competition:** Daily puzzle times exclude time spent away from the game
-- **Better user experience:** Players can step away without penalty or time anxiety
-- **Accurate metrics:** Completion times reflect actual puzzle-solving duration
-- **Simple implementation:** Approximately 40 lines of code with no dependencies
-- **No user configuration needed:** Works automatically without settings or toggles
+**Randomization Points:** Warnsdorff starting position, tie-breaking, hint cell selection (all seeded).
 
 **Tradeoffs Accepted:**
+- Puzzle quality varies by date (some dates produce easier/harder puzzles)
+- Players can preview future puzzles by changing system clock (acceptable for casual game)
+- No server-side validation of times (trust-based until backend added)
 
-- Desktop Alt+Tab scenarios not detected (acceptable for casual browser game)
-- No visual "PAUSED" indicator displayed (timer simply stops advancing)
-- Trust-based system until backend validation added (consistent with daily puzzle approach)
+**Benefits:**
+- Works offline after initial page load
+- No backend infrastructure needed
+- Enables future social features (leaderboards, sharing)
 
------
+### Navigation & Routing
 
-## Game Progress Persistence
+**Architecture:** Single-Page Application (SPA) with client-side routing via History API. No page reloads.
 
-### Architecture Overview
+**Three Main Views:**
 
-The game implements automatic save/restore functionality using browser localStorage, allowing players to exit mid-puzzle and resume exactly where they left off. Persistence is completely client-side with no backend requirements, maintaining consistency with the app's offline-first design philosophy.
+| View | Route | Purpose |
+|------|-------|---------|
+| **Home** | `/` | Landing page, displays current date, five navigation buttons (Tutorial, Easy, Medium, Hard, Unlimited) |
+| **Tutorial** | `/tutorial` | Placeholder for future interactive tutorials, includes back button |
+| **Play** | `/play?difficulty=X` | Main game interface with canvas, controls, timer, settings |
 
-### Core Design Decisions
+**Smart History Management:**
 
-**1. Throttled Save Strategy**
+When navigating FROM home to a subpage, the router adds metadata to history state tracking the origin. This enables intelligent back button behavior:
+- **From home**: Back button pops history to return to original home entry (no duplicates)
+- **Direct URL**: Back button replaces current entry with home
 
-The persistence system uses a throttle pattern (not debounce) to balance data integrity with performance:
+**Result:** History stack maintains single clean home entry. Browser back from home exits app entirely.
 
-- **First save executes immediately** when player makes a move
-- **5-second cooldown** prevents excessive writes during rapid drawing
-- **Trailing save** ensures final state is always captured after cooldown expires
-- **Immediate saves bypass throttle** when critical (tab backgrounding, navigation away, game completion)
+**Game Modes:**
 
-**Rationale:** This approach provides optimal data safety without impacting performance. Players never lose more than 5 seconds of progress, while avoiding hundreds of localStorage writes during continuous drawing. Immediate saves on exit events catch the edge case where a player draws and immediately navigates away within the cooldown window.
+**Daily Puzzle Modes (Easy/Medium/Hard)**
+- Fixed grid sizes per difficulty
+- Everyone sees identical puzzle for same local date
+- Deterministic generation from date-based seed
+- New button hidden (can't regenerate daily puzzles)
+- Restart button replays same puzzle
+- Settings: Hints, Border, Solution
 
-**2. Separation of Game State and Settings**
+**Unlimited Mode**
+- True random generation (not date-based)
+- Defaults to Easy (4x4) on entry
+- New button visible (generates fresh random puzzles)
+- Settings include segmented control to switch difficulty within session
+- Changing difficulty regenerates puzzle and resets timer
+- Maintains separate save slot per difficulty
 
-The system maintains two independent localStorage namespaces:
+**Deployment:** Netlify configuration includes `_redirects` and `netlify.toml` to serve `index.html` for all routes (SPA routing).
 
-- **Game state keys:** `loop-game:daily:2025-11-30-easy` or `loop-game:unlimited:medium`
-- **Settings key:** `loop-game:settings` (singular, global)
+### Game Progress Persistence
 
-**Game State (per-puzzle):** Player path, timer, win status, partial win feedback flag. For unlimited mode only, also includes the randomly generated puzzle data (solution path and hint cells) since it cannot be deterministically regenerated.
+Auto-saves game state to localStorage (client-side, no backend).
 
-**Settings (global):** Hint mode, border mode, show solution flag, last selected unlimited difficulty. These persist across all game modes and sessions.
+**Key Architecture:**
 
-**Rationale:** Separating concerns allows settings to transfer seamlessly between daily and unlimited modes while keeping puzzle progress isolated. A player can switch from daily easy to unlimited hard and have their UI preferences automatically applied.
+1. **Throttled saves**: First save immediate, then 5-second cooldown prevents excessive writes during rapid drawing. Trailing save ensures final state captured after cooldown. Immediate saves bypass throttle on tab blur, navigation, or game completion. Players never lose more than 5 seconds of progress.
 
-**3. Storage Key Architecture**
+2. **Storage keys**: See Quick Reference for patterns
+   - Daily: One slot per date+difficulty (e.g., `loop-game:daily:2025-11-30-easy`). Old saves auto-cleaned on app init.
+   - Unlimited: One slot per difficulty (e.g., `loop-game:unlimited:medium`). Switching difficulties saves current state, loads target difficulty state (or generates new if none exists).
+   - Settings: Global singleton (`loop-game:settings`) shared across all modes.
 
-Each game mode maintains independent save slots:
+3. **State vs Settings**: Game state (player path, connections, timer, win status, partial win feedback) is per-puzzle. Unlimited mode includes puzzle data (solution path, hint cells) since it's not deterministic. Settings (hint mode, border mode, show solution, last unlimited difficulty) are global.
 
-- **Daily puzzles:** One slot per difficulty per day (e.g., `loop-game:daily:2025-11-30-medium`)
-- **Unlimited mode:** One slot per difficulty (e.g., `loop-game:unlimited:hard`)
+4. **Data format**: Sets→Arrays, Maps→Objects (JSON-serializable), version field for migration, timestamp for debugging. Throttle returns `{ save, destroy }` for cleanup.
 
-**Daily Behavior:** When the date changes, old daily saves are automatically cleaned up since they represent completed or abandoned puzzles from previous days. The deterministic puzzle generation means daily puzzles can be regenerated from their date-based seed, so only player progress needs saving.
+**Save triggers**: Player moves, restart, new puzzle, completion.
+**Save skips**: Window resize, settings toggles (have dedicated save).
 
-**Unlimited Behavior:** Each difficulty maintains its own persistent save slot. Switching from easy to medium saves the easy state, loads the medium state (or generates new puzzle if none exists), allowing players to maintain progress across multiple difficulty levels simultaneously.
+**Edge cases**: Partial win feedback persisted, restore without triggering cooldown, daily ID validation, immediate save on tab blur.
 
-**Rationale:** Isolating save slots by difficulty prevents accidental data loss and enables natural workflow patterns. Players can start an unlimited easy puzzle, switch to medium for variety, then return to their easy progress days later. The automatic cleanup of old daily saves prevents unbounded localStorage growth.
+**Tradeoffs**: No cross-device sync, trust-based times, 5-second max progress loss (rare).
 
-**4. Data Serialization Strategy**
+### Timer Behavior
 
-The system uses custom serialization rather than direct object storage:
+**Auto-Pause on Tab Blur:** Timer automatically pauses when browser tab becomes hidden, resumes when visible.
 
-- **Sets → Arrays:** Player drawn cells and hint cells are Sets in memory but serialize to arrays
-- **Maps → Objects:** Player connections are Maps in memory but serialize to nested objects
-- **Version field:** Every save includes a version number for future schema migration
-- **Timestamp:** Each save records when it was created for debugging and potential analytics
+**Implementation:**
+- Uses **Page Visibility API** to detect tab visibility changes
+- Timestamp-based pause calculation maintains accuracy across pause/resume cycles
+- Timer display updates skip during pause (setInterval checks pause state)
+- No visual "PAUSED" indicator - timer simply freezes
 
-**Rationale:** Sets and Maps cannot be directly JSON-serialized. The transformation layer ensures clean localStorage storage while maintaining optimal in-memory data structures. The version field provides forward compatibility when the save format inevitably needs to evolve.
+**Scenarios Detected:**
+- Switch to different tab ✓
+- Minimize browser ✓
+- Mobile app switch ✓
 
-**5. Settings Caching Pattern**
+**Scenarios NOT Detected:**
+- Alt+Tab to different app (tab still visible to browser)
+- Multiple windows where tab visible but window lacks focus
 
-Settings are read once during game initialization and cached in module-level variables to avoid repeated localStorage reads:
-
-- **Initial load:** Settings are read from localStorage and cached when game view initializes
-- **Writes:** All settings are written together atomically on any change
-- **Cached value:** Last selected unlimited difficulty is cached to avoid re-reading when saving other settings in daily mode
-
-**Rationale:** Eliminates unnecessary I/O overhead. Settings change infrequently but game state saves happen constantly. Caching the unlimited difficulty prevents daily mode from reading localStorage on every hint/border toggle just to preserve a setting it doesn't actively use.
-
-**6. Memory Leak Prevention**
-
-The throttle function returns an object with both save and destroy methods:
-
-- **Save method:** Triggers the throttled save logic
-- **Destroy method:** Clears any pending timeout timers
-- **Cleanup hook:** View cleanup lifecycle always calls destroy before unmounting
-
-**Rationale:** JavaScript timers created in closures can leak memory if not explicitly cleared. When a game view is destroyed and recreated (though rare in current architecture), the destroy method prevents orphaned timers from attempting to save stale game state or consuming memory indefinitely.
-
-### Selective Save Triggering
-
-The rendering system distinguishes between game state changes and pure display changes:
-
-- **Trigger saves:** Player draws, restarts puzzle, generates new puzzle, completes game
-- **Skip saves:** Window resize, hint mode toggle, border mode toggle, solution checkbox toggle
-
-Display-only changes (resize, settings toggles) call the render function with a flag that bypasses game state saving. Settings are persisted through their own dedicated save function, keeping concerns separated.
-
-**Benefit:** Reduces localStorage writes by approximately 80%. Previously every window resize and setting toggle would save the entire game state. Now saves only occur when actual puzzle progress changes.
-
-### Edge Case Handling
-
-**Partial Win Message Persistence:** The flag tracking whether "nice loop but wrong hints" feedback has been shown is now persisted. Players who achieve a structurally valid loop, exit, and return won't see the same encouraging message repeatedly.
-
-**Restore Without Cooldown:** When loading saved state, the render call explicitly bypasses save triggering. Without this, restoration would immediately trigger a save (since cooldown timer starts at zero), wasting a localStorage write and starting the cooldown before the player's first actual move.
-
-**Daily Puzzle ID Validation:** When loading daily puzzle saves, the system verifies the puzzle ID matches the current day. This prevents restored state from appearing if the player's system clock changed significantly or timezone shifted during travel.
-
-**Cleanup on New Puzzle:** Generating a new puzzle in unlimited mode explicitly clears the save for that difficulty before creating the fresh puzzle, preventing stale state from being restored if generation somehow fails partway through.
-
-**Tab Backgrounding:** The Page Visibility API triggers an immediate save when the tab becomes hidden, ensuring timer accuracy is preserved and recent draws are not lost if the browser crashes or device runs out of memory while backgrounded.
-
-### Benefits
-
-- **Zero backend complexity:** No server, database, authentication, or sync conflicts to manage
-- **Instant resume:** Players can close the browser mid-puzzle and return hours later to exact state
-- **Offline-first:** Persistence works without network connectivity after initial load
-- **Per-device isolation:** Acceptable for casual puzzle game; simpler than cross-device sync
-- **Fair daily competition:** Player progress is saved but not shared; times remain trust-based until backend added
-- **Efficient writes:** Throttling prevents performance impact from rapid drawing
-- **Clean storage:** Automatic cleanup prevents localStorage from growing unbounded
-- **Forward compatible:** Version field and settings merging enable future schema evolution
-
-### Tradeoffs Accepted
-
-- **No cross-device sync:** Progress is device-specific (acceptable for casual browser game)
-- **Trust-based completion times:** No server validation prevents leaderboard cheating (deferred to future backend)
-- **Clock manipulation vulnerability:** Players can access future daily puzzles by changing system clock (acceptable for casual game)
-- **5-second progress loss window:** Rapid draw + crash during cooldown loses recent moves (extremely rare, acceptable for simplicity)
-- **Local timezone saves:** Daily puzzle saves use local date, so traveling across timezones could cause minor confusion (consistent with local timezone puzzle generation)
+**Benefits:** Fair competition (daily times exclude time away), better UX (no time anxiety), accurate metrics.
 
 -----
 
-## MVP Feature Checklist
+## UI/UX Specifications
 
-### Core Gameplay
+### Design System
 
-- [ ] Render 5×5 grid with constraints
-- [ ] Draw path with drag (continuous drawing)
-- [ ] Erase cells with single tap
-- [ ] Real-time path visualization
-- [ ] Automatic connection breaking when drawing through existing paths
-- [ ] Automatic orphaned cell cleanup
-- [ ] Constraint validation
-- [ ] Victory detection
-- [ ] Victory animation
+**Color Palette:**
 
-### UI
+| Element | Color | Usage |
+|---------|-------|-------|
+| Background | `#F5F5F5` | Light gray canvas background |
+| Grid lines | `#E0E0E0` | Subtle gray grid |
+| Player path | `#000000` | Black drawing color |
+| Player path (win) | `#ACF39D` | Soft green when puzzle solved |
+| Solution path | `#4A90E2` | Calm blue (when "Solution" enabled) |
+| Hint validated | `#ACF39D` | Green when constraint satisfied |
+| Hint colors | 8-color palette | Peachy orange → pink → purple gradient for different hints |
+| UI text | `#34495E` | Dark gray for buttons/labels |
 
-- [ ] "New Puzzle" button (generates random puzzle)
-- [ ] "Restart" button (clears current path)
-- [ ] Responsive mobile layout
-- [ ] Touch-friendly hit targets (48px minimum)
+**Typography:**
+- **Body Copy**: Inter (400, 500, 600, 700) - Clean sans-serif for UI text, buttons, labels
+- **Display Font**: Monoton - Retro display font for "Loopy" title only
+- **Implementation**: Self-hosted via @fontsource, preloaded via JavaScript, font-display: block (no flicker)
+- **Performance**: ~120KB total, ~30KB gzipped, loads in 100-200ms
+- **Timer**: Uses tabular numerals (monospaced digits) to prevent layout shift during counting
 
-### Polish
+**Layout (Mobile-First):**
 
-- [ ] Smooth animations (path drawing, constraint feedback)
-- [ ] Color transitions for constraint states
-- [ ] Intelligent connection breaking (opposite direction priority)
-- [ ] Handle path backtracking (drag backward to undo)
+```
++---------------------------+
+|   [←] [Title]  [⚙ ↻ 🎲]   | ← Top bar (80px)
++---------------------------+
+|     Timer: Easy • 1:23    | ← Timer display (format: "Difficulty • MM:SS")
+|                           |
+|       [GRID 5x5]          | ← Canvas, centered, responsive
+|                           |
+|                           |
++---------------------------+
+```
+
+**Button Styling:** Minimal flat design, rounded corners (8px), subtle shadow on tap, no heavy borders.
+
+**Icons:**
+- **Library**: Lucide icons (tree-shakeable, ~2-3KB for current icons)
+- **Sizing**: 18px inline, 20px standalone, 24px close buttons
+- **Color**: Inherit via `currentColor`
+- **Usage**: Arrow-left (back), Settings (gear), X (close), Refresh-ccw (restart), Dices (new puzzle)
+
+**Settings Bottom Sheet:**
+- Slides up from bottom with bounce animation (300ms, cubic-bezier(0.34, 1.3, 0.64, 1))
+- White background, rounded top corners (16px), soft shadow (80px blur, 10% opacity)
+- Settings displayed as list items with grey dividers
+- Context-aware: Difficulty segmented control appears only in Unlimited mode
+- iOS-style segmented control for difficulty switching
+- Changes apply immediately (no save/cancel buttons)
+- Click outside or X button to dismiss
+- Hidden in tutorial view
+
+### Animations
+
+**Path Drawing:**
+- Smooth line rendering (60fps via `requestAnimationFrame`)
+- Corner radius for smooth curves (`cellSize * 0.35`)
+- Path thickness: 4px, rounded line caps
+
+**Constraint Feedback:**
+- Number color transitions smoothly (300ms ease)
+- Pulsing background for hint validation areas (2s cycle, max 20% opacity)
+- Colors: Assigned palette color → Green when satisfied
+
+**Victory Animation:**
+- Path color shifts from black (`#000000`) to green (`#ACF39D`)
+- Constraint numbers fade to green
+- "Puzzle Solved" message with completion time
+
+**Settings Bottom Sheet:**
+- Slide up: Ease-out with bounce (cubic-bezier(0.34, 1.3, 0.64, 1))
+- Slide down: Steep ease-in, no bounce (cubic-bezier(0.6, 0, 0.9, 1))
+- Shadow fades in/out with sheet (300ms)
+
+### Mobile Gestures
+
+**Supported Interactions:**
+- **Drag to draw**: Continuous path creation
+- **Single tap**: Erase existing cell (if not added this drag)
+- **Drag backward**: Undo recent drawing (backtracking)
+- **Automatic connection breaking**: When drawing through existing paths, intelligently removes opposite-direction connection
+- **Intelligent path extension**: Uses BFS to find shortest path when dragging to non-adjacent cell
+
+**Implementation:** Pointer Events API (handles both mouse and touch). All interactions feel native and responsive.
+
+**Mobile Optimizations:**
+- Prevent page scroll while drawing
+- Large touch targets (minimum 48×48px)
+- Prevent zoom/pinch gestures on canvas
+- Prevent double-tap zoom
 
 -----
 
-## Future Enhancements (Post-MVP)
+## Development Guide
 
-### Completed Features
-- ✅ Multiple difficulty levels (Easy 4x4, Medium 6x6, Hard 8x8)
-- ✅ Hint system (partial/all toggle with validation coloring)
-- ✅ Navigation system with home page
-- ✅ Settings bottom sheet with immediate-apply controls
-- ✅ Timer with difficulty display (format: "Difficulty • MM:SS")
-- ✅ Automatic timer pausing when tab becomes hidden
-- ✅ Unlimited practice mode with in-session difficulty switching
-- ✅ iOS-style segmented control for difficulty selection
-- ✅ Daily puzzles with date-based deterministic generation
-- ✅ Local timezone support for puzzle rotation
-- ✅ Puzzle ID system for future social features
-- ✅ Automatic game progress persistence (localStorage-based)
-- ✅ Settings persistence across all game modes
-- ✅ Throttled save system with memory leak prevention
-- ✅ Per-difficulty save slots for unlimited mode
+### Development Status
 
-### Planned Enhancements
+**✅ Core Features Complete**
+- Full gameplay loop (draw, validate, win detection)
+- Three difficulty levels (Easy 4x4, Medium 6x6, Hard 8x8)
+- Daily puzzle system with deterministic generation
+- Unlimited practice mode with in-session difficulty switching
+- Settings persistence (hints, borders, solution display)
+- Game progress persistence with throttled saves
+- Timer with auto-pause on tab blur
+- Responsive mobile-first UI with smooth animations
+- Settings bottom sheet with context-aware controls
+- Intelligent drag interactions and path smoothing
+
+**🚧 Planned Enhancements**
 - Interactive tutorial with guided puzzle examples
 - Undo/Redo functionality
 - Move counter
@@ -604,48 +384,79 @@ Display-only changes (resize, settings toggles) call the render function with a 
 - Archive mode to replay previous daily puzzles
 - Cross-device sync (requires backend and authentication)
 
------
+### Common Modification Patterns
 
-## Key Development Tips
+**Change Grid Sizes:**
+1. Update difficulty configuration in `config.js` (if adding new standard sizes)
+2. Add fallback cycle to `FALLBACK_CYCLES` object in `generator.js` (if size not already supported)
+3. Update difficulty buttons in `index.html` and routing logic in `views/home.js`
 
-### Performance
+**Add New Constraint Types:**
+1. Modify turn counting logic in `utils.js:countTurnsInArea()` or create new validation function
+2. Update validation rendering in `renderer.js:renderCellNumbers()` to display new constraint type
+3. Consider impact on puzzle generation difficulty and solvability
 
-- Use `requestAnimationFrame` for smooth rendering
-- Debounce resize events
-- Cache constraint calculations
-- Use pointer events (better than touch + mouse)
+**Modify Hint Display:**
+1. **Hint colors**: Update `CONFIG.COLORS.HINT_COLORS` array in `config.js`
+2. **Hint probability**: Change `CONFIG.HINT.PROBABILITY` (0-1) or modify `generateHintCells()` in `renderer.js`
+3. **Border rendering**: Modify `drawHintBorders()` in `renderer.js` (width, inset, layer offset)
+4. **Pulse animation**: Adjust `CONFIG.HINT.PULSE_DURATION` and `CONFIG.HINT.PULSE_MAX_OPACITY`
 
-### Mobile UX
+**Change Persistence Behavior:**
+1. **Save cooldown**: Modify `SAVE_COOLDOWN_MS` constant in `persistence.js` (default 5000ms)
+2. **Storage keys**: Update `getStorageKey()` function in `persistence.js`
+3. **Cleanup logic**: Modify `cleanupOldSaves()` to change retention policy
+4. **Settings schema**: Update `DEFAULT_SETTINGS` object and add migration logic if needed
 
-- Prevent page scroll while drawing
-- Large touch targets (minimum 48×48px)
-- Haptic feedback on constraint satisfaction (vibration API)
-- Prevent zoom/pinch gestures on canvas
+**Modify Puzzle Generation:**
+1. **Attempt counts**: Adjust `CONFIG.GENERATION.ATTEMPTS_*` values in `config.js`
+2. **Algorithm**: Replace Warnsdorff's heuristic in `generator.js:tryWarnsdorff()`
+3. **Fallback cycles**: Add pre-generated cycles to `FALLBACK_CYCLES` in `generator.js`
 
-### Accessibility
+**Add New Visual Features:**
+1. **Path styling**: Update `CONFIG.RENDERING.*` constants in `config.js`
+2. **Colors**: Modify `CONFIG.COLORS.*` in `config.js`
+3. **Animations**: Adjust `renderPlayerPath()`, `renderPath()`, or `renderHintPulse()` in `renderer.js`
 
-- High contrast mode option
-- Keyboard navigation (arrow keys to draw)
-- Screen reader announcements for constraint states
-- Focus indicators for buttons
+**Performance Tuning:**
+1. **Canvas sizing**: Adjust `CONFIG.CELL_SIZE_MIN/MAX` in `config.js`
+2. **Rendering optimization**: Modify render frequency or use canvas layering
+3. **Save frequency**: Tune `SAVE_COOLDOWN_MS` or implement debouncing instead of throttling
 
-### Testing
+### Key Development Tips
 
+**Performance:**
+- Use `requestAnimationFrame` for smooth rendering (already implemented in `views/game.js`)
+- Debounce resize events (implemented with `ResizeObserver`)
+- Cache constraint calculations (turn maps are built once per render)
+- Use pointer events (already using Pointer Events API, better than touch + mouse)
+
+**Mobile UX:**
+- Prevent page scroll while drawing (implemented in `main.js`)
+- Large touch targets (48×48px minimum for buttons)
+- Prevent zoom/pinch gestures (implemented with gesture event handlers)
+- Consider haptic feedback on constraint satisfaction (Vibration API, not yet implemented)
+
+**Accessibility:**
+- High contrast mode option (not yet implemented)
+- Keyboard navigation for drawing (arrow keys, not yet implemented)
+- Screen reader announcements for constraint states (not yet implemented)
+- Focus indicators for buttons (implemented via CSS)
+
+**Testing:**
 - Test on various screen sizes (iPhone SE to iPad)
 - Test with both touch and mouse
-- Test rapid drawing (performance)
-- Test edge cases (starting at corners, crossing paths)
+- Test rapid drawing for performance
+- Test edge cases (starting at corners, crossing paths, backtracking)
 
------
-
-## Quick Start Commands
+### Quick Start Commands
 
 ```bash
 # Development
 npm install          # Install dependencies
-npm run dev         # Start Vite dev server (http://localhost:5173)
-npm run build       # Build for production (outputs to dist/)
-npm run preview     # Preview production build
+npm run dev          # Start Vite dev server (http://localhost:5173)
+npm run build        # Build for production (outputs to dist/)
+npm run preview      # Preview production build
 
 # Deployment (Netlify)
 # Push to git, Netlify auto-deploys from branch
@@ -653,10 +464,10 @@ npm run preview     # Preview production build
 # Publish directory: dist
 ```
 
-### Local Development Notes
+**Local Development Notes:**
 
-**Direct URL Testing:** When testing locally with `npm run dev`, direct URL navigation works only through in-app navigation. To test direct URLs properly, either:
-1. Deploy to Netlify (recommended)
+Direct URL testing: When testing locally with `npm run dev`, direct URL navigation works only through in-app navigation. To test direct URLs properly:
+1. Deploy to Netlify (recommended), or
 2. Use `npm run build && npm run preview` to test production build locally
 
 The Vite dev server doesn't process the `_redirects` file, but the production build on Netlify does.
@@ -665,31 +476,42 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 
 ## Expected Behavior Summary
 
-### Daily Puzzle Mode Flow (Easy/Medium/Hard)
-1. **Home screen shows current date** → Tagline displays formatted date (e.g., "30 November 2025")
-2. **User selects difficulty from home** → Enters game with fixed grid size and today's daily puzzle
-3. **Navigation shows blank title** → Difficulty displayed in timer (e.g., "Medium • 0:00")
-4. **Puzzle is deterministic** → Everyone playing Medium on the same local date sees identical puzzle
-5. **User draws path** → Blue path extends smoothly with drag, timer counts up
-6. **User completes loop** → Constraints turn green if satisfied, yellow if violated
-7. **Victory** → Timer stops, completion message shows time (e.g., "You made a loop in 1:23!")
-8. **No New button** → Button is hidden since daily puzzles cannot be regenerated
-9. **Restart available** → User can restart and replay the same daily puzzle
-10. **Tomorrow** → New puzzle automatically available at local midnight
+### Game Mode Comparison
 
-### Unlimited Mode Flow
-1. **User selects Unlimited from home** → Enters game defaulting to Easy (4x4)
-2. **Timer shows current difficulty** → Displays "Easy • 0:00" (not "Unlimited")
-3. **New button visible** → Generates fresh random puzzle each time
-4. **User opens settings** → Sees segmented control (Easy/Medium/Hard) at top of sheet
-5. **User switches to Hard** → Grid rebuilds as 8x8, puzzle regenerates, timer resets, difficulty label updates to "Hard • 0:00"
-6. **Settings persist** → Hints, Border, and Solution toggles remain unchanged when switching difficulty
-7. **Unlimited replays** → User can practice any difficulty repeatedly with true random generation
+| Aspect | Daily Mode (Easy/Medium/Hard) | Unlimited Mode |
+|--------|-------------------------------|----------------|
+| **Puzzle Source** | Deterministic from date seed | True random generation |
+| **Consistency** | Everyone sees same puzzle on same local date | Each session gets different puzzles |
+| **Entry Point** | Home → Select difficulty → Fixed for session | Home → Unlimited → Defaults to Easy |
+| **New Button** | Hidden (can't regenerate daily puzzle) | Visible (generate fresh puzzle anytime) |
+| **Difficulty** | Fixed by initial selection | Switchable in-session via settings segmented control |
+| **Grid Size** | Easy 4x4, Medium 6x6, Hard 8x8 | Same sizes, switchable within session |
+| **Timer Display** | Shows selected difficulty (e.g., "Medium • 0:00") | Shows current difficulty (e.g., "Easy • 0:00") |
+| **Settings** | Hints, Border, Solution toggles | Same + difficulty segmented control at top |
+| **Save Slots** | One per date+difficulty | One per difficulty (persistent across sessions) |
+| **Restart** | Replays same daily puzzle | Replays current random puzzle |
+| **Rotation** | New puzzle at local midnight | N/A (always generates random) |
 
 ### Universal Interactions
-- **Tap empty cell** → Path starts, cell is drawn
-- **Tap existing cell** → Cell is erased (along with any orphaned cells)
-- **Drag** → Blue path extends smoothly, automatically breaking old connections when crossing existing paths
-- **Drag backward** → Recent path is undone (backtracking)
-- **Restart button** → Clears path but keeps timer running (unless game was already won)
-- **Back button** → Returns to home page
+
+| User Action | Behavior |
+|-------------|----------|
+| **Tap empty cell** | Path starts, cell is drawn |
+| **Tap existing cell** | Cell is erased (along with orphaned cells) |
+| **Drag** | Blue path extends smoothly, auto-breaks connections when crossing |
+| **Drag backward** | Recent path is undone (backtracking) |
+| **Restart button** | Clears path, keeps timer running (unless already won) |
+| **Back button** | Returns to home page |
+| **Settings button** | Opens bottom sheet with toggles |
+| **Tab blur** | Timer pauses automatically |
+| **Tab focus** | Timer resumes automatically |
+
+**Constraint States:**
+- **Colorful (palette)**: Constraint not yet satisfied
+- **Green**: Constraint satisfied (turn count matches)
+- **Pulsing background**: Animated 3x3 area showing validation region
+
+**Path Colors:**
+- **Black**: Player's active drawing
+- **Green**: Victory state (all constraints satisfied)
+- **Blue**: Solution path (when "Solution" setting enabled)
