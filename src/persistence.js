@@ -21,11 +21,13 @@ const STORAGE_PREFIX = 'loop-game';
  */
 function getStorageKey(puzzleId, difficulty, isUnlimitedMode) {
   if (isUnlimitedMode) {
-    return `${STORAGE_PREFIX}:unlimited`;
+    // Include difficulty so each unlimited difficulty has separate save slot
+    // Format: "loop-game:unlimited:easy"
+    return `${STORAGE_PREFIX}:unlimited:${difficulty}`;
   }
 
   // For daily puzzles, use puzzleId which includes date and difficulty
-  // Format: "loop-game:daily:2025-11-30:easy"
+  // Format: "loop-game:daily:2025-11-30-easy"
   return `${STORAGE_PREFIX}:daily:${puzzleId}`;
 }
 
@@ -39,8 +41,12 @@ function parseStorageKey(key) {
 
   const parts = key.split(':');
 
-  if (parts[1] === 'unlimited') {
-    return { type: 'unlimited' };
+  if (parts[1] === 'unlimited' && parts.length === 3) {
+    // Format: loop-game:unlimited:easy
+    return {
+      type: 'unlimited',
+      difficulty: parts[2]
+    };
   }
 
   if (parts[1] === 'daily' && parts.length === 3) {
