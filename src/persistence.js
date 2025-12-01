@@ -419,3 +419,55 @@ export function createDebouncedSave(cooldownMs = 5000) {
     }
   };
 }
+
+/* ============================================================================
+ * SETTINGS PERSISTENCE
+ * ========================================================================= */
+
+const DEFAULT_SETTINGS = {
+  hintMode: 'partial',
+  borderMode: 'off',
+  showSolution: false,
+  lastUnlimitedDifficulty: 'easy'
+};
+
+/**
+ * Save user settings to localStorage
+ * @param {Object} settings - Settings object
+ * @returns {boolean} Whether save was successful
+ */
+export function saveSettings(settings) {
+  try {
+    const key = `${STORAGE_PREFIX}:settings`;
+    localStorage.setItem(key, JSON.stringify(settings));
+    console.log('[Persistence] Saved settings');
+    return true;
+  } catch (error) {
+    console.warn('Failed to save settings:', error);
+    return false;
+  }
+}
+
+/**
+ * Load user settings from localStorage
+ * @returns {Object} Settings object (merged with defaults)
+ */
+export function loadSettings() {
+  try {
+    const key = `${STORAGE_PREFIX}:settings`;
+    const json = localStorage.getItem(key);
+
+    if (!json) {
+      console.log('[Persistence] No saved settings, using defaults');
+      return { ...DEFAULT_SETTINGS };
+    }
+
+    const settings = JSON.parse(json);
+    // Merge with defaults in case new settings are added in future
+    console.log('[Persistence] Loaded settings');
+    return { ...DEFAULT_SETTINGS, ...settings };
+  } catch (error) {
+    console.warn('Failed to load settings:', error);
+    return { ...DEFAULT_SETTINGS };
+  }
+}

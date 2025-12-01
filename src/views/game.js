@@ -12,7 +12,7 @@ import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
-import { saveGameState, loadGameState, clearGameState, createDebouncedSave } from '../persistence.js';
+import { saveGameState, loadGameState, clearGameState, createDebouncedSave, saveSettings, loadSettings } from '../persistence.js';
 
 /* ============================================================================
  * STATE VARIABLES
@@ -92,6 +92,28 @@ function captureGameState() {
     solutionPath,
     hintCells
   };
+}
+
+/**
+ * Save current settings to localStorage
+ */
+function saveCurrentSettings() {
+  const settings = {
+    hintMode,
+    borderMode,
+    showSolution
+  };
+
+  // Only save unlimited difficulty when in unlimited mode
+  if (isUnlimitedMode) {
+    settings.lastUnlimitedDifficulty = currentUnlimitedDifficulty;
+  } else {
+    // Preserve existing unlimited difficulty setting
+    const existing = loadSettings();
+    settings.lastUnlimitedDifficulty = existing.lastUnlimitedDifficulty;
+  }
+
+  saveSettings(settings);
 }
 
 /* ============================================================================
@@ -224,6 +246,7 @@ function cycleHintMode() {
     hintMode = 'none';
   }
   setTimeout(updateCheckboxState, 0);
+  saveCurrentSettings();
   render();
 }
 
@@ -249,6 +272,7 @@ function cycleBorderMode() {
     borderMode = 'off';
   }
   setTimeout(updateBorderCheckboxState, 0);
+  saveCurrentSettings();
   render();
 }
 
@@ -297,6 +321,9 @@ function changeDifficulty(newDifficulty) {
   // Unlimited mode never uses daily puzzles
   isDailyMode = false;
   currentPuzzleId = null;
+
+  // Save the selected difficulty so next time unlimited is entered, it defaults to this
+  saveCurrentSettings();
 
   // Update segmented control UI
   updateSegmentedControlState();
@@ -521,12 +548,15 @@ export function initGame(difficulty) {
   // Daily mode is any non-unlimited difficulty (easy, medium, hard)
   isDailyMode = !isUnlimitedMode;
 
+  // Load saved settings (applies to all modes)
+  const settings = loadSettings();
+
   // Set grid size from difficulty
   if (isUnlimitedMode) {
-    // In unlimited mode, start with easy difficulty
-    currentUnlimitedDifficulty = 'easy';
-    currentGameDifficulty = 'easy';
-    gridSize = getGridSizeFromDifficulty('easy');
+    // In unlimited mode, use last selected difficulty (or default to easy)
+    currentUnlimitedDifficulty = settings.lastUnlimitedDifficulty;
+    currentGameDifficulty = settings.lastUnlimitedDifficulty;
+    gridSize = getGridSizeFromDifficulty(settings.lastUnlimitedDifficulty);
     currentPuzzleId = null; // Unlimited mode has no puzzle ID
   } else {
     currentGameDifficulty = difficulty;
@@ -569,10 +599,12 @@ export function initGame(difficulty) {
     newBtn.style.display = '';
   }
 
-  // Reset state
-  hintMode = 'partial';
-  borderMode = 'off';
-  showSolution = false;
+  // Apply saved settings (or defaults)
+  hintMode = settings.hintMode;
+  borderMode = settings.borderMode;
+  showSolution = settings.showSolution;
+
+  // Reset game state
   hasWon = false;
   hasShownPartialWinFeedback = false;
   eventListeners = [];
@@ -606,6 +638,7 @@ export function initGame(difficulty) {
   };
   const solutionHandler = () => {
     showSolution = solutionCheckbox.checked;
+    saveCurrentSettings();
     render();
   };
   const backBtnHandler = () => {
