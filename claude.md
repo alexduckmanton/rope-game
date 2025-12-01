@@ -258,6 +258,7 @@ rope-game/
 │   ├── seededRandom.js    # Deterministic PRNG for daily puzzles (Mulberry32 algorithm)
 │   ├── generator.js       # Puzzle generation (Warnsdorff's heuristic)
 │   ├── renderer.js        # Canvas rendering (grid, paths, hints, borders)
+│   ├── persistence.js     # localStorage save/load/cleanup with throttled writes
 │   └── views/
 │       ├── home.js        # Home view with difficulty selection and date display
 │       ├── tutorial.js    # Tutorial view (placeholder for future content)
@@ -265,7 +266,7 @@ rope-game/
 └── package.json
 ```
 
-**Architecture:** Single-page application (SPA) with client-side routing. Each view is a separate module that exports initialization and cleanup functions.
+**Architecture:** Single-page application (SPA) with client-side routing. Each view is a separate module that exports initialization and cleanup functions. The persistence module handles automatic save/restore across all game modes.
 
 -----
 
@@ -420,6 +421,126 @@ The timer uses the Page Visibility API to detect when the document becomes hidde
 
 -----
 
+## Game Progress Persistence
+
+### Architecture Overview
+
+The game implements automatic save/restore functionality using browser localStorage, allowing players to exit mid-puzzle and resume exactly where they left off. Persistence is completely client-side with no backend requirements, maintaining consistency with the app's offline-first design philosophy.
+
+### Core Design Decisions
+
+**1. Throttled Save Strategy**
+
+The persistence system uses a throttle pattern (not debounce) to balance data integrity with performance:
+
+- **First save executes immediately** when player makes a move
+- **5-second cooldown** prevents excessive writes during rapid drawing
+- **Trailing save** ensures final state is always captured after cooldown expires
+- **Immediate saves bypass throttle** when critical (tab backgrounding, navigation away, game completion)
+
+**Rationale:** This approach provides optimal data safety without impacting performance. Players never lose more than 5 seconds of progress, while avoiding hundreds of localStorage writes during continuous drawing. Immediate saves on exit events catch the edge case where a player draws and immediately navigates away within the cooldown window.
+
+**2. Separation of Game State and Settings**
+
+The system maintains two independent localStorage namespaces:
+
+- **Game state keys:** `loop-game:daily:2025-11-30-easy` or `loop-game:unlimited:medium`
+- **Settings key:** `loop-game:settings` (singular, global)
+
+**Game State (per-puzzle):** Player path, timer, win status, partial win feedback flag. For unlimited mode only, also includes the randomly generated puzzle data (solution path and hint cells) since it cannot be deterministically regenerated.
+
+**Settings (global):** Hint mode, border mode, show solution flag, last selected unlimited difficulty. These persist across all game modes and sessions.
+
+**Rationale:** Separating concerns allows settings to transfer seamlessly between daily and unlimited modes while keeping puzzle progress isolated. A player can switch from daily easy to unlimited hard and have their UI preferences automatically applied.
+
+**3. Storage Key Architecture**
+
+Each game mode maintains independent save slots:
+
+- **Daily puzzles:** One slot per difficulty per day (e.g., `loop-game:daily:2025-11-30-medium`)
+- **Unlimited mode:** One slot per difficulty (e.g., `loop-game:unlimited:hard`)
+
+**Daily Behavior:** When the date changes, old daily saves are automatically cleaned up since they represent completed or abandoned puzzles from previous days. The deterministic puzzle generation means daily puzzles can be regenerated from their date-based seed, so only player progress needs saving.
+
+**Unlimited Behavior:** Each difficulty maintains its own persistent save slot. Switching from easy to medium saves the easy state, loads the medium state (or generates new puzzle if none exists), allowing players to maintain progress across multiple difficulty levels simultaneously.
+
+**Rationale:** Isolating save slots by difficulty prevents accidental data loss and enables natural workflow patterns. Players can start an unlimited easy puzzle, switch to medium for variety, then return to their easy progress days later. The automatic cleanup of old daily saves prevents unbounded localStorage growth.
+
+**4. Data Serialization Strategy**
+
+The system uses custom serialization rather than direct object storage:
+
+- **Sets → Arrays:** Player drawn cells and hint cells are Sets in memory but serialize to arrays
+- **Maps → Objects:** Player connections are Maps in memory but serialize to nested objects
+- **Version field:** Every save includes a version number for future schema migration
+- **Timestamp:** Each save records when it was created for debugging and potential analytics
+
+**Rationale:** Sets and Maps cannot be directly JSON-serialized. The transformation layer ensures clean localStorage storage while maintaining optimal in-memory data structures. The version field provides forward compatibility when the save format inevitably needs to evolve.
+
+**5. Settings Caching Pattern**
+
+Settings are read once during game initialization and cached in module-level variables to avoid repeated localStorage reads:
+
+- **Initial load:** Settings are read from localStorage and cached when game view initializes
+- **Writes:** All settings are written together atomically on any change
+- **Cached value:** Last selected unlimited difficulty is cached to avoid re-reading when saving other settings in daily mode
+
+**Rationale:** Eliminates unnecessary I/O overhead. Settings change infrequently but game state saves happen constantly. Caching the unlimited difficulty prevents daily mode from reading localStorage on every hint/border toggle just to preserve a setting it doesn't actively use.
+
+**6. Memory Leak Prevention**
+
+The throttle function returns an object with both save and destroy methods:
+
+- **Save method:** Triggers the throttled save logic
+- **Destroy method:** Clears any pending timeout timers
+- **Cleanup hook:** View cleanup lifecycle always calls destroy before unmounting
+
+**Rationale:** JavaScript timers created in closures can leak memory if not explicitly cleared. When a game view is destroyed and recreated (though rare in current architecture), the destroy method prevents orphaned timers from attempting to save stale game state or consuming memory indefinitely.
+
+### Selective Save Triggering
+
+The rendering system distinguishes between game state changes and pure display changes:
+
+- **Trigger saves:** Player draws, restarts puzzle, generates new puzzle, completes game
+- **Skip saves:** Window resize, hint mode toggle, border mode toggle, solution checkbox toggle
+
+Display-only changes (resize, settings toggles) call the render function with a flag that bypasses game state saving. Settings are persisted through their own dedicated save function, keeping concerns separated.
+
+**Benefit:** Reduces localStorage writes by approximately 80%. Previously every window resize and setting toggle would save the entire game state. Now saves only occur when actual puzzle progress changes.
+
+### Edge Case Handling
+
+**Partial Win Message Persistence:** The flag tracking whether "nice loop but wrong hints" feedback has been shown is now persisted. Players who achieve a structurally valid loop, exit, and return won't see the same encouraging message repeatedly.
+
+**Restore Without Cooldown:** When loading saved state, the render call explicitly bypasses save triggering. Without this, restoration would immediately trigger a save (since cooldown timer starts at zero), wasting a localStorage write and starting the cooldown before the player's first actual move.
+
+**Daily Puzzle ID Validation:** When loading daily puzzle saves, the system verifies the puzzle ID matches the current day. This prevents restored state from appearing if the player's system clock changed significantly or timezone shifted during travel.
+
+**Cleanup on New Puzzle:** Generating a new puzzle in unlimited mode explicitly clears the save for that difficulty before creating the fresh puzzle, preventing stale state from being restored if generation somehow fails partway through.
+
+**Tab Backgrounding:** The Page Visibility API triggers an immediate save when the tab becomes hidden, ensuring timer accuracy is preserved and recent draws are not lost if the browser crashes or device runs out of memory while backgrounded.
+
+### Benefits
+
+- **Zero backend complexity:** No server, database, authentication, or sync conflicts to manage
+- **Instant resume:** Players can close the browser mid-puzzle and return hours later to exact state
+- **Offline-first:** Persistence works without network connectivity after initial load
+- **Per-device isolation:** Acceptable for casual puzzle game; simpler than cross-device sync
+- **Fair daily competition:** Player progress is saved but not shared; times remain trust-based until backend added
+- **Efficient writes:** Throttling prevents performance impact from rapid drawing
+- **Clean storage:** Automatic cleanup prevents localStorage from growing unbounded
+- **Forward compatible:** Version field and settings merging enable future schema evolution
+
+### Tradeoffs Accepted
+
+- **No cross-device sync:** Progress is device-specific (acceptable for casual browser game)
+- **Trust-based completion times:** No server validation prevents leaderboard cheating (deferred to future backend)
+- **Clock manipulation vulnerability:** Players can access future daily puzzles by changing system clock (acceptable for casual game)
+- **5-second progress loss window:** Rapid draw + crash during cooldown loses recent moves (extremely rare, acceptable for simplicity)
+- **Local timezone saves:** Daily puzzle saves use local date, so traveling across timezones could cause minor confusion (consistent with local timezone puzzle generation)
+
+-----
+
 ## MVP Feature Checklist
 
 ### Core Gameplay
@@ -464,19 +585,24 @@ The timer uses the Page Visibility API to detect when the document becomes hidde
 - ✅ Daily puzzles with date-based deterministic generation
 - ✅ Local timezone support for puzzle rotation
 - ✅ Puzzle ID system for future social features
+- ✅ Automatic game progress persistence (localStorage-based)
+- ✅ Settings persistence across all game modes
+- ✅ Throttled save system with memory leak prevention
+- ✅ Per-difficulty save slots for unlimited mode
 
 ### Planned Enhancements
 - Interactive tutorial with guided puzzle examples
 - Undo/Redo functionality
 - Move counter
-- Daily puzzle completion tracking (localStorage)
-- Streak counter and statistics
-- Leaderboards and social sharing for daily puzzles
+- Daily puzzle completion tracking and statistics dashboard
+- Streak counter (consecutive days completed)
+- Leaderboards and social sharing for daily puzzles (requires backend)
 - Achievement system
 - Dark mode
 - Sound effects (optional, subtle)
 - Share puzzle results with times
 - Archive mode to replay previous daily puzzles
+- Cross-device sync (requires backend and authentication)
 
 -----
 
