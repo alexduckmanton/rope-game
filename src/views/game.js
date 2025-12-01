@@ -12,7 +12,7 @@ import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
-import { saveGameState, loadGameState, clearGameState, createDebouncedSave, saveSettings, loadSettings } from '../persistence.js';
+import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings } from '../persistence.js';
 
 /* ============================================================================
  * STATE VARIABLES
@@ -67,8 +67,12 @@ let gameCore;
 // Event listener references for cleanup
 let eventListeners = [];
 
-// Debounced save function (max 1 save per 5 seconds)
-let debouncedSave = createDebouncedSave(5000);
+// Throttled save function (max 1 save per 5 seconds)
+let throttledSaveObj = createThrottledSave();
+let throttledSave = throttledSaveObj.save;
+
+// Cached settings values to avoid re-reading localStorage
+let cachedLastUnlimitedDifficulty = 'easy';
 
 /* ============================================================================
  * PERSISTENCE HELPERS
@@ -89,6 +93,7 @@ function captureGameState() {
     playerConnections,
     elapsedSeconds,
     hasWon,
+    hasShownPartialWinFeedback,
     solutionPath,
     hintCells
   };
@@ -101,17 +106,10 @@ function saveCurrentSettings() {
   const settings = {
     hintMode,
     borderMode,
-    showSolution
+    showSolution,
+    // Use cached value instead of re-reading from localStorage
+    lastUnlimitedDifficulty: cachedLastUnlimitedDifficulty
   };
-
-  // Only save unlimited difficulty when in unlimited mode
-  if (isUnlimitedMode) {
-    settings.lastUnlimitedDifficulty = currentUnlimitedDifficulty;
-  } else {
-    // Preserve existing unlimited difficulty setting
-    const existing = loadSettings();
-    settings.lastUnlimitedDifficulty = existing.lastUnlimitedDifficulty;
-  }
 
   saveSettings(settings);
 }
@@ -247,7 +245,8 @@ function cycleHintMode() {
   }
   setTimeout(updateCheckboxState, 0);
   saveCurrentSettings();
-  render();
+  // Don't trigger game state save for display-only changes
+  render(false);
 }
 
 function updateBorderCheckboxState() {
@@ -273,7 +272,8 @@ function cycleBorderMode() {
   }
   setTimeout(updateBorderCheckboxState, 0);
   saveCurrentSettings();
-  render();
+  // Don't trigger game state save for display-only changes
+  render(false);
 }
 
 function showSettings() {
@@ -322,7 +322,8 @@ function changeDifficulty(newDifficulty) {
   isDailyMode = false;
   currentPuzzleId = null;
 
-  // Save the selected difficulty so next time unlimited is entered, it defaults to this
+  // Update cached value and save settings
+  cachedLastUnlimitedDifficulty = newDifficulty;
   saveCurrentSettings();
 
   // Update segmented control UI
@@ -424,7 +425,7 @@ function render(triggerSave = true) {
   // Save game state (throttled to max once per 5 seconds)
   // Only save if triggered by user interaction, not by restore/display changes
   if (triggerSave) {
-    debouncedSave(captureGameState());
+    throttledSave(captureGameState());
   }
 }
 
@@ -459,12 +460,10 @@ function generateNewPuzzle() {
  */
 function loadOrGeneratePuzzle() {
   // Try to load saved state
-  console.log('[Game] loadOrGeneratePuzzle called. puzzleId:', currentPuzzleId, 'difficulty:', currentGameDifficulty, 'unlimited:', isUnlimitedMode);
   const savedState = loadGameState(currentPuzzleId, currentGameDifficulty, isUnlimitedMode);
 
   if (savedState) {
     // Saved state exists - restore the game
-    console.log('[Game] Restoring saved game state');
 
     // For daily puzzles, regenerate the puzzle from seed
     // (we don't save puzzle data for daily since it's deterministic)
@@ -486,7 +485,7 @@ function loadOrGeneratePuzzle() {
 
     // Restore win state
     hasWon = savedState.hasWon;
-    hasShownPartialWinFeedback = false;
+    hasShownPartialWinFeedback = savedState.hasShownPartialWinFeedback || false;
 
     // Restore and resume timer
     if (hasWon) {
@@ -502,7 +501,6 @@ function loadOrGeneratePuzzle() {
     render(false);
   } else {
     // No saved state - generate fresh puzzle
-    console.log('[Game] No saved state found, generating new puzzle');
     generateNewPuzzle();
   }
 }
@@ -551,12 +549,15 @@ export function initGame(difficulty) {
   // Load saved settings (applies to all modes)
   const settings = loadSettings();
 
+  // Cache lastUnlimitedDifficulty to avoid re-reading localStorage on every settings save
+  cachedLastUnlimitedDifficulty = settings.lastUnlimitedDifficulty;
+
   // Set grid size from difficulty
   if (isUnlimitedMode) {
     // In unlimited mode, use last selected difficulty (or default to easy)
-    currentUnlimitedDifficulty = settings.lastUnlimitedDifficulty;
-    currentGameDifficulty = settings.lastUnlimitedDifficulty;
-    gridSize = getGridSizeFromDifficulty(settings.lastUnlimitedDifficulty);
+    currentUnlimitedDifficulty = cachedLastUnlimitedDifficulty;
+    currentGameDifficulty = cachedLastUnlimitedDifficulty;
+    gridSize = getGridSizeFromDifficulty(cachedLastUnlimitedDifficulty);
     currentPuzzleId = null; // Unlimited mode has no puzzle ID
   } else {
     currentGameDifficulty = difficulty;
@@ -624,7 +625,8 @@ export function initGame(difficulty) {
   // Set up event listeners and store references for cleanup
   const resizeHandler = () => {
     resizeCanvas();
-    render();
+    // Don't trigger save on resize - just redraw
+    render(false);
   };
   const newBtnHandler = () => generateNewPuzzle();
   const restartBtnHandler = () => restartPuzzle();
@@ -639,7 +641,8 @@ export function initGame(difficulty) {
   const solutionHandler = () => {
     showSolution = solutionCheckbox.checked;
     saveCurrentSettings();
-    render();
+    // Don't trigger game state save for display-only changes
+    render(false);
   };
   const backBtnHandler = () => {
     // Smart navigation: if we came from home, go back to original entry
@@ -747,6 +750,9 @@ export function cleanupGame() {
   // This ensures we don't lose timer state or recent draws when navigating away
   // Bypasses throttle for immediate save
   saveGameState(captureGameState());
+
+  // Clean up throttle timer to prevent memory leak
+  throttledSaveObj.destroy();
 
   // Stop timer
   stopTimer();

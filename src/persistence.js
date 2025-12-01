@@ -5,8 +5,50 @@
  * Supports both daily puzzles and unlimited mode with different storage strategies.
  */
 
+/**
+ * @typedef {Object} GameState
+ * @property {string|null} puzzleId - Daily puzzle ID (format: "YYYY-MM-DD-difficulty") or null for unlimited
+ * @property {string} difficulty - Game difficulty: "easy", "medium", or "hard"
+ * @property {number} gridSize - Size of the game grid (4, 6, or 8)
+ * @property {boolean} isUnlimitedMode - Whether this is an unlimited (random) game
+ * @property {Set<string>} playerDrawnCells - Set of cell keys that player has drawn (format: "row,col")
+ * @property {Map<string, Set<string>>} playerConnections - Map of cell connections (key: "row,col", value: Set of connected cell keys)
+ * @property {number} elapsedSeconds - Time elapsed in seconds
+ * @property {boolean} hasWon - Whether the player has completed the puzzle
+ * @property {Array<{row: number, col: number}>} solutionPath - The solution path (saved only for unlimited mode)
+ * @property {Set<string>} hintCells - Set of hint cell keys (saved only for unlimited mode)
+ * @property {boolean} [hasShownPartialWinFeedback] - Whether partial win message has been shown
+ */
+
+/**
+ * @typedef {Object} SerializedGameState
+ * @property {number} version - Storage format version
+ * @property {string|null} puzzleId - Daily puzzle ID or null for unlimited
+ * @property {string} difficulty - Game difficulty
+ * @property {number} gridSize - Size of the game grid
+ * @property {boolean} isUnlimitedMode - Whether this is unlimited mode
+ * @property {Array<string>} playerDrawnCells - Array of drawn cell keys
+ * @property {Object<string, Array<string>>} playerConnections - Object mapping cell keys to arrays of connected cells
+ * @property {number} elapsedSeconds - Elapsed time in seconds
+ * @property {boolean} hasWon - Win status
+ * @property {number} savedAt - Timestamp when state was saved
+ * @property {Array<{row: number, col: number}>} [solutionPath] - Solution path (unlimited only)
+ * @property {Array<string>} [hintCells] - Hint cells array (unlimited only)
+ * @property {boolean} [hasShownPartialWinFeedback] - Partial win feedback flag
+ */
+
+/**
+ * @typedef {Object} Settings
+ * @property {string} hintMode - Hint display mode: "none", "partial", or "all"
+ * @property {string} borderMode - Border display mode: "off", "center", or "full"
+ * @property {boolean} showSolution - Whether to show the solution path
+ * @property {string} lastUnlimitedDifficulty - Last selected unlimited difficulty
+ */
+
 const STORAGE_VERSION = 1;
 const STORAGE_PREFIX = 'loop-game';
+const SAVE_COOLDOWN_MS = 5000;
+const SETTINGS_ANIMATION_DURATION_MS = 300;
 
 /* ============================================================================
  * STORAGE KEY MANAGEMENT
@@ -79,8 +121,8 @@ function getTodayDateString() {
 
 /**
  * Convert game state to JSON-serializable format
- * @param {Object} state - Current game state
- * @returns {Object} Serialized state
+ * @param {GameState} state - Current game state
+ * @returns {SerializedGameState} Serialized state
  */
 function serializeGameState(state) {
   const {
@@ -92,6 +134,7 @@ function serializeGameState(state) {
     playerConnections,
     elapsedSeconds,
     hasWon,
+    hasShownPartialWinFeedback,
     solutionPath,
     hintCells
   } = state;
@@ -117,6 +160,7 @@ function serializeGameState(state) {
     playerConnections: serializedConnections,
     elapsedSeconds,
     hasWon,
+    hasShownPartialWinFeedback: hasShownPartialWinFeedback || false,
     savedAt: Date.now()
   };
 
@@ -131,8 +175,8 @@ function serializeGameState(state) {
 
 /**
  * Convert saved JSON data back to game state format
- * @param {Object} saved - Saved state from localStorage
- * @returns {Object} Deserialized state
+ * @param {SerializedGameState} saved - Saved state from localStorage
+ * @returns {GameState} Deserialized state
  */
 function deserializeGameState(saved) {
   const {
@@ -144,6 +188,7 @@ function deserializeGameState(saved) {
     playerConnections,
     elapsedSeconds,
     hasWon,
+    hasShownPartialWinFeedback,
     solutionPath,
     hintCells
   } = saved;
@@ -167,7 +212,8 @@ function deserializeGameState(saved) {
     playerDrawnCells: deserializedCells,
     playerConnections: deserializedConnections,
     elapsedSeconds,
-    hasWon
+    hasWon,
+    hasShownPartialWinFeedback: hasShownPartialWinFeedback || false
   };
 
   // For unlimited mode, restore the puzzle data
@@ -233,7 +279,7 @@ function isValidSavedState(saved) {
 
 /**
  * Save current game state to localStorage
- * @param {Object} state - Current game state
+ * @param {GameState} state - Current game state
  * @returns {boolean} Whether save was successful
  */
 export function saveGameState(state) {
@@ -243,7 +289,6 @@ export function saveGameState(state) {
     const json = JSON.stringify(serialized);
 
     localStorage.setItem(key, json);
-    console.log('[Persistence] Saved game state to:', key);
     return true;
   } catch (error) {
     // localStorage might be full, disabled, or in private browsing mode
@@ -257,16 +302,14 @@ export function saveGameState(state) {
  * @param {string|null} puzzleId - Puzzle ID for daily mode, null for unlimited
  * @param {string} difficulty - Game difficulty
  * @param {boolean} isUnlimitedMode - Whether this is unlimited mode
- * @returns {Object|null} Deserialized game state or null if no save exists
+ * @returns {GameState|null} Deserialized game state or null if no save exists
  */
 export function loadGameState(puzzleId, difficulty, isUnlimitedMode) {
   try {
     const key = getStorageKey(puzzleId, difficulty, isUnlimitedMode);
-    console.log('[Persistence] Attempting to load from:', key);
     const json = localStorage.getItem(key);
 
     if (!json) {
-      console.log('[Persistence] No saved state found');
       return null;
     }
 
@@ -281,11 +324,10 @@ export function loadGameState(puzzleId, difficulty, isUnlimitedMode) {
     // For daily puzzles, ensure the puzzleId matches
     // (in case there's a clock change or corrupted data)
     if (!isUnlimitedMode && saved.puzzleId !== puzzleId) {
-      console.warn('[Persistence] Puzzle ID mismatch, ignoring saved state. Expected:', puzzleId, 'Got:', saved.puzzleId);
+      console.warn('[Persistence] Puzzle ID mismatch, ignoring saved state');
       return null;
     }
 
-    console.log('[Persistence] Successfully loaded saved state');
     return deserializeGameState(saved);
   } catch (error) {
     console.warn('[Persistence] Failed to load game state:', error);
@@ -302,7 +344,6 @@ export function loadGameState(puzzleId, difficulty, isUnlimitedMode) {
 export function clearGameState(puzzleId, difficulty, isUnlimitedMode) {
   try {
     const key = getStorageKey(puzzleId, difficulty, isUnlimitedMode);
-    console.log('[Persistence] Clearing saved state from:', key);
     localStorage.removeItem(key);
   } catch (error) {
     console.warn('[Persistence] Failed to clear game state:', error);
@@ -348,10 +389,6 @@ export function cleanupOldSaves() {
     for (const key of keysToRemove) {
       localStorage.removeItem(key);
     }
-
-    if (keysToRemove.length > 0) {
-      console.log(`Cleaned up ${keysToRemove.length} old saved game(s)`);
-    }
   } catch (error) {
     console.warn('Failed to cleanup old saves:', error);
   }
@@ -372,15 +409,19 @@ export function cleanupOldSaves() {
  * - Final state is always saved after player stops drawing
  *
  * @param {number} cooldownMs - Cooldown period in milliseconds
- * @returns {Function} Throttled save function
+ * @returns {{save: (state: GameState) => void, destroy: () => void}} Object with save function and destroy method
  */
-export function createDebouncedSave(cooldownMs = 5000) {
+export function createThrottledSave(cooldownMs = SAVE_COOLDOWN_MS) {
   let lastSaveTime = 0;
   let hasPendingChanges = false;
   let pendingState = null;
   let cooldownTimer = null;
 
-  return function throttledSave(state) {
+  /**
+   * Save game state with throttling
+   * @param {GameState} state - Current game state
+   */
+  function save(state) {
     const now = Date.now();
     const timeSinceLastSave = now - lastSaveTime;
 
@@ -417,7 +458,21 @@ export function createDebouncedSave(cooldownMs = 5000) {
       // If timer already scheduled, pendingState is just updated
       // Multiple calls during cooldown all update the same state variable
     }
-  };
+  }
+
+  /**
+   * Clean up any pending timers (prevents memory leaks)
+   */
+  function destroy() {
+    if (cooldownTimer) {
+      clearTimeout(cooldownTimer);
+      cooldownTimer = null;
+    }
+    hasPendingChanges = false;
+    pendingState = null;
+  }
+
+  return { save, destroy };
 }
 
 /* ============================================================================
@@ -433,14 +488,13 @@ const DEFAULT_SETTINGS = {
 
 /**
  * Save user settings to localStorage
- * @param {Object} settings - Settings object
+ * @param {Settings} settings - Settings object
  * @returns {boolean} Whether save was successful
  */
 export function saveSettings(settings) {
   try {
     const key = `${STORAGE_PREFIX}:settings`;
     localStorage.setItem(key, JSON.stringify(settings));
-    console.log('[Persistence] Saved settings');
     return true;
   } catch (error) {
     console.warn('Failed to save settings:', error);
@@ -450,7 +504,7 @@ export function saveSettings(settings) {
 
 /**
  * Load user settings from localStorage
- * @returns {Object} Settings object (merged with defaults)
+ * @returns {Settings} Settings object (merged with defaults)
  */
 export function loadSettings() {
   try {
@@ -458,13 +512,11 @@ export function loadSettings() {
     const json = localStorage.getItem(key);
 
     if (!json) {
-      console.log('[Persistence] No saved settings, using defaults');
       return { ...DEFAULT_SETTINGS };
     }
 
     const settings = JSON.parse(json);
     // Merge with defaults in case new settings are added in future
-    console.log('[Persistence] Loaded settings');
     return { ...DEFAULT_SETTINGS, ...settings };
   } catch (error) {
     console.warn('Failed to load settings:', error);
