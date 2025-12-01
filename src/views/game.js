@@ -92,8 +92,6 @@ function captureGameState() {
     playerDrawnCells,
     playerConnections,
     elapsedSeconds,
-    hasWon,
-    hasShownPartialWinFeedback,
     solutionPath,
     hintCells
   };
