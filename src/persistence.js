@@ -14,10 +14,8 @@
  * @property {Set<string>} playerDrawnCells - Set of cell keys that player has drawn (format: "row,col")
  * @property {Map<string, Set<string>>} playerConnections - Map of cell connections (key: "row,col", value: Set of connected cell keys)
  * @property {number} elapsedSeconds - Time elapsed in seconds
- * @property {boolean} hasWon - Whether the player has completed the puzzle
  * @property {Array<{row: number, col: number}>} solutionPath - The solution path (saved only for unlimited mode)
  * @property {Set<string>} hintCells - Set of hint cell keys (saved only for unlimited mode)
- * @property {boolean} [hasShownPartialWinFeedback] - Whether partial win message has been shown
  */
 
 /**
@@ -30,11 +28,9 @@
  * @property {Array<string>} playerDrawnCells - Array of drawn cell keys
  * @property {Object<string, Array<string>>} playerConnections - Object mapping cell keys to arrays of connected cells
  * @property {number} elapsedSeconds - Elapsed time in seconds
- * @property {boolean} hasWon - Win status
  * @property {number} savedAt - Timestamp when state was saved
  * @property {Array<{row: number, col: number}>} [solutionPath] - Solution path (unlimited only)
  * @property {Array<string>} [hintCells] - Hint cells array (unlimited only)
- * @property {boolean} [hasShownPartialWinFeedback] - Partial win feedback flag
  */
 
 /**
@@ -133,8 +129,6 @@ function serializeGameState(state) {
     playerDrawnCells,
     playerConnections,
     elapsedSeconds,
-    hasWon,
-    hasShownPartialWinFeedback,
     solutionPath,
     hintCells
   } = state;
@@ -159,8 +153,6 @@ function serializeGameState(state) {
     playerDrawnCells: serializedCells,
     playerConnections: serializedConnections,
     elapsedSeconds,
-    hasWon,
-    hasShownPartialWinFeedback: hasShownPartialWinFeedback || false,
     savedAt: Date.now()
   };
 
@@ -187,8 +179,6 @@ function deserializeGameState(saved) {
     playerDrawnCells,
     playerConnections,
     elapsedSeconds,
-    hasWon,
-    hasShownPartialWinFeedback,
     solutionPath,
     hintCells
   } = saved;
@@ -211,9 +201,7 @@ function deserializeGameState(saved) {
     isUnlimitedMode,
     playerDrawnCells: deserializedCells,
     playerConnections: deserializedConnections,
-    elapsedSeconds,
-    hasWon,
-    hasShownPartialWinFeedback: hasShownPartialWinFeedback || false
+    elapsedSeconds
   };
 
   // For unlimited mode, restore the puzzle data
@@ -248,7 +236,6 @@ function isValidSavedState(saved) {
     'playerDrawnCells',
     'playerConnections',
     'elapsedSeconds',
-    'hasWon',
     'savedAt'
   ];
 
@@ -262,7 +249,6 @@ function isValidSavedState(saved) {
   if (!Array.isArray(saved.playerDrawnCells)) return false;
   if (typeof saved.playerConnections !== 'object') return false;
   if (typeof saved.elapsedSeconds !== 'number') return false;
-  if (typeof saved.hasWon !== 'boolean') return false;
 
   // For unlimited mode, validate puzzle data exists
   if (saved.isUnlimitedMode) {
