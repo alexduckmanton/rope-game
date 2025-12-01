@@ -4,17 +4,17 @@
 
 ### Key Modules & Responsibilities
 
-| Module | Purpose | Key Exports |
-|--------|---------|-------------|
-| `main.js` | App entry point | Initializes router, icons, and font preloading |
-| `router.js` | Client-side routing | `initRouter()`, handles History API navigation |
-| `gameCore.js` | Game state & interactions | `createGameCore()` - Returns state and event handlers |
-| `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Returns Hamiltonian cycle |
-| `renderer.js` | Canvas rendering | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCells()` |
-| `persistence.js` | Save/load to localStorage | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()`, `loadSettings()` |
-| `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 algorithm for daily puzzles |
-| `utils.js` | Shared utilities | `buildSolutionTurnMap()`, `buildPlayerTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()` |
-| `config.js` | Centralized constants | `CONFIG` object with colors, sizes, generation tuning |
+| Module | Purpose | Key Functions & Exports |
+|--------|---------|-------------------------|
+| `main.js` | App entry point | Initializes router, icons, font preloading |
+| `router.js` | Client-side routing | `initRouter()` - History API navigation |
+| `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
+| `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle |
+| `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCells()` |
+| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()` |
+| `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles |
+| `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `buildPlayerTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `findShortestPath()` |
+| `config.js` | Configuration constants | `CONFIG` - Colors, sizes, generation tuning, rendering params |
 
 ### Core Concepts
 
@@ -123,57 +123,6 @@ rope-game/
 └── package.json
 ```
 
-### Module APIs
-
-**gameCore.js**
-```javascript
-createGameCore({ gridSize, canvas, onRender })
-// Returns: { state, handlePointerDown, handlePointerMove, handlePointerUp,
-//            handlePointerCancel, restartPuzzle, setCellSize, resetDragState }
-// State includes: playerDrawnCells (Set), playerConnections (Map), isDragging, dragPath, etc.
-```
-
-**generator.js**
-```javascript
-generateSolutionPath(size, randomFn = Math.random)
-// Returns: Array<{row, col}> - Hamiltonian cycle path
-// Uses Warnsdorff's heuristic with fallback to pre-generated cycles
-```
-
-**renderer.js**
-```javascript
-renderGrid(ctx, size, cellSize)                    // Draws grid lines
-renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon)  // Draws player's path
-renderPath(ctx, path, cellSize)                    // Draws solution path
-renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode,
-                  playerDrawnCells, playerConnections, borderMode)  // Draws hints
-renderHintPulse(ctx, ...)                          // Draws pulsing hint backgrounds
-generateHintCells(gridSize, probability, randomFn)  // Returns Set<cellKey>
-buildPlayerTurnMap(playerDrawnCells, playerConnections)  // Returns Map<cellKey, isTurn>
-```
-
-**persistence.js**
-```javascript
-saveGameState(state)                               // Saves to localStorage, returns boolean
-loadGameState(puzzleId, difficulty, isUnlimitedMode)  // Returns GameState or null
-clearGameState(puzzleId, difficulty, isUnlimitedMode)
-cleanupOldSaves()                                  // Removes old daily puzzle saves
-createThrottledSave(cooldownMs)                    // Returns { save, destroy }
-saveSettings(settings) / loadSettings()            // Global settings persistence
-```
-
-**utils.js**
-```javascript
-isAdjacent(r1, c1, r2, c2)                        // Returns boolean
-buildSolutionTurnMap(solutionPath)                 // Returns Map<cellKey, isTurn>
-buildPlayerTurnMap(playerDrawnCells, playerConnections)  // Returns Map<cellKey, isTurn>
-countTurnsInArea(row, col, gridSize, turnMap)     // Returns number
-checkStructuralLoop(playerDrawnCells, playerConnections, gridSize)  // Returns boolean
-findShortestPath(fromKey, toKey, gridSize)        // Returns Array<cellKey> or null
-determineConnectionToBreak(targetCell, comingFromCell, existingConnections)  // Returns cellKey
-drawSmoothCurve(ctx, points, radius, isLoop)      // Draws to canvas context
-```
-
 -----
 
 ## Key Systems
@@ -263,61 +212,27 @@ When navigating FROM home to a subpage, the router adds metadata to history stat
 
 ### Game Progress Persistence
 
-**Architecture:** Automatic save/restore using browser localStorage. Completely client-side, no backend.
+Auto-saves game state to localStorage (client-side, no backend).
 
-**Core Design Decisions:**
+**Key Architecture:**
 
-**1. Throttled Save Strategy**
-- First save: Happens immediately when player makes a move
-- 5-second cooldown: Prevents excessive writes during rapid drawing
-- Trailing save: Ensures final state captured after cooldown expires
-- Immediate saves bypass throttle: Tab backgrounding, navigation, game completion
+1. **Throttled saves**: First save immediate, then 5-second cooldown prevents excessive writes during rapid drawing. Trailing save ensures final state captured after cooldown. Immediate saves bypass throttle on tab blur, navigation, or game completion. Players never lose more than 5 seconds of progress.
 
-**Benefit:** Players never lose more than 5 seconds of progress, avoids hundreds of localStorage writes.
+2. **Storage keys**: See Quick Reference for patterns
+   - Daily: One slot per date+difficulty (e.g., `loop-game:daily:2025-11-30-easy`). Old saves auto-cleaned on app init.
+   - Unlimited: One slot per difficulty (e.g., `loop-game:unlimited:medium`). Switching difficulties saves current state, loads target difficulty state (or generates new if none exists).
+   - Settings: Global singleton (`loop-game:settings`) shared across all modes.
 
-**2. Storage Key Architecture**
+3. **State vs Settings**: Game state (player path, connections, timer, win status, partial win feedback) is per-puzzle. Unlimited mode includes puzzle data (solution path, hint cells) since it's not deterministic. Settings (hint mode, border mode, show solution, last unlimited difficulty) are global.
 
-| Game Mode | Key Format | Example |
-|-----------|------------|---------|
-| Daily Puzzle | `loop-game:daily:{puzzleId}` | `loop-game:daily:2025-11-30-easy` |
-| Unlimited | `loop-game:unlimited:{difficulty}` | `loop-game:unlimited:medium` |
-| Settings | `loop-game:settings` | `loop-game:settings` (global, singular) |
+4. **Data format**: Sets→Arrays, Maps→Objects (JSON-serializable), version field for migration, timestamp for debugging. Throttle returns `{ save, destroy }` for cleanup.
 
-**Daily Behavior:** One slot per difficulty per day. Old daily saves auto-cleaned on app init.
+**Save triggers**: Player moves, restart, new puzzle, completion.
+**Save skips**: Window resize, settings toggles (have dedicated save).
 
-**Unlimited Behavior:** One slot per difficulty. Switching difficulties saves current state, loads other difficulty state (or generates new if none exists).
+**Edge cases**: Partial win feedback persisted, restore without triggering cooldown, daily ID validation, immediate save on tab blur.
 
-**3. Separation of State and Settings**
-
-**Game State (per-puzzle):** Player path, connections, timer, win status, partial win feedback flag. Unlimited mode also includes randomly generated puzzle data (solution path, hint cells).
-
-**Settings (global):** Hint mode, border mode, show solution flag, last selected unlimited difficulty. Persists across all modes.
-
-**4. Data Serialization**
-- Sets → Arrays, Maps → Objects (JSON-serializable)
-- Version field for future schema migration
-- Timestamp for debugging
-
-**5. Memory Leak Prevention**
-- Throttle function returns `{ save, destroy }` object
-- `destroy()` clears pending timers
-- View cleanup lifecycle always calls `destroy()` before unmounting
-
-**Selective Save Triggering:**
-- **Trigger saves:** Player draws, restarts, generates new puzzle, completes game
-- **Skip saves:** Window resize, hint toggle, border toggle, solution toggle (settings have dedicated save)
-
-**Edge Cases Handled:**
-- Partial win message persistence (no repeated feedback)
-- Restore without triggering cooldown
-- Daily puzzle ID validation on load
-- Cleanup on new puzzle generation
-- Immediate save on tab backgrounding
-
-**Tradeoffs Accepted:**
-- No cross-device sync (device-specific progress)
-- Trust-based completion times (no server validation)
-- 5-second progress loss window if crash during cooldown (extremely rare)
+**Tradeoffs**: No cross-device sync, trust-based times, 5-second max progress loss (rare).
 
 ### Timer Behavior
 
@@ -561,28 +476,21 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 
 ## Expected Behavior Summary
 
-### Daily Puzzle Mode Flow (Easy/Medium/Hard)
+### Game Mode Comparison
 
-1. Home screen shows current date (e.g., "30 November 2025")
-2. User selects difficulty → Enters game with fixed grid size and today's daily puzzle
-3. Navigation shows blank title → Difficulty displayed in timer (e.g., "Medium • 0:00")
-4. Puzzle is deterministic → Everyone playing Medium on same local date sees identical puzzle
-5. User draws path → Blue path extends smoothly with drag, timer counts up
-6. User completes loop → Constraints turn green if satisfied
-7. Victory → Timer stops, completion message shows time
-8. No New button → Hidden since daily puzzles cannot be regenerated
-9. Restart available → User can replay same daily puzzle
-10. Tomorrow → New puzzle automatically available at local midnight
-
-### Unlimited Mode Flow
-
-1. User selects Unlimited → Enters game defaulting to Easy (4x4)
-2. Timer shows current difficulty → "Easy • 0:00" (not "Unlimited")
-3. New button visible → Generates fresh random puzzle each time
-4. User opens settings → Sees segmented control (Easy/Medium/Hard) at top
-5. User switches to Hard → Grid rebuilds as 8x8, puzzle regenerates, timer resets
-6. Settings persist → Hints, Border, Solution toggles remain unchanged
-7. Unlimited replays → User can practice any difficulty repeatedly
+| Aspect | Daily Mode (Easy/Medium/Hard) | Unlimited Mode |
+|--------|-------------------------------|----------------|
+| **Puzzle Source** | Deterministic from date seed | True random generation |
+| **Consistency** | Everyone sees same puzzle on same local date | Each session gets different puzzles |
+| **Entry Point** | Home → Select difficulty → Fixed for session | Home → Unlimited → Defaults to Easy |
+| **New Button** | Hidden (can't regenerate daily puzzle) | Visible (generate fresh puzzle anytime) |
+| **Difficulty** | Fixed by initial selection | Switchable in-session via settings segmented control |
+| **Grid Size** | Easy 4x4, Medium 6x6, Hard 8x8 | Same sizes, switchable within session |
+| **Timer Display** | Shows selected difficulty (e.g., "Medium • 0:00") | Shows current difficulty (e.g., "Easy • 0:00") |
+| **Settings** | Hints, Border, Solution toggles | Same + difficulty segmented control at top |
+| **Save Slots** | One per date+difficulty | One per difficulty (persistent across sessions) |
+| **Restart** | Replays same daily puzzle | Replays current random puzzle |
+| **Rotation** | New puzzle at local midnight | N/A (always generates random) |
 
 ### Universal Interactions
 
