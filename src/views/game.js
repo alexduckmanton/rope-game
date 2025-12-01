@@ -12,6 +12,7 @@ import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
+import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings } from '../persistence.js';
 
 /* ============================================================================
  * STATE VARIABLES
@@ -66,6 +67,53 @@ let gameCore;
 // Event listener references for cleanup
 let eventListeners = [];
 
+// Throttled save function (max 1 save per 5 seconds)
+let throttledSaveObj = createThrottledSave();
+let throttledSave = throttledSaveObj.save;
+
+// Cached settings values to avoid re-reading localStorage
+let cachedLastUnlimitedDifficulty = 'easy';
+
+/* ============================================================================
+ * PERSISTENCE HELPERS
+ * ========================================================================= */
+
+/**
+ * Capture current game state for saving
+ */
+function captureGameState() {
+  const { playerDrawnCells, playerConnections } = gameCore.state;
+
+  return {
+    puzzleId: currentPuzzleId,
+    difficulty: currentGameDifficulty,
+    gridSize,
+    isUnlimitedMode,
+    playerDrawnCells,
+    playerConnections,
+    elapsedSeconds,
+    hasWon,
+    hasShownPartialWinFeedback,
+    solutionPath,
+    hintCells
+  };
+}
+
+/**
+ * Save current settings to localStorage
+ */
+function saveCurrentSettings() {
+  const settings = {
+    hintMode,
+    borderMode,
+    showSolution,
+    // Use cached value instead of re-reading from localStorage
+    lastUnlimitedDifficulty: cachedLastUnlimitedDifficulty
+  };
+
+  saveSettings(settings);
+}
+
 /* ============================================================================
  * VALIDATION
  * ========================================================================= */
@@ -111,13 +159,20 @@ function updateTimerDisplay() {
   }
 }
 
-function startTimer() {
+function startTimer(resumeFromSeconds = 0) {
   // Stop any existing timer
   stopTimer();
 
-  // Reset timer state (including pause state)
-  timerStartTime = Date.now();
-  elapsedSeconds = 0;
+  // Set up timer state
+  // If resuming, adjust start time so elapsed time calculation is correct
+  if (resumeFromSeconds > 0) {
+    elapsedSeconds = resumeFromSeconds;
+    timerStartTime = Date.now() - (resumeFromSeconds * 1000);
+  } else {
+    elapsedSeconds = 0;
+    timerStartTime = Date.now();
+  }
+
   isPaused = false;
   pauseStartTime = 0;
   updateTimerDisplay();
@@ -189,7 +244,9 @@ function cycleHintMode() {
     hintMode = 'none';
   }
   setTimeout(updateCheckboxState, 0);
-  render();
+  saveCurrentSettings();
+  // Don't trigger game state save for display-only changes
+  render(false);
 }
 
 function updateBorderCheckboxState() {
@@ -214,7 +271,9 @@ function cycleBorderMode() {
     borderMode = 'off';
   }
   setTimeout(updateBorderCheckboxState, 0);
-  render();
+  saveCurrentSettings();
+  // Don't trigger game state save for display-only changes
+  render(false);
 }
 
 function showSettings() {
@@ -251,6 +310,10 @@ function updateSegmentedControlState() {
 function changeDifficulty(newDifficulty) {
   if (currentUnlimitedDifficulty === newDifficulty) return;
 
+  // Save current difficulty's state before switching
+  // This preserves progress when switching between difficulties
+  saveGameState(captureGameState());
+
   currentUnlimitedDifficulty = newDifficulty;
   currentGameDifficulty = newDifficulty;
   gridSize = getGridSizeFromDifficulty(newDifficulty);
@@ -258,6 +321,10 @@ function changeDifficulty(newDifficulty) {
   // Unlimited mode never uses daily puzzles
   isDailyMode = false;
   currentPuzzleId = null;
+
+  // Update cached value and save settings
+  cachedLastUnlimitedDifficulty = newDifficulty;
+  saveCurrentSettings();
 
   // Update segmented control UI
   updateSegmentedControlState();
@@ -273,9 +340,12 @@ function changeDifficulty(newDifficulty) {
     }
   });
 
-  // Resize canvas and regenerate puzzle
+  // Resize canvas
   resizeCanvas();
-  generateNewPuzzle();
+
+  // Load saved game for new difficulty, or generate if none exists
+  // This ensures switching back to a difficulty restores your progress
+  loadOrGeneratePuzzle();
 }
 
 /* ============================================================================
@@ -304,10 +374,11 @@ function resizeCanvas() {
   canvas.style.height = totalSize + 'px';
 
   ctx.scale(dpr, dpr);
-  render();
+  // Don't render here - let caller decide if render is needed
+  // This prevents saving empty state before loadOrGeneratePuzzle() runs
 }
 
-function render() {
+function render(triggerSave = true) {
   const { playerDrawnCells, playerConnections } = gameCore.state;
   const totalSize = cellSize * gridSize;
 
@@ -350,9 +421,19 @@ function render() {
       hasShownPartialWinFeedback = false;
     }
   }
+
+  // Save game state (throttled to max once per 5 seconds)
+  // Only save if triggered by user interaction, not by restore/display changes
+  if (triggerSave) {
+    throttledSave(captureGameState());
+  }
 }
 
 function generateNewPuzzle() {
+  // Clear any saved progress when generating a new puzzle
+  // (Important for unlimited mode when user clicks "New")
+  clearGameState(currentPuzzleId, currentGameDifficulty, isUnlimitedMode);
+
   if (isDailyMode) {
     // Generate daily puzzle with seeded random
     const seed = getDailySeed(currentGameDifficulty);
@@ -371,6 +452,57 @@ function generateNewPuzzle() {
   hasShownPartialWinFeedback = false;
   startTimer();
   render();
+}
+
+/**
+ * Load saved game state or generate new puzzle
+ * Called during initialization to restore progress if available
+ */
+function loadOrGeneratePuzzle() {
+  // Try to load saved state
+  const savedState = loadGameState(currentPuzzleId, currentGameDifficulty, isUnlimitedMode);
+
+  if (savedState) {
+    // Saved state exists - restore the game
+
+    // For daily puzzles, regenerate the puzzle from seed
+    // (we don't save puzzle data for daily since it's deterministic)
+    if (isDailyMode) {
+      const seed = getDailySeed(currentGameDifficulty);
+      const random = createSeededRandom(seed);
+      solutionPath = generateSolutionPath(gridSize, random);
+      hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, random);
+    } else {
+      // For unlimited mode, restore the saved puzzle data
+      // (we can't regenerate it since it was truly random)
+      solutionPath = savedState.solutionPath;
+      hintCells = savedState.hintCells;
+    }
+
+    // Restore player progress
+    gameCore.state.playerDrawnCells = savedState.playerDrawnCells;
+    gameCore.state.playerConnections = savedState.playerConnections;
+
+    // Restore win state
+    hasWon = savedState.hasWon;
+    hasShownPartialWinFeedback = savedState.hasShownPartialWinFeedback || false;
+
+    // Restore and resume timer
+    if (hasWon) {
+      // If game was already won, don't start timer
+      elapsedSeconds = savedState.elapsedSeconds;
+      updateTimerDisplay();
+    } else {
+      // Resume timer from saved elapsed time
+      startTimer(savedState.elapsedSeconds);
+    }
+
+    // Render the restored state (don't save - it's already in localStorage)
+    render(false);
+  } else {
+    // No saved state - generate fresh puzzle
+    generateNewPuzzle();
+  }
 }
 
 function restartPuzzle() {
@@ -414,12 +546,18 @@ export function initGame(difficulty) {
   // Daily mode is any non-unlimited difficulty (easy, medium, hard)
   isDailyMode = !isUnlimitedMode;
 
+  // Load saved settings (applies to all modes)
+  const settings = loadSettings();
+
+  // Cache lastUnlimitedDifficulty to avoid re-reading localStorage on every settings save
+  cachedLastUnlimitedDifficulty = settings.lastUnlimitedDifficulty;
+
   // Set grid size from difficulty
   if (isUnlimitedMode) {
-    // In unlimited mode, start with easy difficulty
-    currentUnlimitedDifficulty = 'easy';
-    currentGameDifficulty = 'easy';
-    gridSize = getGridSizeFromDifficulty('easy');
+    // In unlimited mode, use last selected difficulty (or default to easy)
+    currentUnlimitedDifficulty = cachedLastUnlimitedDifficulty;
+    currentGameDifficulty = cachedLastUnlimitedDifficulty;
+    gridSize = getGridSizeFromDifficulty(cachedLastUnlimitedDifficulty);
     currentPuzzleId = null; // Unlimited mode has no puzzle ID
   } else {
     currentGameDifficulty = difficulty;
@@ -462,10 +600,12 @@ export function initGame(difficulty) {
     newBtn.style.display = '';
   }
 
-  // Reset state
-  hintMode = 'partial';
-  borderMode = 'off';
-  showSolution = false;
+  // Apply saved settings (or defaults)
+  hintMode = settings.hintMode;
+  borderMode = settings.borderMode;
+  showSolution = settings.showSolution;
+
+  // Reset game state
   hasWon = false;
   hasShownPartialWinFeedback = false;
   eventListeners = [];
@@ -483,7 +623,11 @@ export function initGame(difficulty) {
   });
 
   // Set up event listeners and store references for cleanup
-  const resizeHandler = () => resizeCanvas();
+  const resizeHandler = () => {
+    resizeCanvas();
+    // Don't trigger save on resize - just redraw
+    render(false);
+  };
   const newBtnHandler = () => generateNewPuzzle();
   const restartBtnHandler = () => restartPuzzle();
   const hintsHandler = (e) => {
@@ -496,7 +640,9 @@ export function initGame(difficulty) {
   };
   const solutionHandler = () => {
     showSolution = solutionCheckbox.checked;
-    render();
+    saveCurrentSettings();
+    // Don't trigger game state save for display-only changes
+    render(false);
   };
   const backBtnHandler = () => {
     // Smart navigation: if we came from home, go back to original entry
@@ -518,6 +664,9 @@ export function initGame(difficulty) {
   const visibilityChangeHandler = () => {
     if (document.hidden) {
       pauseTimer();
+      // Save immediately when backgrounding to preserve timer state
+      // Bypass throttle to ensure we don't lose progress
+      saveGameState(captureGameState());
     } else {
       resumeTimer();
     }
@@ -584,8 +733,8 @@ export function initGame(difficulty) {
   // Initial canvas setup
   resizeCanvas();
 
-  // Generate initial puzzle
-  generateNewPuzzle();
+  // Load saved game or generate new puzzle
+  loadOrGeneratePuzzle();
 
   // Set initial checkbox state
   updateCheckboxState();
@@ -597,6 +746,14 @@ export function initGame(difficulty) {
  * Called when navigating away from game view
  */
 export function cleanupGame() {
+  // Save current state immediately before cleanup
+  // This ensures we don't lose timer state or recent draws when navigating away
+  // Bypasses throttle for immediate save
+  saveGameState(captureGameState());
+
+  // Clean up throttle timer to prevent memory leak
+  throttledSaveObj.destroy();
+
   // Stop timer
   stopTimer();
 
