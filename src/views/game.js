@@ -495,13 +495,16 @@ function loadOrGeneratePuzzle() {
     // (hasWon and hasShownPartialWinFeedback were removed from persistence in commit 846ee85)
     // They will be set to false by initGame(), allowing win detection to trigger on every load
 
-    // Restore and resume timer
-    // Check if puzzle is already completed (structural win)
-    // If so, just display the time without starting the timer
-    if (checkStructuralWin()) {
-      // Puzzle already completed, just show the final time
+    // Check if puzzle is already completed before rendering
+    const isAlreadyWon = checkStructuralWin() && checkWin();
+
+    if (isAlreadyWon) {
+      // Mark as won so the path renders green
+      hasWon = true;
+      // Don't start timer - puzzle already complete
       elapsedSeconds = savedState.elapsedSeconds;
       updateTimerDisplay();
+      stopTimer();
     } else {
       // Resume timer from saved elapsed time
       startTimer(savedState.elapsedSeconds);
@@ -510,19 +513,15 @@ function loadOrGeneratePuzzle() {
     // Render the restored state (don't save - it's already in localStorage)
     render(false);
 
-    // Force a re-check on the next animation frame to ensure win detection works
-    // This handles edge cases where the canvas/state might not be fully ready
-    requestAnimationFrame(() => {
-      if (!hasWon && checkStructuralWin() && checkWin()) {
-        // If we detect a win that wasn't caught in the first render, trigger it now
-        hasWon = true;
-        stopTimer();
-        const finalTime = formatTime(elapsedSeconds);
+    // If this was a completed puzzle, show the win alert AFTER rendering
+    // This is separate from the in-game win detection in render()
+    if (isAlreadyWon) {
+      const finalTime = formatTime(elapsedSeconds);
+      // Use requestAnimationFrame to ensure DOM is fully updated before showing alert
+      requestAnimationFrame(() => {
         showAlertAsync(`You made a loop in ${finalTime}!`);
-        // Re-render with win state
-        render(false);
-      }
-    });
+      });
+    }
   } else {
     // No saved state - generate fresh puzzle
     generateNewPuzzle();
