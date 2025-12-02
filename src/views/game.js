@@ -390,10 +390,13 @@ function render(triggerSave = true) {
 
   renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
+  console.log('[DEBUG] render() - hasWon:', hasWon, 'checkStructuralWin():', checkStructuralWin(), 'full check:', !hasWon && checkStructuralWin());
   if (!hasWon && checkStructuralWin()) {
+    console.log('[DEBUG] Structural win detected, checkWin():', checkWin());
     // Check if this is a full win or partial win (valid loop but wrong hints)
     if (checkWin()) {
       // Full win - all validation passed
+      console.log('[DEBUG] Full win! Showing alert');
       hasWon = true;
       hasShownPartialWinFeedback = false; // Reset flag
       stopTimer();
@@ -457,9 +460,11 @@ function generateNewPuzzle() {
  * Called during initialization to restore progress if available
  */
 function loadOrGeneratePuzzle() {
+  console.log('[DEBUG] loadOrGeneratePuzzle called');
   // Try to load saved state
   const savedState = loadGameState(currentPuzzleId, currentGameDifficulty, isUnlimitedMode);
 
+  console.log('[DEBUG] savedState:', savedState ? 'exists' : 'null', 'hasWon value:', savedState?.hasWon);
   if (savedState) {
     // Saved state exists - restore the game
 
@@ -484,6 +489,7 @@ function loadOrGeneratePuzzle() {
     // Restore win state
     hasWon = savedState.hasWon;
     hasShownPartialWinFeedback = savedState.hasShownPartialWinFeedback || false;
+    console.log('[DEBUG] hasWon set from savedState:', hasWon, 'type:', typeof hasWon);
 
     // Restore and resume timer
     if (hasWon) {
@@ -496,7 +502,9 @@ function loadOrGeneratePuzzle() {
     }
 
     // Render the restored state (don't save - it's already in localStorage)
+    console.log('[DEBUG] About to call render() from loadOrGeneratePuzzle, hasWon:', hasWon);
     render(false);
+    console.log('[DEBUG] render() completed from loadOrGeneratePuzzle');
   } else {
     // No saved state - generate fresh puzzle
     generateNewPuzzle();
@@ -538,6 +546,8 @@ function getGridSizeFromDifficulty(difficulty) {
  * @param {string} difficulty - 'easy', 'medium', 'hard', or 'unlimited'
  */
 export function initGame(difficulty) {
+  console.log('[DEBUG] initGame called, difficulty:', difficulty, 'hasWon before reset:', hasWon);
+
   // Detect unlimited mode
   isUnlimitedMode = (difficulty === 'unlimited');
 
@@ -607,6 +617,7 @@ export function initGame(difficulty) {
   hasWon = false;
   hasShownPartialWinFeedback = false;
   eventListeners = [];
+  console.log('[DEBUG] hasWon reset to false in initGame');
 
   // Create game core instance
   gameCore = createGameCore({
@@ -744,6 +755,7 @@ export function initGame(difficulty) {
  * Called when navigating away from game view
  */
 export function cleanupGame() {
+  console.log('[DEBUG] cleanupGame called, hasWon:', hasWon);
   // Save current state immediately before cleanup
   // This ensures we don't lose timer state or recent draws when navigating away
   // Bypasses throttle for immediate save
