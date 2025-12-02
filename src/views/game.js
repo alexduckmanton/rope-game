@@ -486,14 +486,16 @@ function loadOrGeneratePuzzle() {
     gameCore.state.playerDrawnCells = savedState.playerDrawnCells;
     gameCore.state.playerConnections = savedState.playerConnections;
 
-    // Restore win state
-    hasWon = savedState.hasWon;
-    hasShownPartialWinFeedback = savedState.hasShownPartialWinFeedback || false;
-    console.log('[DEBUG] hasWon set from savedState:', hasWon, 'type:', typeof hasWon);
+    // Don't restore win state - we want alerts to show every time
+    // (hasWon and hasShownPartialWinFeedback were removed from persistence in commit 846ee85)
+    // They will be set to false by initGame(), allowing win detection to trigger on every load
+    console.log('[DEBUG] NOT restoring hasWon from savedState (stays false to show alert)');
 
     // Restore and resume timer
-    if (hasWon) {
-      // If game was already won, don't start timer
+    // Check if puzzle is already completed (structural win)
+    // If so, just display the time without starting the timer
+    if (checkStructuralWin()) {
+      // Puzzle already completed, just show the final time
       elapsedSeconds = savedState.elapsedSeconds;
       updateTimerDisplay();
     } else {
