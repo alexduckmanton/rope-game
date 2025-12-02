@@ -634,6 +634,10 @@ export function initGame(difficulty) {
   hasShownPartialWinFeedback = false;
   eventListeners = [];
 
+  // Recreate throttled save object (might have been destroyed by previous cleanup)
+  throttledSaveObj = createThrottledSave();
+  throttledSave = throttledSaveObj.save;
+
   // Create game core instance
   gameCore = createGameCore({
     gridSize,
