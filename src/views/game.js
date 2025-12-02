@@ -478,8 +478,18 @@ function loadOrGeneratePuzzle() {
     }
 
     // Restore player progress
-    gameCore.state.playerDrawnCells = savedState.playerDrawnCells;
-    gameCore.state.playerConnections = savedState.playerConnections;
+    // Don't replace the Set/Map objects - clear and repopulate them instead
+    // This preserves any internal references that gameCore might have
+    gameCore.state.playerDrawnCells.clear();
+    gameCore.state.playerConnections.clear();
+
+    for (const cell of savedState.playerDrawnCells) {
+      gameCore.state.playerDrawnCells.add(cell);
+    }
+
+    for (const [cellKey, connections] of savedState.playerConnections) {
+      gameCore.state.playerConnections.set(cellKey, connections);
+    }
 
     // Don't restore win state - we want alerts to show every time
     // (hasWon and hasShownPartialWinFeedback were removed from persistence in commit 846ee85)
@@ -499,6 +509,20 @@ function loadOrGeneratePuzzle() {
 
     // Render the restored state (don't save - it's already in localStorage)
     render(false);
+
+    // Force a re-check on the next animation frame to ensure win detection works
+    // This handles edge cases where the canvas/state might not be fully ready
+    requestAnimationFrame(() => {
+      if (!hasWon && checkStructuralWin() && checkWin()) {
+        // If we detect a win that wasn't caught in the first render, trigger it now
+        hasWon = true;
+        stopTimer();
+        const finalTime = formatTime(elapsedSeconds);
+        showAlertAsync(`You made a loop in ${finalTime}!`);
+        // Re-render with win state
+        render(false);
+      }
+    });
   } else {
     // No saved state - generate fresh puzzle
     generateNewPuzzle();
