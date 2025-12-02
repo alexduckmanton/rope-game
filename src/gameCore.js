@@ -6,7 +6,7 @@
  * drag interactions, and connection management.
  */
 
-import { isAdjacent, determineConnectionToBreak, findShortestPath } from './utils.js';
+import { isAdjacent, determineConnectionToBreak, getCellsAlongLine } from './utils.js';
 
 /**
  * Creates a game core instance with encapsulated state and methods
@@ -29,7 +29,9 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     isDragging: false,
     dragPath: [],
     cellsAddedThisDrag: new Set(),
-    hasDragMoved: false
+    hasDragMoved: false,
+    lastPointerX: 0,
+    lastPointerY: 0
   };
 
   // ============================================================================
@@ -127,10 +129,6 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     return true;
   }
 
-  function findPathToCell(fromKey, toKey) {
-    return findShortestPath(fromKey, toKey, state.gridSize);
-  }
-
   // ============================================================================
   // DRAG INTERACTION HELPERS
   // ============================================================================
@@ -160,12 +158,12 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     onRender();
   }
 
-  function extendDragPath(newCellKey, currentCellKey) {
-    const path = findPathToCell(currentCellKey, newCellKey);
-    if (!path || path.length === 0) return;
+  function extendDragPath(pathCells, currentCellKey) {
+    // pathCells is now an array of cells along the actual drawn path
+    if (!pathCells || pathCells.length === 0) return;
 
     let prevInDrag = currentCellKey;
-    for (const pathCell of path) {
+    for (const pathCell of pathCells) {
       if (!state.playerDrawnCells.has(pathCell)) {
         state.playerDrawnCells.add(pathCell);
         ensureConnectionMap(pathCell);
@@ -193,6 +191,14 @@ export function createGameCore({ gridSize, canvas, onRender }) {
   function handlePointerDown(event) {
     event.preventDefault();
 
+    // Track raw pointer coordinates for path calculation
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    state.lastPointerX = x;
+    state.lastPointerY = y;
+
     const cell = getCellFromPointer(event);
     if (!cell) return;
 
@@ -215,11 +221,21 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     if (!state.isDragging) return;
     event.preventDefault();
 
+    // Extract raw pointer coordinates for path calculation
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
     const cell = getCellFromPointer(event);
     if (!cell) return;
 
     const currentCell = state.dragPath[state.dragPath.length - 1];
-    if (cell.key === currentCell) return;
+    if (cell.key === currentCell) {
+      // Update pointer position even if in same cell
+      state.lastPointerX = x;
+      state.lastPointerY = y;
+      return;
+    }
 
     state.hasDragMoved = true;
 
@@ -227,14 +243,40 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     if (backtrackIndex !== -1 && backtrackIndex < state.dragPath.length - 1) {
       if (backtrackIndex === 0) {
         if (tryCloseLoop(state.dragPath)) {
+          state.lastPointerX = x;
+          state.lastPointerY = y;
           return;
         }
       }
       handleBacktrack(backtrackIndex);
+      state.lastPointerX = x;
+      state.lastPointerY = y;
       return;
     }
 
-    extendDragPath(cell.key, currentCell);
+    // Calculate cells along the actual pointer path
+    const cellsAlongPath = getCellsAlongLine(
+      state.lastPointerX,
+      state.lastPointerY,
+      x,
+      y,
+      state.cellSize,
+      state.gridSize
+    );
+
+    // Remove first cell if it's the current cell (avoid duplication)
+    if (cellsAlongPath.length > 0 && cellsAlongPath[0] === currentCell) {
+      cellsAlongPath.shift();
+    }
+
+    // Extend the drag path with the actual drawn cells
+    if (cellsAlongPath.length > 0) {
+      extendDragPath(cellsAlongPath, currentCell);
+    }
+
+    // Update last pointer position for next move
+    state.lastPointerX = x;
+    state.lastPointerY = y;
   }
 
   function handlePointerUp(event) {

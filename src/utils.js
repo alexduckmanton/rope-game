@@ -203,6 +203,51 @@ export function determineConnectionToBreak(targetCell, comingFromCell, existingC
 }
 
 /**
+ * Calculate which grid cells a line segment passes through
+ * Samples the line at fine intervals to determine cell intersections
+ *
+ * @param {number} x1 - Starting x coordinate (in pixels)
+ * @param {number} y1 - Starting y coordinate (in pixels)
+ * @param {number} x2 - Ending x coordinate (in pixels)
+ * @param {number} y2 - Ending y coordinate (in pixels)
+ * @param {number} cellSize - Size of each grid cell in pixels
+ * @param {number} gridSize - Grid dimensions (for bounds checking)
+ * @returns {Array<string>} Array of cell keys the line passes through (in order)
+ */
+export function getCellsAlongLine(x1, y1, x2, y2, cellSize, gridSize) {
+  const cells = [];
+  const cellsSet = new Set();
+
+  // Calculate distance between points
+  const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+
+  // Sample along the line at fine intervals (every 0.1 cell widths)
+  // This ensures we don't miss any cells the line passes through
+  const numSamples = Math.max(1, Math.ceil(dist / (cellSize * 0.1)));
+
+  for (let i = 0; i <= numSamples; i++) {
+    const t = i / numSamples;
+    const x = x1 + (x2 - x1) * t;
+    const y = y1 + (y2 - y1) * t;
+
+    // Convert pixel coordinates to grid cell
+    const col = Math.floor(x / cellSize);
+    const row = Math.floor(y / cellSize);
+
+    // Check bounds and add cell if not already in list
+    if (row >= 0 && row < gridSize && col >= 0 && col < gridSize) {
+      const cellKey = `${row},${col}`;
+      if (!cellsSet.has(cellKey)) {
+        cellsSet.add(cellKey);
+        cells.push(cellKey);
+      }
+    }
+  }
+
+  return cells;
+}
+
+/**
  * Find shortest path from one cell to another using BFS
  * Returns array of cell keys (not including start, but including end)
  *
