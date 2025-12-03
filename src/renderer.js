@@ -347,9 +347,12 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
       const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
 
+      // Calculate remaining corners needed (negative if too many drawn)
+      const remainingTurns = expectedTurnCount - actualTurnCount;
+      const isValid = remainingTurns === 0;
+
       // Collect border drawing information for hint cells (deferred rendering)
       if (isInHintSet && borderMode !== 'off') {
-        const isValid = expectedTurnCount === actualTurnCount;
         const hintColor = isValid ? CONFIG.COLORS.HINT_VALIDATED : hintColorMap.get(cellKey);
         const borderWidth = CONFIG.BORDER.WIDTH;
 
@@ -386,7 +389,6 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 
       // Set text color and opacity based on whether cell is in the hint set
       if (isInHintSet) {
-        const isValid = expectedTurnCount === actualTurnCount;
         const hintColor = isValid ? CONFIG.COLORS.HINT_VALIDATED : hintColorMap.get(cellKey);
         ctx.fillStyle = hintColor;
         ctx.globalAlpha = 1.0;  // Always 100% opacity
@@ -397,7 +399,7 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 
       const x = col * cellSize + cellSize / 2;
       const y = row * cellSize + cellSize / 2;
-      ctx.fillText(expectedTurnCount.toString(), x, y);
+      ctx.fillText(remainingTurns.toString(), x, y);
     }
   }
 
