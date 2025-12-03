@@ -10,8 +10,8 @@
 | `router.js` | Client-side routing | `initRouter()` - History API navigation |
 | `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
 | `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle |
-| `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCells()` |
-| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()` |
+| `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers(countdown)`, `generateHintCells()` - Countdown param controls remaining vs total display |
+| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()` - Settings include countdown preference |
 | `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles |
 | `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `buildPlayerTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `findShortestPath()` |
 | `config.js` | Configuration constants | `CONFIG` - Colors, sizes, generation tuning, rendering params |
@@ -82,6 +82,45 @@ Each numbered hint validates the 3x3 area centered on itself (8 neighbors + self
 
 4. Validation compares `expectedTurnCount` (from solution) vs `actualTurnCount` (from player)
    - Hint colored green when counts match, otherwise uses assigned color from palette
+
+### Player Feedback Systems
+
+**Countdown Mode (Dynamic Feedback):**
+
+Players can toggle between two number display modes via the Countdown setting:
+
+**Countdown ON (Default Behavior):**
+- Numbers show **remaining corners needed**: `expectedTurnCount - actualTurnCount`
+- **Dynamic feedback**: Numbers update in real-time as players draw their path
+- **Progress tracking**: Numbers count down toward zero as correct corners are added
+- **Negative values**: When players draw too many corners, number goes negative (e.g., need 3, drew 4 → shows "-1")
+- **Color feedback**: Zero displays in green (validated), all other values use hint color palette
+
+**Countdown OFF (Classic Mode):**
+- Numbers show **total required corners**: `expectedTurnCount` (static)
+- **Static display**: Numbers never change regardless of player progress
+- **Traditional puzzle style**: Mirrors physical puzzle books where constraints stay constant
+- **Color feedback**: Still turns green when satisfied, but number value remains fixed
+
+**Design Rationale:**
+
+Countdown mode provides **progressive disclosure** - players immediately see if they're on the right track without needing to mentally calculate differences. This reduces cognitive load during gameplay, especially on larger grids where tracking multiple constraints becomes challenging.
+
+Static mode appeals to **purist players** who prefer the traditional puzzle-solving experience where all information is given upfront and progress tracking happens mentally.
+
+**Implementation Architecture:**
+
+The countdown parameter is threaded through the rendering pipeline:
+- **Settings layer**: Stored in localStorage, defaults to true (countdown ON)
+- **Game state**: Boolean variable passed to render function
+- **Renderer**: Conditionally displays `remainingTurns` vs `expectedTurnCount` based on parameter
+- **Tutorial**: Hardcoded to countdown mode (always true) for consistent learning experience
+
+Validation logic remains identical - both modes use the same `isValid = remainingTurns === 0` check. Only the displayed value changes.
+
+**User Control:**
+
+Setting is accessible via bottom sheet under Hints checkbox. Changes apply immediately with live re-render. Setting persists across sessions and applies to all game modes (daily and unlimited).
 
 -----
 
@@ -307,9 +346,14 @@ Auto-saves game state to localStorage (client-side, no backend).
 - Slides up from bottom with bounce animation (300ms, cubic-bezier(0.34, 1.3, 0.64, 1))
 - White background, rounded top corners (16px), soft shadow (80px blur, 10% opacity)
 - Settings displayed as list items with grey dividers
+- **Available Settings:**
+  - **Difficulty** (Unlimited mode only): iOS-style segmented control for switching grid sizes
+  - **Hints**: Three-state toggle (None → Partial → All) cycles hint visibility
+  - **Countdown**: Boolean toggle for remaining vs total corners display (default ON)
+  - **Border**: Three-state toggle (Off → Center → Full) for hint area borders
+  - **Solution**: Boolean toggle to overlay solution path in blue
 - Context-aware: Difficulty segmented control appears only in Unlimited mode
-- iOS-style segmented control for difficulty switching
-- Changes apply immediately (no save/cancel buttons)
+- Changes apply immediately with live re-render (no save/cancel buttons)
 - Click outside or X button to dismiss
 - Hidden in tutorial view
 
@@ -401,6 +445,14 @@ Auto-saves game state to localStorage (client-side, no backend).
 2. **Hint probability**: Change `CONFIG.HINT.PROBABILITY` (0-1) or modify `generateHintCells()` in `renderer.js`
 3. **Border rendering**: Modify `drawHintBorders()` in `renderer.js` (width, inset, layer offset)
 4. **Pulse animation**: Adjust `CONFIG.HINT.PULSE_DURATION` and `CONFIG.HINT.PULSE_MAX_OPACITY`
+
+**Modify Player Feedback (Countdown Feature):**
+1. **Change default**: Update `countdown: true` in `DEFAULT_SETTINGS` object in `persistence.js`
+2. **Display calculation**: Modify `displayValue` logic in `renderer.js:renderCellNumbers()` (currently line 403)
+3. **Add new display modes**: Extend conditional to support additional feedback styles beyond remaining/total
+4. **Tutorial behavior**: Update hardcoded value in `tutorial.js:renderCellNumbers()` call (currently line 207)
+5. **UI positioning**: Modify checkbox placement in `index.html` settings list
+6. **Setting label**: Change "Countdown" text in checkbox span element
 
 **Change Persistence Behavior:**
 1. **Save cooldown**: Modify `SAVE_COOLDOWN_MS` constant in `persistence.js` (default 5000ms)
@@ -498,7 +550,7 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 | **Difficulty** | Fixed by initial selection | Switchable in-session via settings segmented control |
 | **Grid Size** | Easy 4x4, Medium 6x6, Hard 8x8 | Same sizes, switchable within session |
 | **Timer Display** | Shows selected difficulty (e.g., "Medium • 0:00") | Shows current difficulty (e.g., "Easy • 0:00") |
-| **Settings** | Hints, Border, Solution toggles | Same + difficulty segmented control at top |
+| **Settings** | Hints, Countdown, Border, Solution toggles | Same + difficulty segmented control at top |
 | **Save Slots** | One per date+difficulty | One per difficulty (persistent across sessions) |
 | **Restart** | Replays same daily puzzle | Replays current random puzzle |
 | **Rotation** | New puzzle at local midnight | N/A (always generates random) |
@@ -521,6 +573,12 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 - **Colorful (palette)**: Constraint not yet satisfied
 - **Green**: Constraint satisfied (turn count matches)
 - **Pulsing background**: Animated 3x3 area showing validation region
+
+**Number Display Behavior:**
+- **Countdown ON (default)**: Shows remaining corners (e.g., need 3, drew 1 → shows "2")
+- **Countdown OFF**: Shows total required corners (e.g., need 3 → always shows "3")
+- **Negative values**: When too many corners drawn (e.g., need 3, drew 5 → shows "-2")
+- **Color**: Zero displays in green (validated), all other values use hint color palette
 
 **Path Colors:**
 - **Black**: Player's active drawing
