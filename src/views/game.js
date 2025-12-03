@@ -13,6 +13,7 @@ import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
 import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings } from '../persistence.js';
+import { createBottomSheet } from '../bottomSheet.js';
 
 /* ============================================================================
  * STATE VARIABLES
@@ -40,11 +41,12 @@ let borderCheckbox;
 let solutionCheckbox;
 let backBtn;
 let settingsBtn;
-let settingsOverlay;
-let settingsCloseBtn;
 let difficultySettingsItem;
 let segmentedControl;
 let segmentButtons;
+
+// Bottom sheet instances
+let settingsSheet;
 
 // Puzzle state
 let solutionPath = [];
@@ -278,21 +280,15 @@ function cycleBorderMode() {
 }
 
 function showSettings() {
-  // Show the overlay (sheet is still off-screen due to transform)
-  settingsOverlay.style.display = 'block';
-  // Force reflow to ensure display:block is applied before transition
-  settingsOverlay.offsetHeight;
-  // Trigger slide animation
-  settingsOverlay.classList.add('visible');
+  if (settingsSheet) {
+    settingsSheet.show();
+  }
 }
 
 function hideSettings() {
-  // Remove visible class to trigger slide-out animation
-  settingsOverlay.classList.remove('visible');
-  // Wait for animation to complete (300ms), then remove from render tree
-  setTimeout(() => {
-    settingsOverlay.style.display = 'none';
-  }, 300);
+  if (settingsSheet) {
+    settingsSheet.hide();
+  }
 }
 
 function updateSegmentedControlState() {
@@ -406,8 +402,19 @@ function render(triggerSave = true) {
 
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
-      // Show alert with completion time
-      showAlertAsync(`You made a loop in ${finalTime}!`);
+      // Show win bottom sheet with completion time
+      const winContent = `<div style="padding: 20px; text-align: center; font-size: 16px; color: #7F8C8D;">You finished in ${finalTime}.</div>`;
+      const winSheet = createBottomSheet({
+        title: 'You made a loop!',
+        content: winContent
+      });
+
+      // Use requestAnimationFrame + setTimeout to ensure render completes before showing sheet
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          winSheet.show();
+        }, 0);
+      });
     } else if (!hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
       // Only show feedback once per structural completion
@@ -579,11 +586,16 @@ export function initGame(difficulty) {
   solutionCheckbox = document.getElementById('solution-checkbox');
   backBtn = document.getElementById('back-btn');
   settingsBtn = document.getElementById('settings-btn');
-  settingsOverlay = document.getElementById('settings-overlay');
-  settingsCloseBtn = document.getElementById('settings-close-btn');
   difficultySettingsItem = document.getElementById('difficulty-settings-item');
   segmentedControl = document.getElementById('difficulty-segmented-control');
   segmentButtons = segmentedControl ? segmentedControl.querySelectorAll('.segment-btn') : [];
+
+  // Create settings bottom sheet with the settings content
+  const settingsContent = document.getElementById('settings-content');
+  settingsSheet = createBottomSheet({
+    title: 'Settings',
+    content: settingsContent
+  });
 
   // Clear title text (difficulty is shown in timer display)
   gameTitle.textContent = '';
@@ -663,13 +675,6 @@ export function initGame(difficulty) {
     }
   };
   const settingsBtnHandler = () => showSettings();
-  const settingsCloseBtnHandler = () => hideSettings();
-  const settingsOverlayHandler = (e) => {
-    // Close when clicking on the overlay background (not the sheet itself)
-    if (e.target === settingsOverlay) {
-      hideSettings();
-    }
-  };
   const visibilityChangeHandler = () => {
     if (document.hidden) {
       pauseTimer();
@@ -698,8 +703,6 @@ export function initGame(difficulty) {
   solutionCheckbox.addEventListener('change', solutionHandler);
   backBtn.addEventListener('click', backBtnHandler);
   settingsBtn.addEventListener('click', settingsBtnHandler);
-  settingsCloseBtn.addEventListener('click', settingsCloseBtnHandler);
-  settingsOverlay.addEventListener('click', settingsOverlayHandler);
   document.addEventListener('visibilitychange', visibilityChangeHandler);
   canvas.addEventListener('pointerdown', pointerDownHandler);
   canvas.addEventListener('pointermove', pointerMoveHandler);
@@ -717,8 +720,6 @@ export function initGame(difficulty) {
     { element: solutionCheckbox, event: 'change', handler: solutionHandler },
     { element: backBtn, event: 'click', handler: backBtnHandler },
     { element: settingsBtn, event: 'click', handler: settingsBtnHandler },
-    { element: settingsCloseBtn, event: 'click', handler: settingsCloseBtnHandler },
-    { element: settingsOverlay, event: 'click', handler: settingsOverlayHandler },
     { element: document, event: 'visibilitychange', handler: visibilityChangeHandler },
     { element: canvas, event: 'pointerdown', handler: pointerDownHandler },
     { element: canvas, event: 'pointermove', handler: pointerMoveHandler },
@@ -769,6 +770,11 @@ export function cleanupGame() {
 
   // Stop timer
   stopTimer();
+
+  // Clean up bottom sheets
+  if (settingsSheet) {
+    settingsSheet.destroy();
+  }
 
   // Remove all event listeners
   for (const { element, event, handler } of eventListeners) {
