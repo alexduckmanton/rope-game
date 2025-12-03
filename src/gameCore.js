@@ -171,6 +171,13 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     if (!pathCells || pathCells.length === 0) return;
 
     let prevInDrag = currentCellKey;
+
+    // Track the incoming connection: the cell before prevInDrag in the drag path
+    // This avoids O(n) indexOf search on every iteration
+    let incomingConnection = state.dragPath.length > 1
+      ? state.dragPath[state.dragPath.length - 2]
+      : null;
+
     for (const pathCell of pathCells) {
       if (!state.playerDrawnCells.has(pathCell)) {
         state.playerDrawnCells.add(pathCell);
@@ -180,14 +187,15 @@ export function createGameCore({ gridSize, canvas, onRender }) {
 
       if (state.playerConnections.get(prevInDrag)?.has(pathCell)) {
         state.dragPath.push(pathCell);
+        // Update tracking: prevInDrag becomes the incoming connection for the next cell
+        incomingConnection = prevInDrag;
         prevInDrag = pathCell;
       } else {
-        // Find the cell we came from in the drag path (the incoming connection for prevInDrag)
-        const prevInDragIndex = state.dragPath.indexOf(prevInDrag);
-        const incomingConnection = prevInDragIndex > 0 ? state.dragPath[prevInDragIndex - 1] : null;
-
+        // Use tracked incoming connection (no indexOf needed!)
         if (forceConnection(prevInDrag, pathCell, incomingConnection)) {
           state.dragPath.push(pathCell);
+          // Update tracking: prevInDrag becomes the incoming connection for the next cell
+          incomingConnection = prevInDrag;
           prevInDrag = pathCell;
         } else {
           break;
