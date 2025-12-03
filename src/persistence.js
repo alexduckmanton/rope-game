@@ -38,6 +38,7 @@
  * @property {string} hintMode - Hint display mode: "none", "partial", or "all"
  * @property {string} borderMode - Border display mode: "off", "center", or "full"
  * @property {boolean} showSolution - Whether to show the solution path
+ * @property {boolean} countdown - Whether numbers show remaining (true) or total required (false) corners
  * @property {string} lastUnlimitedDifficulty - Last selected unlimited difficulty
  */
 
@@ -469,6 +470,7 @@ const DEFAULT_SETTINGS = {
   hintMode: 'partial',
   borderMode: 'off',
   showSolution: false,
+  countdown: true,
   lastUnlimitedDifficulty: 'easy'
 };
 

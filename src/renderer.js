@@ -308,8 +308,9 @@ export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells
  * @param {Set<string>} playerDrawnCells - Set of "row,col" strings for drawn cells
  * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
  * @param {string} borderMode - Border display mode: 'off' | 'center' | 'full'
+ * @param {boolean} countdown - Whether to show remaining (true) or total required (false) corners
  */
-export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full') {
+export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true) {
   if (!solutionPath || solutionPath.length === 0) return;
   if (hintMode === 'none') return;
 
@@ -399,7 +400,8 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 
       const x = col * cellSize + cellSize / 2;
       const y = row * cellSize + cellSize / 2;
-      ctx.fillText(remainingTurns.toString(), x, y);
+      const displayValue = countdown ? remainingTurns : expectedTurnCount;
+      ctx.fillText(displayValue.toString(), x, y);
     }
   }
 
