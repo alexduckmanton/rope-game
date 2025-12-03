@@ -158,16 +158,29 @@ export function countTurnsInArea(row, col, gridSize, turnMap) {
 }
 
 /**
- * Determine which connection to break based on "opposite direction" priority
- * When drawing from cellA to cellB, we want to remove the connection from cellB
- * that goes in the opposite direction from where we're coming
+ * Determine which connection to break based on drag path context
+ * Prioritizes keeping the incoming connection from the drag path to ensure
+ * connections remain consistent with the path the player has drawn
  *
  * @param {string} targetCell - The cell that has 2 connections (format: "row,col")
- * @param {string} comingFromCell - The cell we're drawing from (format: "row,col")
+ * @param {string} comingFromCell - The cell we're trying to connect to (format: "row,col")
  * @param {Set<string>} existingConnections - Set of cells connected to targetCell
+ * @param {string|null} incomingConnection - The cell we came from in the drag path (to keep), or null
  * @returns {string} The cell key to disconnect from targetCell
  */
-export function determineConnectionToBreak(targetCell, comingFromCell, existingConnections) {
+export function determineConnectionToBreak(targetCell, comingFromCell, existingConnections, incomingConnection = null) {
+  // PRIORITY 1: If we have drag path context, keep the incoming connection
+  // This ensures we don't disconnect the path we just drew
+  if (incomingConnection && existingConnections.has(incomingConnection)) {
+    // Find the other connection to break
+    for (const connectedKey of existingConnections) {
+      if (connectedKey !== incomingConnection) {
+        return connectedKey;
+      }
+    }
+  }
+
+  // PRIORITY 2: Use direction-based logic as fallback
   const [targetRow, targetCol] = targetCell.split(',').map(Number);
   const [fromRow, fromCol] = comingFromCell.split(',').map(Number);
 
@@ -198,8 +211,73 @@ export function determineConnectionToBreak(targetCell, comingFromCell, existingC
     }
   }
 
-  // Fallback: return first connection if no opposite found
+  // PRIORITY 3: Fallback to first connection if no opposite found
   return Array.from(existingConnections)[0];
+}
+
+/**
+ * Calculate which grid cells a line segment passes through using Bresenham's algorithm
+ * This is significantly faster than sampling and visits each cell exactly once
+ *
+ * @param {number} x1 - Starting x coordinate (in pixels)
+ * @param {number} y1 - Starting y coordinate (in pixels)
+ * @param {number} x2 - Ending x coordinate (in pixels)
+ * @param {number} y2 - Ending y coordinate (in pixels)
+ * @param {number} cellSize - Size of each grid cell in pixels
+ * @param {number} gridSize - Grid dimensions (for bounds checking)
+ * @returns {Array<string>} Array of cell keys the line passes through (in order)
+ */
+export function getCellsAlongLine(x1, y1, x2, y2, cellSize, gridSize) {
+  const cells = [];
+
+  // Convert pixel coordinates to grid cell coordinates
+  const col1 = Math.floor(x1 / cellSize);
+  const row1 = Math.floor(y1 / cellSize);
+  const col2 = Math.floor(x2 / cellSize);
+  const row2 = Math.floor(y2 / cellSize);
+
+  // If start and end are in the same cell, return just that cell
+  if (row1 === row2 && col1 === col2) {
+    if (row1 >= 0 && row1 < gridSize && col1 >= 0 && col1 < gridSize) {
+      cells.push(`${row1},${col1}`);
+    }
+    return cells;
+  }
+
+  // Bresenham's line algorithm for grid traversal
+  // Only uses integer arithmetic, visits each cell exactly once
+  const dCol = Math.abs(col2 - col1);
+  const dRow = Math.abs(row2 - row1);
+  const stepCol = col1 < col2 ? 1 : -1;
+  const stepRow = row1 < row2 ? 1 : -1;
+
+  let col = col1;
+  let row = row1;
+  let err = dCol - dRow;
+
+  while (true) {
+    // Add current cell if in bounds
+    if (row >= 0 && row < gridSize && col >= 0 && col < gridSize) {
+      cells.push(`${row},${col}`);
+    }
+
+    // Check if we've reached the end
+    if (col === col2 && row === row2) break;
+
+    // Bresenham error calculation and stepping
+    const e2 = 2 * err;
+
+    if (e2 > -dRow) {
+      err -= dRow;
+      col += stepCol;
+    }
+    if (e2 < dCol) {
+      err += dCol;
+      row += stepRow;
+    }
+  }
+
+  return cells;
 }
 
 /**

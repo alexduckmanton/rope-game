@@ -6,7 +6,7 @@
  * drag interactions, and connection management.
  */
 
-import { isAdjacent, determineConnectionToBreak, findShortestPath } from './utils.js';
+import { isAdjacent, determineConnectionToBreak, getCellsAlongLine } from './utils.js';
 
 /**
  * Creates a game core instance with encapsulated state and methods
@@ -29,7 +29,10 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     isDragging: false,
     dragPath: [],
     cellsAddedThisDrag: new Set(),
-    hasDragMoved: false
+    hasDragMoved: false,
+    lastPointerX: 0,
+    lastPointerY: 0,
+    canvasRect: null  // Cached canvas bounding rect during drag (avoids layout thrashing)
   };
 
   // ============================================================================
@@ -48,10 +51,7 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     }
   }
 
-  function getCellFromPointer(event) {
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+  function getCellFromCoords(x, y) {
     const col = Math.floor(x / state.cellSize);
     const row = Math.floor(y / state.cellSize);
 
@@ -59,6 +59,14 @@ export function createGameCore({ gridSize, canvas, onRender }) {
       return { row, col, key: `${row},${col}` };
     }
     return null;
+  }
+
+  function getCellFromPointer(event) {
+    // Use cached rect if available (during drag), otherwise get fresh rect
+    const rect = state.canvasRect || canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    return getCellFromCoords(x, y);
   }
 
   function removeConnection(cellKeyA, cellKeyB) {
@@ -77,6 +85,7 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     state.dragPath = [];
     state.cellsAddedThisDrag = new Set();
     state.hasDragMoved = false;
+    state.canvasRect = null;  // Clear cached rect (helps GC)
   }
 
   function cleanupOrphanedCells() {
@@ -99,7 +108,7 @@ export function createGameCore({ gridSize, canvas, onRender }) {
   // PATH CONNECTION LOGIC
   // ============================================================================
 
-  function forceConnection(cellKeyA, cellKeyB) {
+  function forceConnection(cellKeyA, cellKeyB, incomingConnectionA = null) {
     const [r1, c1] = cellKeyA.split(',').map(Number);
     const [r2, c2] = cellKeyB.split(',').map(Number);
 
@@ -111,13 +120,14 @@ export function createGameCore({ gridSize, canvas, onRender }) {
 
     const connectionsA = state.playerConnections.get(cellKeyA);
     if (connectionsA.size >= 2) {
-      const toBreak = determineConnectionToBreak(cellKeyA, cellKeyB, connectionsA);
+      const toBreak = determineConnectionToBreak(cellKeyA, cellKeyB, connectionsA, incomingConnectionA);
       removeConnection(cellKeyA, toBreak);
     }
 
     const connectionsB = state.playerConnections.get(cellKeyB);
     if (connectionsB.size >= 2) {
-      const toBreak = determineConnectionToBreak(cellKeyB, cellKeyA, connectionsB);
+      // For cellB, the incoming connection is cellKeyA (the one we're creating)
+      const toBreak = determineConnectionToBreak(cellKeyB, cellKeyA, connectionsB, cellKeyA);
       removeConnection(cellKeyB, toBreak);
     }
 
@@ -125,10 +135,6 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     state.playerConnections.get(cellKeyB).add(cellKeyA);
 
     return true;
-  }
-
-  function findPathToCell(fromKey, toKey) {
-    return findShortestPath(fromKey, toKey, state.gridSize);
   }
 
   // ============================================================================
@@ -160,12 +166,19 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     onRender();
   }
 
-  function extendDragPath(newCellKey, currentCellKey) {
-    const path = findPathToCell(currentCellKey, newCellKey);
-    if (!path || path.length === 0) return;
+  function extendDragPath(pathCells, currentCellKey) {
+    // pathCells is now an array of cells along the actual drawn path
+    if (!pathCells || pathCells.length === 0) return;
 
     let prevInDrag = currentCellKey;
-    for (const pathCell of path) {
+
+    // Track the incoming connection: the cell before prevInDrag in the drag path
+    // This avoids O(n) indexOf search on every iteration
+    let incomingConnection = state.dragPath.length > 1
+      ? state.dragPath[state.dragPath.length - 2]
+      : null;
+
+    for (const pathCell of pathCells) {
       if (!state.playerDrawnCells.has(pathCell)) {
         state.playerDrawnCells.add(pathCell);
         ensureConnectionMap(pathCell);
@@ -174,12 +187,19 @@ export function createGameCore({ gridSize, canvas, onRender }) {
 
       if (state.playerConnections.get(prevInDrag)?.has(pathCell)) {
         state.dragPath.push(pathCell);
-        prevInDrag = pathCell;
-      } else if (forceConnection(prevInDrag, pathCell)) {
-        state.dragPath.push(pathCell);
+        // Update tracking: prevInDrag becomes the incoming connection for the next cell
+        incomingConnection = prevInDrag;
         prevInDrag = pathCell;
       } else {
-        break;
+        // Use tracked incoming connection (no indexOf needed!)
+        if (forceConnection(prevInDrag, pathCell, incomingConnection)) {
+          state.dragPath.push(pathCell);
+          // Update tracking: prevInDrag becomes the incoming connection for the next cell
+          incomingConnection = prevInDrag;
+          prevInDrag = pathCell;
+        } else {
+          break;
+        }
       }
     }
     cleanupOrphanedCells();
@@ -193,7 +213,18 @@ export function createGameCore({ gridSize, canvas, onRender }) {
   function handlePointerDown(event) {
     event.preventDefault();
 
-    const cell = getCellFromPointer(event);
+    // Cache canvas bounding rect for the duration of the drag
+    // This avoids expensive getBoundingClientRect() calls on every pointer move
+    state.canvasRect = canvas.getBoundingClientRect();
+
+    // Extract coordinates using cached rect
+    const x = event.clientX - state.canvasRect.left;
+    const y = event.clientY - state.canvasRect.top;
+
+    state.lastPointerX = x;
+    state.lastPointerY = y;
+
+    const cell = getCellFromCoords(x, y);
     if (!cell) return;
 
     canvas.setPointerCapture(event.pointerId);
@@ -215,11 +246,20 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     if (!state.isDragging) return;
     event.preventDefault();
 
-    const cell = getCellFromPointer(event);
+    // Use cached canvas rect (set in handlePointerDown) to avoid layout thrashing
+    const x = event.clientX - state.canvasRect.left;
+    const y = event.clientY - state.canvasRect.top;
+
+    const cell = getCellFromCoords(x, y);
     if (!cell) return;
 
     const currentCell = state.dragPath[state.dragPath.length - 1];
-    if (cell.key === currentCell) return;
+    if (cell.key === currentCell) {
+      // Update pointer position even if in same cell
+      state.lastPointerX = x;
+      state.lastPointerY = y;
+      return;
+    }
 
     state.hasDragMoved = true;
 
@@ -227,14 +267,40 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     if (backtrackIndex !== -1 && backtrackIndex < state.dragPath.length - 1) {
       if (backtrackIndex === 0) {
         if (tryCloseLoop(state.dragPath)) {
+          state.lastPointerX = x;
+          state.lastPointerY = y;
           return;
         }
       }
       handleBacktrack(backtrackIndex);
+      state.lastPointerX = x;
+      state.lastPointerY = y;
       return;
     }
 
-    extendDragPath(cell.key, currentCell);
+    // Calculate cells along the actual pointer path
+    const cellsAlongPath = getCellsAlongLine(
+      state.lastPointerX,
+      state.lastPointerY,
+      x,
+      y,
+      state.cellSize,
+      state.gridSize
+    );
+
+    // Remove first cell if it's the current cell (avoid duplication)
+    if (cellsAlongPath.length > 0 && cellsAlongPath[0] === currentCell) {
+      cellsAlongPath.shift();
+    }
+
+    // Extend the drag path with the actual drawn cells
+    if (cellsAlongPath.length > 0) {
+      extendDragPath(cellsAlongPath, currentCell);
+    }
+
+    // Update last pointer position for next move
+    state.lastPointerX = x;
+    state.lastPointerY = y;
   }
 
   function handlePointerUp(event) {
