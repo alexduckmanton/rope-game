@@ -35,6 +35,7 @@ let gameTimerEl;
 let newBtn;
 let restartBtn;
 let hintsCheckbox;
+let countdownCheckbox;
 let borderCheckbox;
 let solutionCheckbox;
 let backBtn;
@@ -51,6 +52,7 @@ let hintCells = new Set();
 let hintMode = 'partial';
 let borderMode = 'off';
 let showSolution = false;
+let countdown = true;
 let hasWon = false;
 let hasShownPartialWinFeedback = false;
 
@@ -105,6 +107,7 @@ function saveCurrentSettings() {
     hintMode,
     borderMode,
     showSolution,
+    countdown,
     // Use cached value instead of re-reading from localStorage
     lastUnlimitedDifficulty: cachedLastUnlimitedDifficulty
   };
@@ -382,7 +385,7 @@ function render(triggerSave = true) {
 
   clearCanvas(ctx, totalSize, totalSize);
   renderGrid(ctx, gridSize, cellSize);
-  renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode, playerDrawnCells, playerConnections, borderMode);
+  renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode, playerDrawnCells, playerConnections, borderMode, countdown);
 
   if (showSolution) {
     renderPath(ctx, solutionPath, cellSize);
@@ -571,6 +574,7 @@ export function initGame(difficulty) {
   newBtn = document.getElementById('new-btn');
   restartBtn = document.getElementById('restart-btn');
   hintsCheckbox = document.getElementById('hints-checkbox');
+  countdownCheckbox = document.getElementById('countdown-checkbox');
   borderCheckbox = document.getElementById('border-checkbox');
   solutionCheckbox = document.getElementById('solution-checkbox');
   backBtn = document.getElementById('back-btn');
@@ -602,6 +606,7 @@ export function initGame(difficulty) {
   hintMode = settings.hintMode;
   borderMode = settings.borderMode;
   showSolution = settings.showSolution;
+  countdown = settings.countdown;
 
   // Reset game state
   hasWon = false;
@@ -638,6 +643,12 @@ export function initGame(difficulty) {
   };
   const solutionHandler = () => {
     showSolution = solutionCheckbox.checked;
+    saveCurrentSettings();
+    // Don't trigger game state save for display-only changes
+    render(false);
+  };
+  const countdownHandler = () => {
+    countdown = countdownCheckbox.checked;
     saveCurrentSettings();
     // Don't trigger game state save for display-only changes
     render(false);
@@ -682,6 +693,7 @@ export function initGame(difficulty) {
   newBtn.addEventListener('click', newBtnHandler);
   restartBtn.addEventListener('click', restartBtnHandler);
   hintsCheckbox.addEventListener('click', hintsHandler);
+  countdownCheckbox.addEventListener('change', countdownHandler);
   borderCheckbox.addEventListener('click', borderHandler);
   solutionCheckbox.addEventListener('change', solutionHandler);
   backBtn.addEventListener('click', backBtnHandler);
@@ -700,6 +712,7 @@ export function initGame(difficulty) {
     { element: newBtn, event: 'click', handler: newBtnHandler },
     { element: restartBtn, event: 'click', handler: restartBtnHandler },
     { element: hintsCheckbox, event: 'click', handler: hintsHandler },
+    { element: countdownCheckbox, event: 'change', handler: countdownHandler },
     { element: borderCheckbox, event: 'click', handler: borderHandler },
     { element: solutionCheckbox, event: 'change', handler: solutionHandler },
     { element: backBtn, event: 'click', handler: backBtnHandler },
@@ -737,6 +750,8 @@ export function initGame(difficulty) {
   // Set initial checkbox state
   updateCheckboxState();
   updateBorderCheckboxState();
+  countdownCheckbox.checked = countdown;
+  solutionCheckbox.checked = showSolution;
 }
 
 /**
