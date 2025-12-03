@@ -216,8 +216,8 @@ export function determineConnectionToBreak(targetCell, comingFromCell, existingC
 }
 
 /**
- * Calculate which grid cells a line segment passes through
- * Samples the line at fine intervals to determine cell intersections
+ * Calculate which grid cells a line segment passes through using Bresenham's algorithm
+ * This is significantly faster than sampling and visits each cell exactly once
  *
  * @param {number} x1 - Starting x coordinate (in pixels)
  * @param {number} y1 - Starting y coordinate (in pixels)
@@ -229,31 +229,51 @@ export function determineConnectionToBreak(targetCell, comingFromCell, existingC
  */
 export function getCellsAlongLine(x1, y1, x2, y2, cellSize, gridSize) {
   const cells = [];
-  const cellsSet = new Set();
 
-  // Calculate distance between points
-  const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+  // Convert pixel coordinates to grid cell coordinates
+  const col1 = Math.floor(x1 / cellSize);
+  const row1 = Math.floor(y1 / cellSize);
+  const col2 = Math.floor(x2 / cellSize);
+  const row2 = Math.floor(y2 / cellSize);
 
-  // Sample along the line at fine intervals (every 0.1 cell widths)
-  // This ensures we don't miss any cells the line passes through
-  const numSamples = Math.max(1, Math.ceil(dist / (cellSize * 0.1)));
+  // If start and end are in the same cell, return just that cell
+  if (row1 === row2 && col1 === col2) {
+    if (row1 >= 0 && row1 < gridSize && col1 >= 0 && col1 < gridSize) {
+      cells.push(`${row1},${col1}`);
+    }
+    return cells;
+  }
 
-  for (let i = 0; i <= numSamples; i++) {
-    const t = i / numSamples;
-    const x = x1 + (x2 - x1) * t;
-    const y = y1 + (y2 - y1) * t;
+  // Bresenham's line algorithm for grid traversal
+  // Only uses integer arithmetic, visits each cell exactly once
+  const dCol = Math.abs(col2 - col1);
+  const dRow = Math.abs(row2 - row1);
+  const stepCol = col1 < col2 ? 1 : -1;
+  const stepRow = row1 < row2 ? 1 : -1;
 
-    // Convert pixel coordinates to grid cell
-    const col = Math.floor(x / cellSize);
-    const row = Math.floor(y / cellSize);
+  let col = col1;
+  let row = row1;
+  let err = dCol - dRow;
 
-    // Check bounds and add cell if not already in list
+  while (true) {
+    // Add current cell if in bounds
     if (row >= 0 && row < gridSize && col >= 0 && col < gridSize) {
-      const cellKey = `${row},${col}`;
-      if (!cellsSet.has(cellKey)) {
-        cellsSet.add(cellKey);
-        cells.push(cellKey);
-      }
+      cells.push(`${row},${col}`);
+    }
+
+    // Check if we've reached the end
+    if (col === col2 && row === row2) break;
+
+    // Bresenham error calculation and stepping
+    const e2 = 2 * err;
+
+    if (e2 > -dRow) {
+      err -= dRow;
+      col += stepCol;
+    }
+    if (e2 < dCol) {
+      err += dCol;
+      row += stepRow;
     }
   }
 
