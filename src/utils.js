@@ -158,16 +158,29 @@ export function countTurnsInArea(row, col, gridSize, turnMap) {
 }
 
 /**
- * Determine which connection to break based on "opposite direction" priority
- * When drawing from cellA to cellB, we want to remove the connection from cellB
- * that goes in the opposite direction from where we're coming
+ * Determine which connection to break based on drag path context
+ * Prioritizes keeping the incoming connection from the drag path to ensure
+ * connections remain consistent with the path the player has drawn
  *
  * @param {string} targetCell - The cell that has 2 connections (format: "row,col")
- * @param {string} comingFromCell - The cell we're drawing from (format: "row,col")
+ * @param {string} comingFromCell - The cell we're trying to connect to (format: "row,col")
  * @param {Set<string>} existingConnections - Set of cells connected to targetCell
+ * @param {string|null} incomingConnection - The cell we came from in the drag path (to keep), or null
  * @returns {string} The cell key to disconnect from targetCell
  */
-export function determineConnectionToBreak(targetCell, comingFromCell, existingConnections) {
+export function determineConnectionToBreak(targetCell, comingFromCell, existingConnections, incomingConnection = null) {
+  // PRIORITY 1: If we have drag path context, keep the incoming connection
+  // This ensures we don't disconnect the path we just drew
+  if (incomingConnection && existingConnections.has(incomingConnection)) {
+    // Find the other connection to break
+    for (const connectedKey of existingConnections) {
+      if (connectedKey !== incomingConnection) {
+        return connectedKey;
+      }
+    }
+  }
+
+  // PRIORITY 2: Use direction-based logic as fallback
   const [targetRow, targetCol] = targetCell.split(',').map(Number);
   const [fromRow, fromCol] = comingFromCell.split(',').map(Number);
 
@@ -198,7 +211,7 @@ export function determineConnectionToBreak(targetCell, comingFromCell, existingC
     }
   }
 
-  // Fallback: return first connection if no opposite found
+  // PRIORITY 3: Fallback to first connection if no opposite found
   return Array.from(existingConnections)[0];
 }
 

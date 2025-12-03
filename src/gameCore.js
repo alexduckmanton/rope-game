@@ -101,7 +101,7 @@ export function createGameCore({ gridSize, canvas, onRender }) {
   // PATH CONNECTION LOGIC
   // ============================================================================
 
-  function forceConnection(cellKeyA, cellKeyB) {
+  function forceConnection(cellKeyA, cellKeyB, incomingConnectionA = null) {
     const [r1, c1] = cellKeyA.split(',').map(Number);
     const [r2, c2] = cellKeyB.split(',').map(Number);
 
@@ -113,13 +113,14 @@ export function createGameCore({ gridSize, canvas, onRender }) {
 
     const connectionsA = state.playerConnections.get(cellKeyA);
     if (connectionsA.size >= 2) {
-      const toBreak = determineConnectionToBreak(cellKeyA, cellKeyB, connectionsA);
+      const toBreak = determineConnectionToBreak(cellKeyA, cellKeyB, connectionsA, incomingConnectionA);
       removeConnection(cellKeyA, toBreak);
     }
 
     const connectionsB = state.playerConnections.get(cellKeyB);
     if (connectionsB.size >= 2) {
-      const toBreak = determineConnectionToBreak(cellKeyB, cellKeyA, connectionsB);
+      // For cellB, the incoming connection is cellKeyA (the one we're creating)
+      const toBreak = determineConnectionToBreak(cellKeyB, cellKeyA, connectionsB, cellKeyA);
       removeConnection(cellKeyB, toBreak);
     }
 
@@ -173,11 +174,17 @@ export function createGameCore({ gridSize, canvas, onRender }) {
       if (state.playerConnections.get(prevInDrag)?.has(pathCell)) {
         state.dragPath.push(pathCell);
         prevInDrag = pathCell;
-      } else if (forceConnection(prevInDrag, pathCell)) {
-        state.dragPath.push(pathCell);
-        prevInDrag = pathCell;
       } else {
-        break;
+        // Find the cell we came from in the drag path (the incoming connection for prevInDrag)
+        const prevInDragIndex = state.dragPath.indexOf(prevInDrag);
+        const incomingConnection = prevInDragIndex > 0 ? state.dragPath[prevInDragIndex - 1] : null;
+
+        if (forceConnection(prevInDrag, pathCell, incomingConnection)) {
+          state.dragPath.push(pathCell);
+          prevInDrag = pathCell;
+        } else {
+          break;
+        }
       }
     }
     cleanupOrphanedCells();
