@@ -31,7 +31,8 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     cellsAddedThisDrag: new Set(),
     hasDragMoved: false,
     lastPointerX: 0,
-    lastPointerY: 0
+    lastPointerY: 0,
+    canvasRect: null  // Cached canvas bounding rect during drag (avoids layout thrashing)
   };
 
   // ============================================================================
@@ -50,10 +51,7 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     }
   }
 
-  function getCellFromPointer(event) {
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+  function getCellFromCoords(x, y) {
     const col = Math.floor(x / state.cellSize);
     const row = Math.floor(y / state.cellSize);
 
@@ -61,6 +59,14 @@ export function createGameCore({ gridSize, canvas, onRender }) {
       return { row, col, key: `${row},${col}` };
     }
     return null;
+  }
+
+  function getCellFromPointer(event) {
+    // Use cached rect if available (during drag), otherwise get fresh rect
+    const rect = state.canvasRect || canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    return getCellFromCoords(x, y);
   }
 
   function removeConnection(cellKeyA, cellKeyB) {
@@ -79,6 +85,7 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     state.dragPath = [];
     state.cellsAddedThisDrag = new Set();
     state.hasDragMoved = false;
+    state.canvasRect = null;  // Clear cached rect (helps GC)
   }
 
   function cleanupOrphanedCells() {
@@ -198,15 +205,18 @@ export function createGameCore({ gridSize, canvas, onRender }) {
   function handlePointerDown(event) {
     event.preventDefault();
 
-    // Track raw pointer coordinates for path calculation
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    // Cache canvas bounding rect for the duration of the drag
+    // This avoids expensive getBoundingClientRect() calls on every pointer move
+    state.canvasRect = canvas.getBoundingClientRect();
+
+    // Extract coordinates using cached rect
+    const x = event.clientX - state.canvasRect.left;
+    const y = event.clientY - state.canvasRect.top;
 
     state.lastPointerX = x;
     state.lastPointerY = y;
 
-    const cell = getCellFromPointer(event);
+    const cell = getCellFromCoords(x, y);
     if (!cell) return;
 
     canvas.setPointerCapture(event.pointerId);
@@ -228,12 +238,11 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     if (!state.isDragging) return;
     event.preventDefault();
 
-    // Extract raw pointer coordinates for path calculation
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    // Use cached canvas rect (set in handlePointerDown) to avoid layout thrashing
+    const x = event.clientX - state.canvasRect.left;
+    const y = event.clientY - state.canvasRect.top;
 
-    const cell = getCellFromPointer(event);
+    const cell = getCellFromCoords(x, y);
     if (!cell) return;
 
     const currentCell = state.dragPath[state.dragPath.length - 1];
