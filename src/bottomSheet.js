@@ -44,6 +44,8 @@ export function createBottomSheet({ title, content }) {
   if (typeof content === 'string') {
     contentContainer.innerHTML = content;
   } else if (content instanceof HTMLElement) {
+    // Remove any inline display style that might hide the content
+    content.style.display = '';
     contentContainer.appendChild(content);
   }
 
