@@ -5,6 +5,8 @@
  * and click-outside dismissal
  */
 
+import { initIcons } from './icons.js';
+
 /**
  * Create a bottom sheet component
  * @param {Object} options
@@ -84,10 +86,8 @@ export function createBottomSheet({ title, content }) {
     // Trigger slide-up animation
     overlay.classList.add('visible');
 
-    // Re-render Lucide icons for the close button
-    if (window.lucide) {
-      window.lucide.createIcons();
-    }
+    // Initialize Lucide icons for the close button
+    initIcons();
   }
 
   /**
