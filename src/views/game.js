@@ -7,7 +7,7 @@
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
-import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop, showAlertAsync } from '../utils.js';
+import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
@@ -420,8 +420,17 @@ function render(triggerSave = true) {
       // Only show feedback once per structural completion
       hasShownPartialWinFeedback = true;
 
-      // Show feedback alert
-      showAlertAsync('Nice loop, but not all numbers have the correct amount of bends.');
+      // Show feedback bottom sheet
+      const feedbackSheet = createBottomSheet({
+        title: 'Almost there!',
+        content: '<div style="padding: 20px; text-align: center; font-size: 16px; color: #7F8C8D;">Nice loop, but not all numbers have the correct amount of bends.</div>'
+      });
+
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          feedbackSheet.show();
+        }, 0);
+      });
     }
   } else {
     // If structural win is no longer valid, reset the feedback flag
