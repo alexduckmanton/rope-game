@@ -403,10 +403,9 @@ function render(triggerSave = true) {
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
       // Show win bottom sheet with completion time
-      const winContent = `<div style="padding: 20px; text-align: center; font-size: 16px; color: #7F8C8D;">You finished in ${finalTime}.</div>`;
       const winSheet = createBottomSheet({
         title: 'You made a loop!',
-        content: winContent
+        content: `<div class="bottom-sheet-message">You finished in ${finalTime}.</div>`
       });
 
       // Use requestAnimationFrame + setTimeout to ensure render completes before showing sheet
@@ -423,7 +422,7 @@ function render(triggerSave = true) {
       // Show feedback bottom sheet
       const feedbackSheet = createBottomSheet({
         title: 'Almost there!',
-        content: '<div style="padding: 20px; text-align: center; font-size: 16px; color: #7F8C8D;">Nice loop, but not all numbers have the correct amount of bends.</div>'
+        content: '<div class="bottom-sheet-message">Nice loop, but not all numbers have the correct amount of bends.</div>'
       });
 
       requestAnimationFrame(() => {

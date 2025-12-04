@@ -8,6 +8,12 @@
 import { initIcons } from './icons.js';
 
 /**
+ * Animation duration for show/hide transitions (must match CSS transition duration)
+ * @see style.css .bottom-sheet transition property (line 526)
+ */
+const ANIMATION_DURATION_MS = 300;
+
+/**
  * Create a bottom sheet component
  * @param {Object} options
  * @param {string} options.title - Title displayed in the header
@@ -108,7 +114,7 @@ export function createBottomSheet({ title, content, onClose }) {
     // Remove visible class to trigger slide-out animation
     overlay.classList.remove('visible');
 
-    // Wait for animation to complete (300ms), then hide
+    // Wait for animation to complete, then hide
     setTimeout(() => {
       overlay.style.display = 'none';
 
@@ -116,7 +122,7 @@ export function createBottomSheet({ title, content, onClose }) {
       if (onClose && typeof onClose === 'function') {
         onClose();
       }
-    }, 300);
+    }, ANIMATION_DURATION_MS);
   }
 
   /**
@@ -147,7 +153,7 @@ export function createBottomSheet({ title, content, onClose }) {
       if (overlay.parentNode) {
         overlay.parentNode.removeChild(overlay);
       }
-    }, 300);
+    }, ANIMATION_DURATION_MS);
   }
 
   return {

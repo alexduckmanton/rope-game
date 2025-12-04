@@ -227,7 +227,7 @@ function render() {
       // Show win bottom sheet with navigation on close
       const winSheet = createBottomSheet({
         title: 'You made a loop!',
-        content: '<div style="padding: 20px; text-align: center; font-size: 16px; color: #7F8C8D;">Great job! Let\'s continue.</div>',
+        content: '<div class="bottom-sheet-message">Great job! Let\'s continue.</div>',
         onClose: () => {
           // Navigate to next tutorial or complete screen
           if (currentConfig && currentConfig.nextRoute) {
@@ -267,10 +267,10 @@ function render() {
       if (mismatches.length === 1) {
         // Single hint feedback (tutorial 3)
         const { expected, actual } = mismatches[0];
-        feedbackContent = `<div style="padding: 20px; text-align: center; font-size: 16px; color: #7F8C8D;">This loop has ${actual} bends in the squares touching the ${expected}. Try a different loop shape to complete this tutorial.</div>`;
+        feedbackContent = `<div class="bottom-sheet-message">This loop has ${actual} bends in the squares touching the ${expected}. Try a different loop shape to complete this tutorial.</div>`;
       } else {
         // Multiple hints feedback (tutorial 4+)
-        feedbackContent = `<div style="padding: 20px; text-align: center; font-size: 16px; color: #7F8C8D;">This loop doesn't have the right number of bends for the numbers. Try a different loop shape to complete this tutorial.</div>`;
+        feedbackContent = `<div class="bottom-sheet-message">This loop doesn't have the right number of bends for the numbers. Try a different loop shape to complete this tutorial.</div>`;
       }
 
       const feedbackSheet = createBottomSheet({
