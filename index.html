@@ -98,49 +98,41 @@
         <canvas id="game-canvas"></canvas>
       </main>
 
-      <!-- Settings Bottom Sheet -->
-      <div id="settings-overlay" class="settings-overlay">
-        <div id="settings-sheet" class="settings-sheet">
-          <div class="settings-header">
-            <h2>Settings</h2>
-            <button id="settings-close-btn" class="settings-close-btn" aria-label="Close">
-              <i data-lucide="x" width="24" height="24"></i>
-            </button>
-          </div>
-          <div class="settings-list">
-            <div class="settings-item" id="difficulty-settings-item">
-              <div class="settings-control">
-                <div class="segmented-control" id="difficulty-segmented-control">
-                  <button class="segment-btn" data-difficulty="easy">Easy</button>
-                  <button class="segment-btn" data-difficulty="medium">Medium</button>
-                  <button class="segment-btn" data-difficulty="hard">Hard</button>
-                </div>
+      <!-- Settings Content (will be wrapped in bottom sheet dynamically) -->
+      <div id="settings-content" style="display: none;">
+        <div class="settings-list">
+          <div class="settings-item" id="difficulty-settings-item">
+            <div class="settings-control">
+              <div class="segmented-control" id="difficulty-segmented-control">
+                <button class="segment-btn" data-difficulty="easy">Easy</button>
+                <button class="segment-btn" data-difficulty="medium">Medium</button>
+                <button class="segment-btn" data-difficulty="hard">Hard</button>
               </div>
             </div>
-            <div class="settings-item">
-              <label class="settings-toggle-label">
-                <input type="checkbox" id="hints-checkbox">
-                <span>Hints</span>
-              </label>
-            </div>
-            <div class="settings-item">
-              <label class="settings-toggle-label">
-                <input type="checkbox" id="countdown-checkbox">
-                <span>Countdown</span>
-              </label>
-            </div>
-            <div class="settings-item">
-              <label class="settings-toggle-label">
-                <input type="checkbox" id="border-checkbox">
-                <span>Border</span>
-              </label>
-            </div>
-            <div class="settings-item">
-              <label class="settings-toggle-label">
-                <input type="checkbox" id="solution-checkbox">
-                <span>Solution</span>
-              </label>
-            </div>
+          </div>
+          <div class="settings-item">
+            <label class="settings-toggle-label">
+              <input type="checkbox" id="hints-checkbox">
+              <span>Hints</span>
+            </label>
+          </div>
+          <div class="settings-item">
+            <label class="settings-toggle-label">
+              <input type="checkbox" id="countdown-checkbox">
+              <span>Countdown</span>
+            </label>
+          </div>
+          <div class="settings-item">
+            <label class="settings-toggle-label">
+              <input type="checkbox" id="border-checkbox">
+              <span>Border</span>
+            </label>
+          </div>
+          <div class="settings-item">
+            <label class="settings-toggle-label">
+              <input type="checkbox" id="solution-checkbox">
+              <span>Solution</span>
+            </label>
           </div>
         </div>
       </div>
