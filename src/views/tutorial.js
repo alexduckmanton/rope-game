@@ -228,6 +228,9 @@ function render() {
       showBottomSheetAsync({
         title: 'You made a loop!',
         content: '<div class="bottom-sheet-message">Great job! Let\'s continue.</div>',
+        icon: 'party-popper',
+        colorScheme: 'success',
+        dismissLabel: 'Next',
         onClose: () => {
           // Navigate to next tutorial or complete screen
           if (currentConfig && currentConfig.nextRoute) {
@@ -268,7 +271,10 @@ function render() {
 
       showBottomSheetAsync({
         title: 'Not quite!',
-        content: feedbackContent
+        content: feedbackContent,
+        icon: 'circle-off',
+        colorScheme: 'error',
+        dismissLabel: 'Keep trying'
       });
     }
   } else {

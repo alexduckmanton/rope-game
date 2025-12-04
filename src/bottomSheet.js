@@ -14,14 +14,43 @@ import { initIcons } from './icons.js';
 const ANIMATION_DURATION_MS = 300;
 
 /**
+ * Predefined color schemes for icon and background
+ */
+const COLOR_SCHEMES = {
+  neutral: {
+    iconColor: '#6B7280',      // Medium grey
+    backgroundColor: '#F3F4F6' // Light grey
+  },
+  success: {
+    iconColor: '#10B981',      // Rich green
+    backgroundColor: '#D1FAE5' // Pale green
+  },
+  error: {
+    iconColor: '#EF4444',      // Rich red
+    backgroundColor: '#FEE2E2' // Pale red
+  },
+  info: {
+    iconColor: '#3B82F6',      // Rich blue
+    backgroundColor: '#DBEAFE' // Pale blue
+  },
+  warning: {
+    iconColor: '#F59E0B',      // Rich amber
+    backgroundColor: '#FEF3C7' // Pale amber
+  }
+};
+
+/**
  * Create a bottom sheet component
  * @param {Object} options
  * @param {string} options.title - Title displayed in the header
  * @param {HTMLElement|string} options.content - Content to display (HTMLElement or HTML string)
- * @param {Function} [options.onClose] - Optional callback when sheet is closed (via X or click-outside)
+ * @param {string} [options.icon] - Optional Lucide icon name (e.g., 'settings', 'party-popper', 'circle-off')
+ * @param {string} [options.colorScheme='neutral'] - Color scheme: 'neutral', 'success', 'error', 'info', 'warning'
+ * @param {string} [options.dismissLabel='Close'] - Label for the dismiss button at bottom
+ * @param {Function} [options.onClose] - Optional callback when sheet is closed (via dismiss button or click-outside)
  * @returns {Object} - Object with show(), hide(), destroy() methods
  */
-export function createBottomSheet({ title, content, onClose }) {
+export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = 'Close', onClose }) {
   // Create overlay (backdrop + container)
   const overlay = document.createElement('div');
   overlay.className = 'bottom-sheet-overlay';
@@ -30,20 +59,26 @@ export function createBottomSheet({ title, content, onClose }) {
   const sheet = document.createElement('div');
   sheet.className = 'bottom-sheet';
 
-  // Create header with title and close button
+  // Get color scheme
+  const colors = COLOR_SCHEMES[colorScheme] || COLOR_SCHEMES.neutral;
+
+  // Create optional icon container (if icon is specified)
+  let iconContainer = null;
+  if (icon) {
+    iconContainer = document.createElement('div');
+    iconContainer.className = 'bottom-sheet-icon-container';
+    iconContainer.style.backgroundColor = colors.backgroundColor;
+    iconContainer.innerHTML = `<i data-lucide="${icon}" width="40" height="40" style="color: ${colors.iconColor}"></i>`;
+  }
+
+  // Create header with centered title (no close button)
   const header = document.createElement('div');
   header.className = 'bottom-sheet-header';
 
   const titleEl = document.createElement('h2');
   titleEl.textContent = title;
 
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'bottom-sheet-close-btn';
-  closeBtn.setAttribute('aria-label', 'Close');
-  closeBtn.innerHTML = '<i data-lucide="x" width="24" height="24"></i>';
-
   header.appendChild(titleEl);
-  header.appendChild(closeBtn);
 
   // Create content container
   const contentContainer = document.createElement('div');
@@ -68,9 +103,18 @@ export function createBottomSheet({ title, content, onClose }) {
     contentContainer.appendChild(content);
   }
 
+  // Create dismiss button at bottom
+  const dismissBtn = document.createElement('button');
+  dismissBtn.className = 'bottom-sheet-dismiss-btn';
+  dismissBtn.textContent = dismissLabel;
+
   // Assemble the sheet
+  if (iconContainer) {
+    sheet.appendChild(iconContainer);
+  }
   sheet.appendChild(header);
   sheet.appendChild(contentContainer);
+  sheet.appendChild(dismissBtn);
   overlay.appendChild(sheet);
 
   // Event handlers
@@ -82,7 +126,7 @@ export function createBottomSheet({ title, content, onClose }) {
     }
   };
 
-  closeBtn.addEventListener('click', handleClose);
+  dismissBtn.addEventListener('click', handleClose);
   overlay.addEventListener('click', handleOverlayClick);
 
   /**
@@ -103,7 +147,7 @@ export function createBottomSheet({ title, content, onClose }) {
     // Trigger slide-up animation
     overlay.classList.add('visible');
 
-    // Initialize Lucide icons for the close button
+    // Initialize Lucide icons for the icon container (if present)
     initIcons();
   }
 
@@ -132,7 +176,7 @@ export function createBottomSheet({ title, content, onClose }) {
     hide();
 
     // Clean up event listeners
-    closeBtn.removeEventListener('click', handleClose);
+    dismissBtn.removeEventListener('click', handleClose);
     overlay.removeEventListener('click', handleOverlayClick);
 
     // Restore HTMLElement content to its original location before removing overlay

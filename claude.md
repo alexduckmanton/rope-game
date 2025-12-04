@@ -15,7 +15,7 @@
 | `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles |
 | `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `buildPlayerTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `findShortestPath()` |
 | `config.js` | Configuration constants | `CONFIG` - Colors, sizes, generation tuning, rendering params |
-| `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet({ title, content, onClose })`, `showBottomSheetAsync(options)` - Factory creates instances, helper shows one-time notifications |
+| `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet({ title, content, icon, colorScheme, dismissLabel, onClose })`, `showBottomSheetAsync(options)` - Factory creates instances with icons and color schemes, helper shows one-time notifications |
 
 ### Core Concepts
 
@@ -298,7 +298,7 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 ### Bottom Sheet Component System
 
-**Purpose:** Unified modal overlay system replacing browser alerts throughout the application. Provides consistent animations, dismissal methods, and accessibility for all transient notifications and persistent settings panels.
+**Purpose:** Unified modal overlay system replacing browser alerts throughout the application. Provides consistent animations, dismissal methods, visual design with icons and color schemes for all transient notifications and persistent settings panels.
 
 **Architecture:** Factory pattern with closure-based state management. Module exports two functions serving different use cases:
 
@@ -306,6 +306,39 @@ Auto-saves game state to localStorage (client-side, no backend).
 |----------|----------|-----------|---------|
 | `createBottomSheet()` | Persistent sheets that need manual control | Caller manages show/hide/destroy | Instance with methods |
 | `showBottomSheetAsync()` | One-time notifications that auto-show | Fire-and-forget, auto-shown async | Instance for optional control |
+
+**Visual Design:**
+
+Bottom sheets feature a redesigned layout with centered icons, centered titles, and a prominent dismiss button:
+
+```
+┌─────────────────────────┐
+│                         │
+│    ┌───────────┐        │  ← Icon container (80px, fully rounded)
+│    │   Icon    │        │    Background: pale pastel color
+│    └───────────┘        │    Icon: rich color shade
+│                         │
+│       Sheet Title       │  ← Centered title (24px, bold)
+│                         │
+│   Content area here     │  ← Message or settings content
+│                         │
+│  ┌─────────────────┐    │
+│  │  Dismiss Label  │    │  ← Bottom dismiss button (blue, rounded)
+│  └─────────────────┘    │
+└─────────────────────────┘
+```
+
+**Color Schemes:**
+
+Five predefined color schemes provide visual context:
+
+| Scheme | Icon Color | Background Color | Usage |
+|--------|-----------|------------------|-------|
+| `neutral` | `#6B7280` (grey) | `#F3F4F6` (pale grey) | Settings, default |
+| `success` | `#10B981` (green) | `#D1FAE5` (pale green) | Win notifications |
+| `error` | `#EF4444` (red) | `#FEE2E2` (pale red) | Incorrect loop feedback |
+| `info` | `#3B82F6` (blue) | `#DBEAFE` (pale blue) | Informational messages |
+| `warning` | `#F59E0B` (amber) | `#FEF3C7` (pale amber) | Warnings |
 
 **Design Rationale:**
 
@@ -325,18 +358,28 @@ Accepts both HTML strings and HTMLElement instances as content. This distinction
 
 **Animation Synchronization:** Bottom sheets use CSS transitions for smooth slide-up/slide-down animations. JavaScript timing must synchronize with CSS timing to avoid visual glitches. The async helper encapsulates the requestAnimationFrame plus setTimeout pattern required to wait for DOM render completion before triggering CSS transitions. This pattern was repeated five times before extraction into the helper function.
 
-**Dismissal Methods:** Three ways to close sheets, all triggering the same cleanup flow:
-- Click close button (X icon in header)
+**Dismissal Methods:** Two ways to close sheets, all triggering the same cleanup flow:
+- Click dismiss button at bottom (customizable label)
 - Click outside overlay (click-to-dismiss)
-- Programmatic hide method call
 
 All dismissal paths wait for hide animation to complete before firing onClose callback, ensuring smooth transitions before navigation or state changes.
+
+**Dismiss Button Labels:** The dismiss button label is customizable and provides contextual actions:
+- `"Close"` - Default, used for settings and general dismissal
+- `"Next"` - Tutorial progression, navigates to next lesson on close
+- `"Yay!"` - Win celebration, adds emotional response to victory
+- `"Keep trying"` - Encouraging feedback for incorrect loops
 
 **Callback System:** Optional onClose parameter enables navigation or state updates after sheet dismisses. Used in tutorial to advance to next lesson when user closes win notification. Callback fires after hide animation completes but before instance destruction.
 
 **Resource Management:** Destroy method removes overlay from DOM and handles content cleanup. For HTMLElement content, restores element to original location with display:none to prevent FOUC. For string content, simply removes overlay. Settings sheet persists across game sessions (created once, show/hide many times), while notification sheets are destroyed immediately after use.
 
-**Icon Integration:** Bottom sheets render Lucide icons for close button. Component calls project's initIcons function after DOM insertion to convert icon placeholders into SVG elements. This maintains tree-shaking benefits while ensuring icons render correctly.
+**Icon Integration:** Bottom sheets render optional Lucide icons in centered containers above the title. Component calls project's initIcons function after DOM insertion to convert icon placeholders into SVG elements. This maintains tree-shaking benefits while ensuring icons render correctly.
+
+**Icon Usage:**
+- `settings` - Settings sheet
+- `party-popper` - Win notifications (tutorial and game completion)
+- `circle-off` - Incorrect loop feedback
 
 **Animation Constants:** Module defines ANIMATION_DURATION_MS constant (300ms) matching CSS transition timing. This constant is referenced by both show/hide methods and exported for use in tests or dependent code. All animation timing flows from this single source of truth.
 
@@ -344,12 +387,12 @@ All dismissal paths wait for hide animation to complete before firing onClose ca
 
 **Current Usage:**
 
-| Location | Sheet Type | Content | Lifecycle |
-|----------|-----------|---------|-----------|
-| Settings panel | Persistent (createBottomSheet) | HTMLElement | Created once per game session, reused |
-| Win notification | Transient (showBottomSheetAsync) | HTML string | Created on win, destroyed on dismiss |
-| Tutorial feedback | Transient (showBottomSheetAsync) | HTML string | Created on completion, callback navigates |
-| Partial win feedback | Transient (showBottomSheetAsync) | HTML string | Created when loop incorrect, destroyed on dismiss |
+| Location | Sheet Type | Content | Icon | Color Scheme | Dismiss Label |
+|----------|-----------|---------|------|--------------|---------------|
+| Settings panel | Persistent | HTMLElement | `settings` | `neutral` | "Close" |
+| Win notification (game) | Transient | HTML string | `party-popper` | `success` | "Yay!" |
+| Win notification (tutorial) | Transient | HTML string | `party-popper` | `success` | "Next" |
+| Partial win feedback | Transient | HTML string | `circle-off` | `error` | "Keep trying" |
 
 **Integration Points:**
 

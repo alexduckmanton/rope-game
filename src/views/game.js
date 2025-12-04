@@ -405,7 +405,10 @@ function render(triggerSave = true) {
       // Show win bottom sheet with completion time
       showBottomSheetAsync({
         title: 'You made a loop!',
-        content: `<div class="bottom-sheet-message">You finished in ${finalTime}.</div>`
+        content: `<div class="bottom-sheet-message">You finished in ${finalTime}.</div>`,
+        icon: 'party-popper',
+        colorScheme: 'success',
+        dismissLabel: 'Yay!'
       });
     } else if (!hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
@@ -415,7 +418,10 @@ function render(triggerSave = true) {
       // Show feedback bottom sheet
       showBottomSheetAsync({
         title: 'Almost there!',
-        content: '<div class="bottom-sheet-message">Nice loop, but not all numbers have the correct amount of bends.</div>'
+        content: '<div class="bottom-sheet-message">Nice loop, but not all numbers have the correct amount of bends.</div>',
+        icon: 'circle-off',
+        colorScheme: 'error',
+        dismissLabel: 'Keep trying'
       });
     }
   } else {
@@ -589,7 +595,10 @@ export function initGame(difficulty) {
   const settingsContent = document.getElementById('settings-content');
   settingsSheet = createBottomSheet({
     title: 'Settings',
-    content: settingsContent
+    content: settingsContent,
+    icon: 'settings',
+    colorScheme: 'neutral',
+    dismissLabel: 'Close'
   });
 
   // Clear title text (difficulty is shown in timer display)
