@@ -379,7 +379,7 @@ All dismissal paths wait for hide animation to complete before firing onClose ca
 **Icon Usage:**
 - `settings` - Settings sheet
 - `party-popper` - Win notifications (tutorial and game completion)
-- `circle-off` - Incorrect loop feedback
+- `circle-x` - Incorrect loop feedback
 
 **Animation Constants:** Module defines ANIMATION_DURATION_MS constant (300ms) matching CSS transition timing. This constant is referenced by both show/hide methods and exported for use in tests or dependent code. All animation timing flows from this single source of truth.
 
@@ -392,7 +392,7 @@ All dismissal paths wait for hide animation to complete before firing onClose ca
 | Settings panel | Persistent | HTMLElement | `settings` | `neutral` | "Close" |
 | Win notification (game) | Transient | HTML string | `party-popper` | `success` | "Yay!" |
 | Win notification (tutorial) | Transient | HTML string | `party-popper` | `success` | "Next" |
-| Partial win feedback | Transient | HTML string | `circle-off` | `error` | "Keep trying" |
+| Partial win feedback | Transient | HTML string | `circle-x` | `error` | "Keep trying" |
 
 **Integration Points:**
 

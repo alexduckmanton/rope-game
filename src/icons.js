@@ -7,12 +7,14 @@
  * Icons used:
  * - ArrowLeft: Back navigation button
  * - Settings: Settings/gear button
- * - X: Close button for bottom sheets
+ * - X: Close button (legacy, now unused after bottom sheet redesign)
  * - Dices: New puzzle button
  * - RefreshCcw: Restart puzzle button
+ * - PartyPopper: Win/celebration bottom sheets
+ * - CircleX: Error/incorrect feedback bottom sheets
  */
 
-import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, PartyPopper, CircleX } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -32,7 +34,9 @@ export function initIcons() {
       Settings,
       X,
       Dices,
-      RefreshCcw
+      RefreshCcw,
+      PartyPopper,
+      CircleX
     },
     attrs: {
       'stroke-width': '2',
