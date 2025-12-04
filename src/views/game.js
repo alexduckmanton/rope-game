@@ -13,7 +13,7 @@ import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
 import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings } from '../persistence.js';
-import { createBottomSheet } from '../bottomSheet.js';
+import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 
 /* ============================================================================
  * STATE VARIABLES
@@ -403,16 +403,9 @@ function render(triggerSave = true) {
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
       // Show win bottom sheet with completion time
-      const winSheet = createBottomSheet({
+      showBottomSheetAsync({
         title: 'You made a loop!',
         content: `<div class="bottom-sheet-message">You finished in ${finalTime}.</div>`
-      });
-
-      // Use requestAnimationFrame + setTimeout to ensure render completes before showing sheet
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          winSheet.show();
-        }, 0);
       });
     } else if (!hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
@@ -420,15 +413,9 @@ function render(triggerSave = true) {
       hasShownPartialWinFeedback = true;
 
       // Show feedback bottom sheet
-      const feedbackSheet = createBottomSheet({
+      showBottomSheetAsync({
         title: 'Almost there!',
         content: '<div class="bottom-sheet-message">Nice loop, but not all numbers have the correct amount of bends.</div>'
-      });
-
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          feedbackSheet.show();
-        }, 0);
       });
     }
   } else {

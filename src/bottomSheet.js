@@ -162,3 +162,46 @@ export function createBottomSheet({ title, content, onClose }) {
     destroy
   };
 }
+
+/**
+ * Create and show a bottom sheet asynchronously after render completes
+ *
+ * This is a convenience helper for one-time notifications (win/feedback messages)
+ * that need to wait for render to complete before showing.
+ *
+ * For persistent sheets that are shown/hidden multiple times (like settings),
+ * use createBottomSheet() directly and call show()/hide() as needed.
+ *
+ * @param {Object} options - Same options as createBottomSheet
+ * @param {string} options.title - Title displayed in the header
+ * @param {HTMLElement|string} options.content - Content to display
+ * @param {Function} [options.onClose] - Optional callback when sheet is closed
+ * @returns {Object} - The created bottom sheet instance (with show, hide, destroy methods)
+ *
+ * @example
+ * // One-time notification (no need to store reference)
+ * showBottomSheetAsync({
+ *   title: 'Success!',
+ *   content: '<div class="bottom-sheet-message">You won!</div>'
+ * });
+ *
+ * // With navigation callback
+ * showBottomSheetAsync({
+ *   title: 'Complete!',
+ *   content: '<div class="bottom-sheet-message">Moving on...</div>',
+ *   onClose: () => navigate('/next')
+ * });
+ */
+export function showBottomSheetAsync(options) {
+  const sheet = createBottomSheet(options);
+
+  // Wait for render to complete before showing
+  // This prevents visual glitches when showing immediately after state changes
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      sheet.show();
+    }, 0);
+  });
+
+  return sheet;
+}

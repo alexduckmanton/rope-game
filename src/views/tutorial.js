@@ -9,7 +9,7 @@ import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop } from '../
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
-import { createBottomSheet } from '../bottomSheet.js';
+import { showBottomSheetAsync } from '../bottomSheet.js';
 
 /* ============================================================================
  * TUTORIAL CONFIGURATIONS
@@ -225,7 +225,7 @@ function render() {
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
       // Show win bottom sheet with navigation on close
-      const winSheet = createBottomSheet({
+      showBottomSheetAsync({
         title: 'You made a loop!',
         content: '<div class="bottom-sheet-message">Great job! Let\'s continue.</div>',
         onClose: () => {
@@ -234,13 +234,6 @@ function render() {
             navigate(currentConfig.nextRoute);
           }
         }
-      });
-
-      // Use requestAnimationFrame + setTimeout to ensure render completes before showing sheet
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          winSheet.show();
-        }, 0);
       });
     } else if (currentConfig && currentConfig.hasHints && !hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
@@ -273,15 +266,9 @@ function render() {
         feedbackContent = `<div class="bottom-sheet-message">This loop doesn't have the right number of bends for the numbers. Try a different loop shape to complete this tutorial.</div>`;
       }
 
-      const feedbackSheet = createBottomSheet({
+      showBottomSheetAsync({
         title: 'Not quite!',
         content: feedbackContent
-      });
-
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          feedbackSheet.show();
-        }, 0);
       });
     }
   } else {
