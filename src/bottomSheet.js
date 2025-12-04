@@ -12,9 +12,10 @@ import { initIcons } from './icons.js';
  * @param {Object} options
  * @param {string} options.title - Title displayed in the header
  * @param {HTMLElement|string} options.content - Content to display (HTMLElement or HTML string)
+ * @param {Function} [options.onClose] - Optional callback when sheet is closed (via X or click-outside)
  * @returns {Object} - Object with show(), hide(), destroy() methods
  */
-export function createBottomSheet({ title, content }) {
+export function createBottomSheet({ title, content, onClose }) {
   // Create overlay (backdrop + container)
   const overlay = document.createElement('div');
   overlay.className = 'bottom-sheet-overlay';
@@ -110,6 +111,11 @@ export function createBottomSheet({ title, content }) {
     // Wait for animation to complete (300ms), then hide
     setTimeout(() => {
       overlay.style.display = 'none';
+
+      // Call onClose callback if provided
+      if (onClose && typeof onClose === 'function') {
+        onClose();
+      }
     }, 300);
   }
 

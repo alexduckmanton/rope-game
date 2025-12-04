@@ -5,10 +5,11 @@
  */
 
 import { renderGrid, clearCanvas, renderPlayerPath, renderCellNumbers, buildPlayerTurnMap, renderHintPulse } from '../renderer.js';
-import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop, showAlertAsync } from '../utils.js';
+import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
+import { createBottomSheet } from '../bottomSheet.js';
 
 /* ============================================================================
  * TUTORIAL CONFIGURATIONS
@@ -222,11 +223,24 @@ function render() {
       hasWon = true;
       hasShownPartialWinFeedback = false; // Reset flag
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
-      showAlertAsync('You made a loop!', () => {
-        // Navigate to next tutorial or complete screen
-        if (currentConfig && currentConfig.nextRoute) {
-          navigate(currentConfig.nextRoute);
+
+      // Show win bottom sheet with navigation on close
+      const winSheet = createBottomSheet({
+        title: 'You made a loop!',
+        content: '<div style="padding: 20px; text-align: center; font-size: 16px; color: #7F8C8D;">Great job! Let\'s continue.</div>',
+        onClose: () => {
+          // Navigate to next tutorial or complete screen
+          if (currentConfig && currentConfig.nextRoute) {
+            navigate(currentConfig.nextRoute);
+          }
         }
+      });
+
+      // Use requestAnimationFrame + setTimeout to ensure render completes before showing sheet
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          winSheet.show();
+        }, 0);
       });
     } else if (currentConfig && currentConfig.hasHints && !hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
@@ -248,15 +262,27 @@ function render() {
         }
       }
 
-      // Show feedback alert
+      // Show feedback bottom sheet
+      let feedbackContent;
       if (mismatches.length === 1) {
         // Single hint feedback (tutorial 3)
         const { expected, actual } = mismatches[0];
-        showAlertAsync(`This loop has ${actual} bends in the squares touching the ${expected}. Try a different loop shape to complete this tutorial.`);
+        feedbackContent = `<div style="padding: 20px; text-align: center; font-size: 16px; color: #7F8C8D;">This loop has ${actual} bends in the squares touching the ${expected}. Try a different loop shape to complete this tutorial.</div>`;
       } else {
         // Multiple hints feedback (tutorial 4+)
-        showAlertAsync(`This loop doesn't have the right number of bends for the numbers. Try a different loop shape to complete this tutorial.`);
+        feedbackContent = `<div style="padding: 20px; text-align: center; font-size: 16px; color: #7F8C8D;">This loop doesn't have the right number of bends for the numbers. Try a different loop shape to complete this tutorial.</div>`;
       }
+
+      const feedbackSheet = createBottomSheet({
+        title: 'Not quite!',
+        content: feedbackContent
+      });
+
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          feedbackSheet.show();
+        }, 0);
+      });
     }
   } else {
     // If structural win is no longer valid, reset the feedback flag
