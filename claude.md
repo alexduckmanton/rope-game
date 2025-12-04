@@ -15,6 +15,7 @@
 | `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles |
 | `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `buildPlayerTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `findShortestPath()` |
 | `config.js` | Configuration constants | `CONFIG` - Colors, sizes, generation tuning, rendering params |
+| `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet({ title, content, onClose })`, `showBottomSheetAsync(options)` - Factory creates instances, helper shows one-time notifications |
 
 ### Core Concepts
 
@@ -148,6 +149,7 @@ rope-game/
 │   ├── main.js            # App entry point, initializes router and icons
 │   ├── router.js          # Client-side routing with History API
 │   ├── icons.js           # Lucide icon initialization (tree-shakeable imports)
+│   ├── bottomSheet.js     # Reusable bottom sheet component (factory + async helper)
 │   ├── config.js          # Centralized constants (colors, sizing, generation tuning)
 │   ├── utils.js           # Shared utility functions (path math, validation helpers)
 │   ├── seededRandom.js    # Deterministic PRNG for daily puzzles (Mulberry32 algorithm)
@@ -294,6 +296,73 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Benefits:** Fair competition (daily times exclude time away), better UX (no time anxiety), accurate metrics.
 
+### Bottom Sheet Component System
+
+**Purpose:** Unified modal overlay system replacing browser alerts throughout the application. Provides consistent animations, dismissal methods, and accessibility for all transient notifications and persistent settings panels.
+
+**Architecture:** Factory pattern with closure-based state management. Module exports two functions serving different use cases:
+
+| Function | Use Case | Lifecycle | Returns |
+|----------|----------|-----------|---------|
+| `createBottomSheet()` | Persistent sheets that need manual control | Caller manages show/hide/destroy | Instance with methods |
+| `showBottomSheetAsync()` | One-time notifications that auto-show | Fire-and-forget, auto-shown async | Instance for optional control |
+
+**Design Rationale:**
+
+The dual-function approach emerged from analyzing actual usage patterns across the codebase. Settings requires persistent control (show on button click, hide on dismiss, reuse same instance across sessions), while game notifications are transient fire-and-forget messages. Two functions eliminate boilerplate without sacrificing flexibility.
+
+Factory pattern with closures (rather than classes) keeps the API surface minimal and avoids the cognitive overhead of instantiation syntax. Each instance maintains private state for overlay references, content tracking, and cleanup handlers without polluting global scope or requiring state management libraries.
+
+**Content Type Flexibility:**
+
+Accepts both HTML strings and HTMLElement instances as content. This distinction enables two critical behaviors:
+
+**HTML Strings (Notifications):** Content is inserted as innerHTML and discarded on destroy. Used for win messages, tutorial feedback, and alerts. Lightweight and simple.
+
+**HTMLElement Instances (Settings):** Original DOM element is moved into the sheet, then restored to original location on destroy. Critical for settings panel which must survive across multiple show/hide cycles without losing state or event listeners. The component tracks parent node and sibling position to restore element exactly where it was found.
+
+**Key Behaviors:**
+
+**Animation Synchronization:** Bottom sheets use CSS transitions for smooth slide-up/slide-down animations. JavaScript timing must synchronize with CSS timing to avoid visual glitches. The async helper encapsulates the requestAnimationFrame plus setTimeout pattern required to wait for DOM render completion before triggering CSS transitions. This pattern was repeated five times before extraction into the helper function.
+
+**Dismissal Methods:** Three ways to close sheets, all triggering the same cleanup flow:
+- Click close button (X icon in header)
+- Click outside overlay (click-to-dismiss)
+- Programmatic hide method call
+
+All dismissal paths wait for hide animation to complete before firing onClose callback, ensuring smooth transitions before navigation or state changes.
+
+**Callback System:** Optional onClose parameter enables navigation or state updates after sheet dismisses. Used in tutorial to advance to next lesson when user closes win notification. Callback fires after hide animation completes but before instance destruction.
+
+**Resource Management:** Destroy method removes overlay from DOM and handles content cleanup. For HTMLElement content, restores element to original location with display:none to prevent FOUC. For string content, simply removes overlay. Settings sheet persists across game sessions (created once, show/hide many times), while notification sheets are destroyed immediately after use.
+
+**Icon Integration:** Bottom sheets render Lucide icons for close button. Component calls project's initIcons function after DOM insertion to convert icon placeholders into SVG elements. This maintains tree-shaking benefits while ensuring icons render correctly.
+
+**Animation Constants:** Module defines ANIMATION_DURATION_MS constant (300ms) matching CSS transition timing. This constant is referenced by both show/hide methods and exported for use in tests or dependent code. All animation timing flows from this single source of truth.
+
+**CSS Architecture:** Component applies generic bottom-sheet-* CSS classes rather than inline styles. Message content uses .bottom-sheet-message class for consistent padding, centering, and typography. This separation of concerns keeps JavaScript focused on behavior while CSS handles presentation.
+
+**Current Usage:**
+
+| Location | Sheet Type | Content | Lifecycle |
+|----------|-----------|---------|-----------|
+| Settings panel | Persistent (createBottomSheet) | HTMLElement | Created once per game session, reused |
+| Win notification | Transient (showBottomSheetAsync) | HTML string | Created on win, destroyed on dismiss |
+| Tutorial feedback | Transient (showBottomSheetAsync) | HTML string | Created on completion, callback navigates |
+| Partial win feedback | Transient (showBottomSheetAsync) | HTML string | Created when loop incorrect, destroyed on dismiss |
+
+**Integration Points:**
+
+Settings sheet integrates with persistence system (saves on toggle), router (dismisses on navigation), and game state (re-renders on difficulty change). Notification sheets integrate with game validation (show on win/partial win) and tutorial system (navigation callbacks).
+
+**Known Limitations:**
+
+No built-in state tracking across multiple sheets (only one should be visible at a time, enforced by convention not code). No animation queueing (rapid show/hide calls may cause visual glitches). No accessibility enhancements yet (no focus trapping, no ARIA labels, no keyboard shortcuts). These are acceptable tradeoffs for current single-sheet usage patterns but would need addressing for more complex modal workflows.
+
+**Future Considerations:**
+
+Component could be extended to support multiple simultaneous sheets with z-index stacking, animation queueing for rapid successive shows, keyboard navigation (Escape to close), focus management (trap focus within sheet, restore on close), and ARIA attributes for screen readers. Current implementation prioritizes simplicity and covers all existing use cases without over-engineering for hypothetical requirements.
+
 -----
 
 ## UI/UX Specifications
@@ -343,19 +412,19 @@ Auto-saves game state to localStorage (client-side, no backend).
 - **Usage**: Arrow-left (back), Settings (gear), X (close), Refresh-ccw (restart), Dices (new puzzle)
 
 **Settings Bottom Sheet:**
-- Slides up from bottom with bounce animation (300ms, cubic-bezier(0.34, 1.3, 0.64, 1))
-- White background, rounded top corners (16px), soft shadow (80px blur, 10% opacity)
-- Settings displayed as list items with grey dividers
+
+Built using the bottom sheet component system (see Bottom Sheet Component System in Key Systems). The settings panel is a persistent sheet that reuses the same HTMLElement instance across multiple show/hide cycles.
+
+- **Visual Design**: Slides up with bounce animation (300ms, cubic-bezier(0.34, 1.3, 0.64, 1)), white background, rounded top corners (16px), soft shadow (80px blur, 10% opacity)
+- **Layout**: Settings displayed as list items with grey dividers
 - **Available Settings:**
   - **Difficulty** (Unlimited mode only): iOS-style segmented control for switching grid sizes
   - **Hints**: Three-state toggle (None → Partial → All) cycles hint visibility
   - **Countdown**: Boolean toggle for remaining vs total corners display (default ON)
   - **Border**: Three-state toggle (Off → Center → Full) for hint area borders
   - **Solution**: Boolean toggle to overlay solution path in blue
-- Context-aware: Difficulty segmented control appears only in Unlimited mode
-- Changes apply immediately with live re-render (no save/cancel buttons)
-- Click outside or X button to dismiss
-- Hidden in tutorial view
+- **Behavior**: Context-aware (difficulty segmented control appears only in Unlimited mode), changes apply immediately with live re-render (no save/cancel buttons), click outside or X button to dismiss
+- **Visibility**: Hidden in tutorial view
 
 ### Animations
 
