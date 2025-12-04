@@ -42,10 +42,20 @@ export function createBottomSheet({ title, content }) {
   const contentContainer = document.createElement('div');
   contentContainer.className = 'bottom-sheet-content';
 
+  // Track original parent for HTMLElement content (so we can restore it on destroy)
+  let originalParent = null;
+  let originalNextSibling = null;
+  let contentElement = null;
+
   // Add content (either HTML string or HTMLElement)
   if (typeof content === 'string') {
     contentContainer.innerHTML = content;
   } else if (content instanceof HTMLElement) {
+    // Store reference to original location
+    contentElement = content;
+    originalParent = content.parentNode;
+    originalNextSibling = content.nextSibling;
+
     // Remove any inline display style that might hide the content
     content.style.display = '';
     contentContainer.appendChild(content);
@@ -113,8 +123,21 @@ export function createBottomSheet({ title, content }) {
     closeBtn.removeEventListener('click', handleClose);
     overlay.removeEventListener('click', handleOverlayClick);
 
-    // Remove from DOM after animation completes
+    // Restore HTMLElement content to its original location before removing overlay
     setTimeout(() => {
+      if (contentElement && originalParent) {
+        // Hide the content before moving it back
+        contentElement.style.display = 'none';
+
+        // Restore to original location
+        if (originalNextSibling) {
+          originalParent.insertBefore(contentElement, originalNextSibling);
+        } else {
+          originalParent.appendChild(contentElement);
+        }
+      }
+
+      // Remove overlay from DOM
       if (overlay.parentNode) {
         overlay.parentNode.removeChild(overlay);
       }
