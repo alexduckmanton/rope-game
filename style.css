@@ -604,9 +604,9 @@ body {
   transition: background-color 150ms ease, transform 100ms ease;
 }
 
-/* Extra top margin for settings sheet dismiss button */
+/* Reduced top margin for settings sheet dismiss button (label already has 20px bottom padding) */
 .bottom-sheet-content:has(.settings-list) ~ .bottom-sheet-dismiss-btn {
-  margin-top: 32px;
+  margin-top: 12px;
 }
 
 .bottom-sheet-dismiss-btn:hover {
