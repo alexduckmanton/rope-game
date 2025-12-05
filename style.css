@@ -581,7 +581,7 @@ body {
 
 /* Message content - used for win/feedback notifications */
 .bottom-sheet-message {
-  padding: 20px 20px 16px 20px;
+  padding: 4px 20px 16px 20px; /* Reduced top padding for tighter spacing with title */
   text-align: center;
   font-size: 16px;
   color: #7F8C8D;
