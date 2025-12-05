@@ -592,7 +592,7 @@ body {
 .bottom-sheet-dismiss-btn {
   display: block;
   width: calc(100% - 40px);
-  margin: 16px 20px 20px 20px;
+  margin: 24px 20px 20px 20px; /* Increased top margin for consistent spacing */
   padding: 14px 24px;
   font-size: 17px;
   font-weight: 600;
@@ -602,11 +602,6 @@ body {
   border-radius: 12px;
   cursor: pointer;
   transition: background-color 150ms ease, transform 100ms ease;
-}
-
-/* Reduced top margin for settings sheet dismiss button (label already has 20px bottom padding) */
-.bottom-sheet-content:has(.settings-list) ~ .bottom-sheet-dismiss-btn {
-  margin-top: 12px;
 }
 
 .bottom-sheet-dismiss-btn:hover {
@@ -636,7 +631,7 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 20px;
+  padding: 20px 20px 16px 20px; /* Reduced bottom to match message padding */
   font-size: 16px;
   font-weight: 500;
   color: #34495E;
@@ -671,7 +666,7 @@ body {
 .settings-control {
   display: flex;
   flex-direction: column;
-  padding: 20px;
+  padding: 20px 20px 16px 20px; /* Reduced bottom to match message padding */
   width: 100%;
 }
 
