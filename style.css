@@ -525,7 +525,7 @@ body {
   /* Hiding transition - steep ease-in, no bounce */
   transition: transform 300ms cubic-bezier(0.6, 0, 0.9, 1), box-shadow 300ms cubic-bezier(0.6, 0, 0.9, 1);
   max-height: 80vh;
-  overflow-y: auto;
+  overflow: visible; /* Allow icon to extend above sheet */
   box-shadow: 0 0 80px rgba(0, 0, 0, 0);
   z-index: 1001;
 }
@@ -537,7 +537,7 @@ body {
   transition: transform 300ms cubic-bezier(0.34, 1.3, 0.64, 1), box-shadow 300ms cubic-bezier(0.34, 1.3, 0.64, 1);
 }
 
-/* Icon container - centered, fully rounded, 80px */
+/* Icon container - centered, fully rounded, 80px, overlaps top edge */
 .bottom-sheet-icon-container {
   display: flex;
   align-items: center;
@@ -545,7 +545,7 @@ body {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  margin: 24px auto 16px auto;
+  margin: -40px auto 16px auto; /* Negative margin pulls icon up to straddle top edge */
 }
 
 .bottom-sheet-icon-container svg {
@@ -560,6 +560,11 @@ body {
   padding: 8px 20px 16px 20px;
 }
 
+/* When no icon is present, header is first child and needs more top spacing */
+.bottom-sheet-header:first-child {
+  padding-top: 24px;
+}
+
 .bottom-sheet-header h2 {
   font-size: 24px;
   font-weight: 600;
@@ -570,7 +575,8 @@ body {
 
 /* Content container */
 .bottom-sheet-content {
-  /* Content-specific styles can be added here if needed */
+  max-height: calc(80vh - 200px); /* Account for icon, header, and dismiss button */
+  overflow-y: auto; /* Scroll long content, moved from .bottom-sheet */
 }
 
 /* Message content - used for win/feedback notifications */
