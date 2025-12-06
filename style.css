@@ -525,7 +525,7 @@ body {
   /* Hiding transition - steep ease-in, no bounce */
   transition: transform 300ms cubic-bezier(0.6, 0, 0.9, 1), box-shadow 300ms cubic-bezier(0.6, 0, 0.9, 1);
   max-height: 80vh;
-  overflow-y: auto;
+  overflow: visible; /* Allow icon to extend above sheet */
   box-shadow: 0 0 80px rgba(0, 0, 0, 0);
   z-index: 1001;
 }
@@ -537,58 +537,79 @@ body {
   transition: transform 300ms cubic-bezier(0.34, 1.3, 0.64, 1), box-shadow 300ms cubic-bezier(0.34, 1.3, 0.64, 1);
 }
 
-/* Header with title and close X button */
-.bottom-sheet-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 20px 16px 20px;
-  border-bottom: 1px solid #E0E0E0;
-}
-
-.bottom-sheet-header h2 {
-  font-size: 20px;
-  font-weight: 600;
-  color: #34495E;
-  margin: 0;
-}
-
-.bottom-sheet-close-btn {
+/* Icon container - centered, fully rounded, 80px, overlaps top edge */
+.bottom-sheet-icon-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #34495E;
-  border-radius: 4px;
-  transition: background-color 100ms ease;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  margin: -40px auto 16px auto; /* Negative margin pulls icon up to straddle top edge */
 }
 
-.bottom-sheet-close-btn:hover {
-  background-color: #F5F5F5;
-}
-
-.bottom-sheet-close-btn:active {
-  transform: scale(0.95);
-}
-
-.bottom-sheet-close-btn svg {
+.bottom-sheet-icon-container svg {
   display: block;
+}
+
+/* Header with centered title (no close button) */
+.bottom-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 20px 8px 20px;
+}
+
+/* When no icon is present, header is first child and needs more top spacing */
+.bottom-sheet-header:first-child {
+  padding-top: 24px;
+}
+
+.bottom-sheet-header h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #34495E;
+  margin: 0;
+  text-align: center;
 }
 
 /* Content container */
 .bottom-sheet-content {
-  /* Content-specific styles can be added here if needed */
+  max-height: calc(80vh - 200px); /* Account for icon, header, and dismiss button */
+  overflow-y: auto; /* Scroll long content, moved from .bottom-sheet */
 }
 
 /* Message content - used for win/feedback notifications */
 .bottom-sheet-message {
-  padding: 20px;
+  padding: 0 20px 16px 20px; /* No top padding for tight spacing with title */
   text-align: center;
   font-size: 16px;
   color: #7F8C8D;
+  line-height: 1.5;
+}
+
+/* Dismiss button at bottom */
+.bottom-sheet-dismiss-btn {
+  display: block;
+  width: calc(100% - 40px);
+  margin: 24px 20px 20px 20px; /* Increased top margin for consistent spacing */
+  padding: 14px 24px;
+  font-size: 17px;
+  font-weight: 600;
+  color: white;
+  background-color: #4A90E2;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 100ms ease;
+}
+
+.bottom-sheet-dismiss-btn:hover {
+  background-color: #357ABD;
+}
+
+.bottom-sheet-dismiss-btn:active {
+  transform: scale(0.98);
 }
 
 /* Settings list container */
@@ -610,7 +631,7 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 20px;
+  padding: 20px 20px 16px 20px; /* Reduced bottom to match message padding */
   font-size: 16px;
   font-weight: 500;
   color: #34495E;
@@ -645,7 +666,7 @@ body {
 .settings-control {
   display: flex;
   flex-direction: column;
-  padding: 20px;
+  padding: 20px 20px 16px 20px; /* Reduced bottom to match message padding */
   width: 100%;
 }
 
