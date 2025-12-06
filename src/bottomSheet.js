@@ -22,8 +22,8 @@ const COLOR_SCHEMES = {
     backgroundColor: '#F3F4F6' // Light grey
   },
   success: {
-    iconColor: '#10B981',      // Rich green
-    backgroundColor: '#D1FAE5' // Pale green
+    iconColor: '#F59E0B',      // Rich amber/gold
+    backgroundColor: '#FEF3C7' // Pale golden yellow
   },
   error: {
     iconColor: '#EF4444',      // Rich red
