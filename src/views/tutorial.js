@@ -272,7 +272,7 @@ function render() {
       showBottomSheetAsync({
         title: 'Not quite!',
         content: feedbackContent,
-        icon: 'circle-x',
+        icon: 'circle-off',
         colorScheme: 'error',
         dismissLabel: 'Keep trying'
       });

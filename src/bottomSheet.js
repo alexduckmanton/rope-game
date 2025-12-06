@@ -44,7 +44,7 @@ const COLOR_SCHEMES = {
  * @param {Object} options
  * @param {string} options.title - Title displayed in the header
  * @param {HTMLElement|string} options.content - Content to display (HTMLElement or HTML string)
- * @param {string} [options.icon] - Optional Lucide icon name (e.g., 'settings', 'party-popper', 'circle-x')
+ * @param {string} [options.icon] - Optional Lucide icon name (e.g., 'settings', 'party-popper', 'circle-off')
  * @param {string} [options.colorScheme='neutral'] - Color scheme: 'neutral', 'success', 'error', 'info', 'warning'
  * @param {string} [options.dismissLabel='Close'] - Label for the dismiss button at bottom
  * @param {Function} [options.onClose] - Optional callback when sheet is closed (via dismiss button or click-outside)

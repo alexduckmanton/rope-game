@@ -11,10 +11,10 @@
  * - Dices: New puzzle button
  * - RefreshCcw: Restart puzzle button
  * - PartyPopper: Win/celebration bottom sheets
- * - CircleX: Error/incorrect feedback bottom sheets
+ * - CircleOff: Error/incorrect feedback bottom sheets
  */
 
-import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, PartyPopper, CircleX } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, PartyPopper, CircleOff } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -36,7 +36,7 @@ export function initIcons() {
       Dices,
       RefreshCcw,
       PartyPopper,
-      CircleX
+      CircleOff
     },
     attrs: {
       'stroke-width': '2',

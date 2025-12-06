@@ -419,7 +419,7 @@ function render(triggerSave = true) {
       showBottomSheetAsync({
         title: 'Almost there!',
         content: '<div class="bottom-sheet-message">Nice loop, but not all numbers have the correct amount of bends.</div>',
-        icon: 'circle-x',
+        icon: 'circle-off',
         colorScheme: 'error',
         dismissLabel: 'Keep trying'
       });
