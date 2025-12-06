@@ -309,24 +309,23 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Visual Design:**
 
-Bottom sheets feature a redesigned layout with centered icons, centered titles, and a prominent dismiss button:
+Bottom sheets feature a redesigned layout with overlapping icons, centered titles, and a prominent dismiss button. The icon container straddles the top edge of the sheet, creating a visual pop-out effect:
 
 ```
-┌─────────────────────────┐
-│                         │
-│    ┌───────────┐        │  ← Icon container (80px, fully rounded)
-│    │   Icon    │        │    Background: pale pastel color
-│    └───────────┘        │    Icon: rich color shade
-│                         │
-│       Sheet Title       │  ← Centered title (24px, bold)
-│                         │
-│   Content area here     │  ← Message or settings content
-│                         │
-│  ┌─────────────────┐    │
-│  │  Dismiss Label  │    │  ← Bottom dismiss button (blue, rounded)
-│  └─────────────────┘    │
-└─────────────────────────┘
+        ┌────────┐  ← 40px above sheet edge
+────────│  Icon  │──── ← Sheet top edge (icon center)
+        └────────┘  ← 40px inside sheet
+
+      Sheet Title       ← Centered title (24px, bold)
+
+   Content area here    ← Message or settings content
+
+  ┌─────────────────┐
+  │  Dismiss Label  │   ← Bottom dismiss button (blue, rounded)
+  └─────────────────┘
 ```
+
+Icon container is 80px tall, fully rounded, with center aligned to sheet's top edge. When no icon is present, additional top spacing is applied to the header.
 
 **Color Schemes:**
 
@@ -335,7 +334,7 @@ Five predefined color schemes provide visual context:
 | Scheme | Icon Color | Background Color | Usage |
 |--------|-----------|------------------|-------|
 | `neutral` | `#6B7280` (grey) | `#F3F4F6` (pale grey) | Settings, default |
-| `success` | `#10B981` (green) | `#D1FAE5` (pale green) | Win notifications |
+| `success` | `#F59E0B` (amber/gold) | `#FEF3C7` (pale golden yellow) | Win notifications, celebrations |
 | `error` | `#EF4444` (red) | `#FEE2E2` (pale red) | Incorrect loop feedback |
 | `info` | `#3B82F6` (blue) | `#DBEAFE` (pale blue) | Informational messages |
 | `warning` | `#F59E0B` (amber) | `#FEF3C7` (pale amber) | Warnings |
@@ -374,12 +373,14 @@ All dismissal paths wait for hide animation to complete before firing onClose ca
 
 **Resource Management:** Destroy method removes overlay from DOM and handles content cleanup. For HTMLElement content, restores element to original location with display:none to prevent FOUC. For string content, simply removes overlay. Settings sheet persists across game sessions (created once, show/hide many times), while notification sheets are destroyed immediately after use.
 
-**Icon Integration:** Bottom sheets render optional Lucide icons in centered containers above the title. Component calls project's initIcons function after DOM insertion to convert icon placeholders into SVG elements. This maintains tree-shaking benefits while ensuring icons render correctly.
+**Icon Integration:** Bottom sheets render optional Lucide icons in centered containers that straddle the top edge of the sheet. Icon container uses negative margin to position 40px above and 40px below the sheet edge, creating a visual pop-out effect. Component calls project's initIcons function after DOM insertion to convert icon placeholders into SVG elements. This maintains tree-shaking benefits while ensuring icons render correctly.
 
 **Icon Usage:**
 - `settings` - Settings sheet
-- `party-popper` - Win notifications (tutorial and game completion)
-- `circle-x` - Incorrect loop feedback
+- `party-popper` - Win notifications with golden celebration colors
+- `circle-off` - Incorrect loop feedback with error colors
+
+**Spacing Architecture:** Consistent 40px total gap between content and dismiss button across all sheet types. Achieved through content bottom padding plus button top margin. Settings items use 20px sides/top with 16px bottom. Messages use 0 top and 16px bottom. Header uses 8px top/bottom when icon present, 24px top when no icon. Button uses uniform 24px top margin for all sheets.
 
 **Animation Constants:** Module defines ANIMATION_DURATION_MS constant (300ms) matching CSS transition timing. This constant is referenced by both show/hide methods and exported for use in tests or dependent code. All animation timing flows from this single source of truth.
 
@@ -392,7 +393,7 @@ All dismissal paths wait for hide animation to complete before firing onClose ca
 | Settings panel | Persistent | HTMLElement | `settings` | `neutral` | "Close" |
 | Win notification (game) | Transient | HTML string | `party-popper` | `success` | "Yay!" |
 | Win notification (tutorial) | Transient | HTML string | `party-popper` | `success` | "Next" |
-| Partial win feedback | Transient | HTML string | `circle-x` | `error` | "Keep trying" |
+| Partial win feedback | Transient | HTML string | `circle-off` | `error` | "Keep trying" |
 
 **Integration Points:**
 
