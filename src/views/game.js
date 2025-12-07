@@ -291,6 +291,87 @@ function hideSettings() {
   }
 }
 
+/**
+ * Format date as "DD Mon YYYY" (e.g., "26 Jan 2025")
+ */
+function formatShareDate() {
+  const date = new Date();
+  const day = date.getDate();
+  const month = date.toLocaleString('en-US', { month: 'short' });
+  const year = date.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+
+/**
+ * Build share text for the completed puzzle
+ */
+function buildShareText(finalTime) {
+  const dateStr = formatShareDate();
+  const difficultyLabel = currentGameDifficulty.charAt(0).toUpperCase() + currentGameDifficulty.slice(1);
+  return `💫 Loopy\n${dateStr}\n${difficultyLabel} ${finalTime}`;
+}
+
+/**
+ * Handle share button click - uses Web Share API with clipboard fallback
+ */
+async function handleShare(buttonEl, finalTime) {
+  const shareText = buildShareText(finalTime);
+  const originalLabel = buttonEl.querySelector('span')?.textContent || buttonEl.textContent;
+
+  // Try native share first (iOS/Android)
+  if (navigator.share) {
+    try {
+      await navigator.share({ text: shareText });
+      return; // Share was successful or cancelled
+    } catch (err) {
+      // User cancelled or share failed - fall through to clipboard
+      if (err.name === 'AbortError') {
+        return; // User cancelled, don't fall through
+      }
+    }
+  }
+
+  // Fallback to clipboard copy
+  try {
+    await navigator.clipboard.writeText(shareText);
+
+    // Show "Copied!" feedback
+    const spanEl = buttonEl.querySelector('span');
+    if (spanEl) {
+      spanEl.textContent = 'Copied!';
+    } else {
+      buttonEl.textContent = 'Copied!';
+    }
+
+    // Revert after 2 seconds
+    setTimeout(() => {
+      const spanEl = buttonEl.querySelector('span');
+      if (spanEl) {
+        spanEl.textContent = originalLabel;
+      } else {
+        buttonEl.textContent = originalLabel;
+      }
+    }, 2000);
+  } catch (err) {
+    // Clipboard failed - show error briefly
+    const spanEl = buttonEl.querySelector('span');
+    if (spanEl) {
+      spanEl.textContent = 'Failed';
+    } else {
+      buttonEl.textContent = 'Failed';
+    }
+
+    setTimeout(() => {
+      const spanEl = buttonEl.querySelector('span');
+      if (spanEl) {
+        spanEl.textContent = originalLabel;
+      } else {
+        buttonEl.textContent = originalLabel;
+      }
+    }, 2000);
+  }
+}
+
 function updateSegmentedControlState() {
   if (!segmentButtons) return;
 
@@ -402,14 +483,26 @@ function render(triggerSave = true) {
 
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
-      // Show win bottom sheet with completion time
-      showBottomSheetAsync({
+      // Build bottom sheet options
+      const bottomSheetOptions = {
         title: 'You made a loop!',
         content: `<div class="bottom-sheet-message">You finished in ${finalTime}.</div>`,
         icon: 'party-popper',
         colorScheme: 'success',
         dismissLabel: 'Yay!'
-      });
+      };
+
+      // Add Share button only for daily mode (not unlimited or tutorial)
+      if (isDailyMode) {
+        bottomSheetOptions.primaryButton = {
+          label: 'Share',
+          icon: 'share-2',
+          onClick: (buttonEl) => handleShare(buttonEl, finalTime)
+        };
+      }
+
+      // Show win bottom sheet with completion time
+      showBottomSheetAsync(bottomSheetOptions);
     } else if (!hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
       // Only show feedback once per structural completion

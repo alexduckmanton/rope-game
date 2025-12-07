@@ -47,10 +47,14 @@ const COLOR_SCHEMES = {
  * @param {string} [options.icon] - Optional Lucide icon name (e.g., 'settings', 'party-popper', 'circle-off')
  * @param {string} [options.colorScheme='neutral'] - Color scheme: 'neutral', 'success', 'error', 'info', 'warning'
  * @param {string} [options.dismissLabel='Close'] - Label for the dismiss button at bottom
+ * @param {Object} [options.primaryButton] - Optional primary action button above dismiss
+ * @param {string} options.primaryButton.label - Button text
+ * @param {string} [options.primaryButton.icon] - Optional Lucide icon name for the button
+ * @param {Function} options.primaryButton.onClick - Click handler (receives button element as argument)
  * @param {Function} [options.onClose] - Optional callback when sheet is closed (via dismiss button or click-outside)
  * @returns {Object} - Object with show(), hide(), destroy() methods
  */
-export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = 'Close', onClose }) {
+export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = 'Close', primaryButton, onClose }) {
   // Create overlay (backdrop + container)
   const overlay = document.createElement('div');
   overlay.className = 'bottom-sheet-overlay';
@@ -103,10 +107,38 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
     contentContainer.appendChild(content);
   }
 
-  // Create dismiss button at bottom
-  const dismissBtn = document.createElement('button');
-  dismissBtn.className = 'bottom-sheet-dismiss-btn';
-  dismissBtn.textContent = dismissLabel;
+  // Create buttons container and buttons
+  let buttonsContainer;
+  let primaryBtn = null;
+  let dismissBtn;
+
+  if (primaryButton) {
+    // Use buttons container when we have multiple buttons
+    buttonsContainer = document.createElement('div');
+    buttonsContainer.className = 'bottom-sheet-buttons';
+
+    // Create primary button
+    primaryBtn = document.createElement('button');
+    primaryBtn.className = 'bottom-sheet-btn bottom-sheet-btn-primary';
+    if (primaryButton.icon) {
+      primaryBtn.innerHTML = `<i data-lucide="${primaryButton.icon}"></i><span>${primaryButton.label}</span>`;
+    } else {
+      primaryBtn.textContent = primaryButton.label;
+    }
+
+    // Create dismiss button (secondary style)
+    dismissBtn = document.createElement('button');
+    dismissBtn.className = 'bottom-sheet-btn bottom-sheet-btn-secondary';
+    dismissBtn.textContent = dismissLabel;
+
+    buttonsContainer.appendChild(primaryBtn);
+    buttonsContainer.appendChild(dismissBtn);
+  } else {
+    // Single dismiss button (legacy style, now secondary)
+    dismissBtn = document.createElement('button');
+    dismissBtn.className = 'bottom-sheet-dismiss-btn';
+    dismissBtn.textContent = dismissLabel;
+  }
 
   // Assemble the sheet
   if (iconContainer) {
@@ -114,7 +146,11 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   }
   sheet.appendChild(header);
   sheet.appendChild(contentContainer);
-  sheet.appendChild(dismissBtn);
+  if (buttonsContainer) {
+    sheet.appendChild(buttonsContainer);
+  } else {
+    sheet.appendChild(dismissBtn);
+  }
   overlay.appendChild(sheet);
 
   // Event handlers
@@ -125,9 +161,13 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
       hide();
     }
   };
+  const handlePrimaryClick = primaryButton ? () => primaryButton.onClick(primaryBtn) : null;
 
   dismissBtn.addEventListener('click', handleClose);
   overlay.addEventListener('click', handleOverlayClick);
+  if (primaryBtn && handlePrimaryClick) {
+    primaryBtn.addEventListener('click', handlePrimaryClick);
+  }
 
   /**
    * Show the bottom sheet with slide-up animation
@@ -178,6 +218,9 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
     // Clean up event listeners
     dismissBtn.removeEventListener('click', handleClose);
     overlay.removeEventListener('click', handleOverlayClick);
+    if (primaryBtn && handlePrimaryClick) {
+      primaryBtn.removeEventListener('click', handlePrimaryClick);
+    }
 
     // Restore HTMLElement content to its original location before removing overlay
     setTimeout(() => {
