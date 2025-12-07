@@ -384,6 +384,11 @@ body {
   display: inline-flex;
 }
 
+/* Completed buttons have slightly muted text/icon color */
+.btn-large.completed {
+  color: #6B7D8A;
+}
+
 /* Ensure icon inherits text color */
 .btn-complete-icon svg {
   stroke: currentColor;
