@@ -47,6 +47,7 @@ const COLOR_SCHEMES = {
  * @param {string} [options.icon] - Optional Lucide icon name (e.g., 'settings', 'party-popper', 'circle-off')
  * @param {string} [options.colorScheme='neutral'] - Color scheme: 'neutral', 'success', 'error', 'info', 'warning'
  * @param {string} [options.dismissLabel='Close'] - Label for the dismiss button at bottom
+ * @param {string} [options.dismissVariant='secondary'] - Dismiss button variant: 'primary' or 'secondary'
  * @param {Object} [options.primaryButton] - Optional primary action button above dismiss
  * @param {string} options.primaryButton.label - Button text
  * @param {string} [options.primaryButton.icon] - Optional Lucide icon name for the button
@@ -54,7 +55,7 @@ const COLOR_SCHEMES = {
  * @param {Function} [options.onClose] - Optional callback when sheet is closed (via dismiss button or click-outside)
  * @returns {Object} - Object with show(), hide(), destroy() methods
  */
-export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = 'Close', primaryButton, onClose }) {
+export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = 'Close', dismissVariant = 'secondary', primaryButton, onClose }) {
   // Create overlay (backdrop + container)
   const overlay = document.createElement('div');
   overlay.className = 'bottom-sheet-overlay';
@@ -112,6 +113,11 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   let primaryBtn = null;
   let dismissBtn;
 
+  // Determine dismiss button class based on variant
+  const dismissBtnClass = dismissVariant === 'primary'
+    ? 'bottom-sheet-btn bottom-sheet-btn-primary'
+    : 'bottom-sheet-btn bottom-sheet-btn-secondary';
+
   if (primaryButton) {
     // Use buttons container when we have multiple buttons
     buttonsContainer = document.createElement('div');
@@ -126,17 +132,20 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
       primaryBtn.textContent = primaryButton.label;
     }
 
-    // Create dismiss button (secondary style)
+    // Create dismiss button
     dismissBtn = document.createElement('button');
-    dismissBtn.className = 'bottom-sheet-btn bottom-sheet-btn-secondary';
+    dismissBtn.className = dismissBtnClass;
     dismissBtn.textContent = dismissLabel;
 
     buttonsContainer.appendChild(primaryBtn);
     buttonsContainer.appendChild(dismissBtn);
   } else {
-    // Single dismiss button (legacy style, now secondary)
+    // Single dismiss button
     dismissBtn = document.createElement('button');
-    dismissBtn.className = 'bottom-sheet-dismiss-btn';
+    dismissBtn.className = dismissBtnClass;
+    // Add margin styles for standalone button (not in container)
+    dismissBtn.style.width = 'calc(100% - 40px)';
+    dismissBtn.style.margin = '24px 20px 20px 20px';
     dismissBtn.textContent = dismissLabel;
   }
 

@@ -489,7 +489,8 @@ function render(triggerSave = true) {
         content: `<div class="bottom-sheet-message">You finished in ${finalTime}.</div>`,
         icon: 'party-popper',
         colorScheme: 'success',
-        dismissLabel: isDailyMode ? 'Close' : 'Yay!'
+        dismissLabel: isDailyMode ? 'Close' : 'Yay!',
+        dismissVariant: isDailyMode ? 'secondary' : 'primary'
       };
 
       // Add Share button only for daily mode (not unlimited or tutorial)
