@@ -13,11 +13,11 @@
  * - PartyPopper: Win/celebration bottom sheets
  * - CircleOff: Error/incorrect feedback bottom sheets
  * - Share2: Share button in win bottom sheet
- * - CircleCheckBig: Tutorial completed icon on home screen
+ * - Check: Tutorial completed icon on home screen
  * - Trophy: Daily puzzle completed icon on home screen
  */
 
-import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, PartyPopper, CircleOff, Share2, CircleCheckBig, Trophy } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, PartyPopper, CircleOff, Share2, Check, Trophy } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -41,7 +41,7 @@ export function initIcons() {
       PartyPopper,
       CircleOff,
       Share2,
-      CircleCheckBig,
+      Check,
       Trophy
     },
     attrs: {
