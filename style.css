@@ -633,15 +633,15 @@ body {
   transform: scale(0.98);
 }
 
-/* Secondary button - light blue background, blue text */
-/* Contrast ratio: 3.04:1 (passes WCAG AA for large text) */
+/* Secondary button - grey background, black text */
+/* Contrast ratio: 12.6:1 (passes WCAG AAA) */
 .bottom-sheet-btn-secondary {
-  color: #4A90E2;
-  background-color: #F2F8FE;
+  color: #1F2937;
+  background-color: #F3F4F6;
 }
 
 .bottom-sheet-btn-secondary:hover {
-  background-color: #E5F0FB;
+  background-color: #E5E7EB;
 }
 
 .bottom-sheet-btn-secondary:active {
@@ -658,8 +658,8 @@ body {
   padding: 14px 24px;
   font-size: 17px;
   font-weight: 600;
-  color: #4A90E2;
-  background-color: #F2F8FE;
+  color: #1F2937;
+  background-color: #F3F4F6;
   border: none;
   border-radius: 12px;
   cursor: pointer;
@@ -667,7 +667,7 @@ body {
 }
 
 .bottom-sheet-dismiss-btn:hover {
-  background-color: #E5F0FB;
+  background-color: #E5E7EB;
 }
 
 .bottom-sheet-dismiss-btn:active {
