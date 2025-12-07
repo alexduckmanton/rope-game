@@ -4,12 +4,14 @@
  * Teaches players the game mechanics through simple empty grid puzzles
  */
 
-import { renderGrid, clearCanvas, renderPlayerPath, renderCellNumbers, buildPlayerTurnMap, renderHintPulse } from '../renderer.js';
-import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop } from '../utils.js';
+import { renderGrid, clearCanvas, renderPlayerPath, renderCellNumbers, buildPlayerTurnMap, renderHintPulse, calculateBorderLayers } from '../renderer.js';
+import { buildSolutionTurnMap, countTurnsInArea, parseCellKey } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { showBottomSheetAsync } from '../bottomSheet.js';
+import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
+import { checkStructuralWin as checkStructuralWinUtil, checkFullWin } from '../game/validation.js';
 
 /* ============================================================================
  * TUTORIAL CONFIGURATIONS
@@ -117,6 +119,10 @@ let solutionPath = [];
 let hintCells = new Set();
 let borderMode = 'off';
 
+// Cached values for performance (recalculated when puzzle changes)
+let cachedBorderLayers = null;
+let cachedSolutionTurnMap = null;
+
 // Game core instance
 let gameCore;
 
@@ -134,27 +140,31 @@ let eventListeners = [];
  * VALIDATION
  * ========================================================================= */
 
+const TUTORIAL_EXTRA_HEIGHT = 100; // Extra space for tutorial instruction text
+
 function checkStructuralWin() {
   const { playerDrawnCells, playerConnections } = gameCore.state;
-  return checkStructuralLoop(playerDrawnCells, playerConnections, gridSize);
+  return checkStructuralWinUtil(playerDrawnCells, playerConnections, gridSize);
 }
 
-function checkWin() {
+function checkWin(playerTurnMap = null) {
   // First check structural validity
   if (!checkStructuralWin()) return false;
 
   // For tutorials with hints, validate hint turn counts (like the main game)
   if (currentConfig && currentConfig.hasHints) {
     const { playerDrawnCells, playerConnections } = gameCore.state;
-    const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
-    const solutionTurnMap = buildSolutionTurnMap(solutionPath);
+    const sTurnMap = cachedSolutionTurnMap || buildSolutionTurnMap(solutionPath);
+    const pTurnMap = playerTurnMap || buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
-    for (const cellKey of hintCells) {
-      const [row, col] = cellKey.split(',').map(Number);
-      const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
-      const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
-      if (expectedTurnCount !== actualTurnCount) return false;
-    }
+    return checkFullWin(
+      { playerDrawnCells, playerConnections },
+      solutionPath,
+      hintCells,
+      gridSize,
+      sTurnMap,
+      pTurnMap
+    );
   }
 
   return true;
@@ -165,12 +175,7 @@ function checkWin() {
  * ========================================================================= */
 
 function calculateCellSize() {
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const availableHeight = viewportHeight - CONFIG.LAYOUT.TOP_BAR_HEIGHT - 100; // Extra space for tutorial info
-  const availableWidth = viewportWidth - CONFIG.LAYOUT.HORIZONTAL_PADDING;
-  const maxCellSize = Math.min(availableWidth / gridSize, availableHeight / gridSize);
-  return Math.max(CONFIG.CELL_SIZE_MIN, Math.min(maxCellSize, CONFIG.CELL_SIZE_MAX));
+  return calculateCellSizeUtil(gridSize, TUTORIAL_EXTRA_HEIGHT);
 }
 
 function resizeCanvas() {
@@ -196,19 +201,22 @@ function render() {
   const { playerDrawnCells, playerConnections } = gameCore.state;
   const totalSize = cellSize * gridSize;
 
+  // Build player turn map ONCE per render for reuse
+  const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
+
   clearCanvas(ctx, totalSize, totalSize);
 
   // Render pulsing hint backgrounds (before grid for proper layering)
   if (currentConfig && currentConfig.hasHints) {
     const animationTime = Date.now();
-    renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells, playerConnections);
+    renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells, playerConnections, cachedSolutionTurnMap, playerTurnMap);
   }
 
   renderGrid(ctx, gridSize, cellSize);
 
   // Render hints for tutorial 3, otherwise no hints
   if (currentConfig && currentConfig.hasHints) {
-    renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, 'partial', playerDrawnCells, playerConnections, borderMode, true);
+    renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, 'partial', playerDrawnCells, playerConnections, borderMode, true, cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers);
   }
 
   renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
@@ -221,7 +229,8 @@ function render() {
 
   if (!hasWon && checkStructuralWin()) {
     // Check if this is a full win or partial win (valid loop but wrong hints)
-    if (checkWin()) {
+    // Pass pre-built player turn map to avoid rebuilding
+    if (checkWin(playerTurnMap)) {
       // Full win - all validation passed
       hasWon = true;
       hasShownPartialWinFeedback = false; // Reset flag
@@ -258,7 +267,7 @@ function render() {
       // Find which hints don't match and build feedback message
       const mismatches = [];
       for (const cellKey of hintCells) {
-        const [row, col] = cellKey.split(',').map(Number);
+        const { row, col } = parseCellKey(cellKey);
         const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
         const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
         if (expectedTurnCount !== actualTurnCount) {
@@ -345,10 +354,16 @@ function initTutorialGame(config) {
     solutionPath = config.solutionPath;
     hintCells = config.hintCells;
     borderMode = config.borderMode;
+
+    // Cache values that don't change during gameplay for performance
+    cachedSolutionTurnMap = buildSolutionTurnMap(solutionPath);
+    cachedBorderLayers = calculateBorderLayers(hintCells, gridSize);
   } else {
     solutionPath = [];
     hintCells = new Set();
     borderMode = 'off';
+    cachedSolutionTurnMap = null;
+    cachedBorderLayers = null;
   }
 
   // Create game core instance

@@ -3,7 +3,7 @@
  */
 
 import { CONFIG } from './config.js';
-import { drawSmoothCurve, buildSolutionTurnMap, countTurnsInArea } from './utils.js';
+import { drawSmoothCurve, buildSolutionTurnMap, countTurnsInArea, parseCellKey, createCellKey } from './utils.js';
 
 /**
  * Render the grid lines
@@ -86,7 +86,7 @@ export function generateHintCells(gridSize, probability = 0.3, randomFn = Math.r
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
       if (randomFn() < probability) {
-        hintCells.add(`${row},${col}`);
+        hintCells.add(createCellKey(row, col));
       }
     }
   }
@@ -114,8 +114,8 @@ export function buildPlayerTurnMap(playerDrawnCells, playerConnections) {
 
     // Get the two connected cells
     const connectedArray = Array.from(connections);
-    const [r1, c1] = connectedArray[0].split(',').map(Number);
-    const [r2, c2] = connectedArray[1].split(',').map(Number);
+    const { row: r1, col: c1 } = parseCellKey(connectedArray[0]);
+    const { row: r2, col: c2 } = parseCellKey(connectedArray[1]);
 
     // Check if it's a straight line (same row or same column)
     const isStraight = (r1 === r2) || (c1 === c2);
@@ -195,14 +195,14 @@ function drawHintBorders(ctx, bordersToDraw, cellSize, borderMode) {
  * @param {number} gridSize - Grid size
  * @returns {Map<string, number>} Map of cellKey -> layer number (0 = outermost)
  */
-function calculateBorderLayers(hintCells, gridSize) {
+export function calculateBorderLayers(hintCells, gridSize) {
   const hintArray = Array.from(hintCells);
   const layers = new Map();
 
   // Calculate validation bounds for all hint cells
   const boundsMap = new Map();
   for (const cellKey of hintArray) {
-    const [row, col] = cellKey.split(',').map(Number);
+    const { row, col } = parseCellKey(cellKey);
     boundsMap.set(cellKey, getValidationBounds(row, col, gridSize));
   }
 
@@ -240,13 +240,15 @@ function calculateBorderLayers(hintCells, gridSize) {
  * @param {number} animationTime - Current animation time in milliseconds
  * @param {Set<string>} playerDrawnCells - Set of "row,col" strings for drawn cells
  * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
+ * @param {Map<string, boolean>} [prebuiltSolutionTurnMap] - Optional pre-built solution turn map for performance
+ * @param {Map<string, boolean>} [prebuiltPlayerTurnMap] - Optional pre-built player turn map for performance
  */
-export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells = new Set(), playerConnections = new Map()) {
+export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells = new Set(), playerConnections = new Map(), prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null) {
   if (!hintCells || hintCells.size === 0) return;
 
-  // Build turn maps for validation
-  const solutionTurnMap = buildSolutionTurnMap(solutionPath);
-  const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
+  // Use pre-built maps if provided, otherwise build them
+  const solutionTurnMap = prebuiltSolutionTurnMap || buildSolutionTurnMap(solutionPath);
+  const playerTurnMap = prebuiltPlayerTurnMap || buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
   // Assign colors to hint cells (same as in renderCellNumbers)
   const hintCellsArray = Array.from(hintCells);
@@ -265,7 +267,7 @@ export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells
 
   // Render pulsing background for each hint's validation area
   for (const cellKey of hintCells) {
-    const [row, col] = cellKey.split(',').map(Number);
+    const { row, col } = parseCellKey(cellKey);
 
     // Check if this hint is validated (same logic as renderCellNumbers)
     const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
@@ -309,14 +311,17 @@ export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells
  * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
  * @param {string} borderMode - Border display mode: 'off' | 'center' | 'full'
  * @param {boolean} countdown - Whether to show remaining (true) or total required (false) corners
+ * @param {Map<string, boolean>} [prebuiltSolutionTurnMap] - Optional pre-built solution turn map for performance
+ * @param {Map<string, boolean>} [prebuiltPlayerTurnMap] - Optional pre-built player turn map for performance
+ * @param {Map<string, number>} [prebuiltBorderLayers] - Optional pre-built border layers for performance
  */
-export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true) {
+export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null) {
   if (!solutionPath || solutionPath.length === 0) return;
   if (hintMode === 'none') return;
 
-  // Build turn maps for validation
-  const solutionTurnMap = buildSolutionTurnMap(solutionPath);
-  const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
+  // Use pre-built maps if provided, otherwise build them
+  const solutionTurnMap = prebuiltSolutionTurnMap || buildSolutionTurnMap(solutionPath);
+  const playerTurnMap = prebuiltPlayerTurnMap || buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
   // Assign a color to each hint cell
   const hintCellsArray = Array.from(hintCells);
@@ -325,8 +330,10 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
     hintColorMap.set(cellKey, CONFIG.COLORS.HINT_COLORS[index % CONFIG.COLORS.HINT_COLORS.length]);
   });
 
-  // Calculate border layers for full mode (to prevent visual overlap)
-  const borderLayers = borderMode === 'full' ? calculateBorderLayers(hintCells, gridSize) : new Map();
+  // Use pre-built border layers if provided, otherwise calculate
+  const borderLayers = borderMode === 'full'
+    ? (prebuiltBorderLayers || calculateBorderLayers(hintCells, gridSize))
+    : new Map();
 
   // Array to collect border drawing information (deferred rendering)
   const bordersToDraw = [];
@@ -338,7 +345,7 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
-      const cellKey = `${row},${col}`;
+      const cellKey = createCellKey(row, col);
       const isInHintSet = hintCells.has(cellKey);
 
       // Determine if we should render this cell
@@ -495,7 +502,7 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
   // Draw smooth path
   if (orderedPath.length === 1) {
     // Single isolated cell - draw a dot
-    const [row, col] = orderedPath[0].split(',').map(Number);
+    const { row, col } = parseCellKey(orderedPath[0]);
     const x = col * cellSize + cellSize / 2;
     const y = row * cellSize + cellSize / 2;
     ctx.beginPath();
@@ -504,8 +511,8 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
     ctx.fill();
   } else if (orderedPath.length === 2) {
     // Two cells - draw a simple line
-    const [row1, col1] = orderedPath[0].split(',').map(Number);
-    const [row2, col2] = orderedPath[1].split(',').map(Number);
+    const { row: row1, col: col1 } = parseCellKey(orderedPath[0]);
+    const { row: row2, col: col2 } = parseCellKey(orderedPath[1]);
     const x1 = col1 * cellSize + cellSize / 2;
     const y1 = row1 * cellSize + cellSize / 2;
     const x2 = col2 * cellSize + cellSize / 2;
@@ -524,7 +531,7 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
 
     // Convert to pixel coordinates
     const points = orderedPath.map(cellKey => {
-      const [row, col] = cellKey.split(',').map(Number);
+      const { row, col } = parseCellKey(cellKey);
       return {
         x: col * cellSize + cellSize / 2,
         y: row * cellSize + cellSize / 2
@@ -567,7 +574,7 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
   for (const cellKey of drawnCells) {
     const connectionCount = connections.get(cellKey)?.size || 0;
     if (connectionCount === 0) {
-      const [row, col] = cellKey.split(',').map(Number);
+      const { row, col } = parseCellKey(cellKey);
       const x = col * cellSize + cellSize / 2;
       const y = row * cellSize + cellSize / 2;
 

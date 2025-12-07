@@ -5,15 +5,19 @@
  * for use in a multi-view SPA
  */
 
-import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap } from '../renderer.js';
+import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
-import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop } from '../utils.js';
+import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop, parseCellKey } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
 import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings } from '../persistence.js';
 import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
+import { createGameTimer, formatTime } from '../game/timer.js';
+import { handleShare as handleShareUtil } from '../game/share.js';
+import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
+import { checkStructuralWin as checkStructuralWinUtil, checkFullWin } from '../game/validation.js';
 
 /* ============================================================================
  * STATE VARIABLES
@@ -59,12 +63,12 @@ let countdown = true;
 let hasWon = false;
 let hasShownPartialWinFeedback = false;
 
-// Timer state
-let timerStartTime = 0;
-let timerInterval = null;
-let elapsedSeconds = 0;
-let isPaused = false;
-let pauseStartTime = 0;
+// Cached values for performance (recalculated when puzzle changes)
+let cachedBorderLayers = null;
+let cachedSolutionTurnMap = null;
+
+// Timer instance (encapsulates all timer state)
+let gameTimer = null;
 
 // Game core instance
 let gameCore;
@@ -96,7 +100,7 @@ function captureGameState() {
     isUnlimitedMode,
     playerDrawnCells,
     playerConnections,
-    elapsedSeconds,
+    elapsedSeconds: gameTimer ? gameTimer.getElapsedSeconds() : 0,
     solutionPath,
     hintCells
   };
@@ -124,102 +128,56 @@ function saveCurrentSettings() {
 
 function checkStructuralWin() {
   const { playerDrawnCells, playerConnections } = gameCore.state;
-  return checkStructuralLoop(playerDrawnCells, playerConnections, gridSize);
+  return checkStructuralWinUtil(playerDrawnCells, playerConnections, gridSize);
 }
 
-function checkWin() {
-  // First check structural validity
-  if (!checkStructuralWin()) return false;
-
-  // Validate hint turn counts
+function checkWin(playerTurnMap = null) {
   const { playerDrawnCells, playerConnections } = gameCore.state;
-  const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
-  const solutionTurnMap = buildSolutionTurnMap(solutionPath);
+  const sTurnMap = cachedSolutionTurnMap || buildSolutionTurnMap(solutionPath);
+  const pTurnMap = playerTurnMap || buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
-  for (const cellKey of hintCells) {
-    const [row, col] = cellKey.split(',').map(Number);
-    const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
-    const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
-    if (expectedTurnCount !== actualTurnCount) return false;
-  }
-
-  return true;
+  return checkFullWin(
+    { playerDrawnCells, playerConnections },
+    solutionPath,
+    hintCells,
+    gridSize,
+    sTurnMap,
+    pTurnMap
+  );
 }
 
 /* ============================================================================
- * TIMER FUNCTIONS
+ * TIMER FUNCTIONS (thin wrappers around gameTimer instance)
  * ========================================================================= */
 
-function formatTime(seconds) {
-  const minutes = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${minutes}:${secs.toString().padStart(2, '0')}`;
-}
-
 function updateTimerDisplay() {
-  if (gameTimerEl) {
-    const difficultyLabel = currentGameDifficulty.charAt(0).toUpperCase() + currentGameDifficulty.slice(1);
-    gameTimerEl.textContent = `${difficultyLabel} • ${formatTime(elapsedSeconds)}`;
+  if (gameTimer) {
+    gameTimer.updateDisplay();
   }
 }
 
 function startTimer(resumeFromSeconds = 0) {
-  // Stop any existing timer
-  stopTimer();
-
-  // Set up timer state
-  // If resuming, adjust start time so elapsed time calculation is correct
-  if (resumeFromSeconds > 0) {
-    elapsedSeconds = resumeFromSeconds;
-    timerStartTime = Date.now() - (resumeFromSeconds * 1000);
-  } else {
-    elapsedSeconds = 0;
-    timerStartTime = Date.now();
+  if (gameTimer) {
+    gameTimer.start(resumeFromSeconds);
   }
-
-  isPaused = false;
-  pauseStartTime = 0;
-  updateTimerDisplay();
-
-  // Start interval to update every second
-  timerInterval = setInterval(() => {
-    // Only update if not paused
-    if (!isPaused) {
-      elapsedSeconds = Math.floor((Date.now() - timerStartTime) / 1000);
-      updateTimerDisplay();
-    }
-  }, 1000);
 }
 
 function stopTimer() {
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
+  if (gameTimer) {
+    gameTimer.stop();
   }
-  // Reset pause state when stopping timer
-  isPaused = false;
-  pauseStartTime = 0;
 }
 
 function pauseTimer() {
-  // Only pause if timer is running and not already paused
-  if (!timerInterval || isPaused) return;
-
-  isPaused = true;
-  pauseStartTime = Date.now();
+  if (gameTimer) {
+    gameTimer.pause();
+  }
 }
 
 function resumeTimer() {
-  // Only resume if actually paused
-  if (!isPaused) return;
-
-  // Calculate pause duration and shift start time forward
-  // This keeps the elapsed time calculation correct
-  const pauseDuration = Date.now() - pauseStartTime;
-  timerStartTime += pauseDuration;
-
-  isPaused = false;
-  pauseStartTime = 0;
+  if (gameTimer) {
+    gameTimer.resume();
+  }
 }
 
 /* ============================================================================
@@ -293,84 +251,10 @@ function hideSettings() {
 }
 
 /**
- * Format date as "DD Mon YYYY" (e.g., "26 Jan 2025")
- */
-function formatShareDate() {
-  const date = new Date();
-  const day = date.getDate();
-  const month = date.toLocaleString('en-US', { month: 'short' });
-  const year = date.getFullYear();
-  return `${day} ${month} ${year}`;
-}
-
-/**
- * Build share text for the completed puzzle
- */
-function buildShareText(finalTime) {
-  const dateStr = formatShareDate();
-  const difficultyLabel = currentGameDifficulty.charAt(0).toUpperCase() + currentGameDifficulty.slice(1);
-  return `${difficultyLabel} Loopy ${finalTime}\n${dateStr}`;
-}
-
-/**
- * Handle share button click - uses Web Share API with clipboard fallback
+ * Handle share button click - delegates to share module
  */
 async function handleShare(buttonEl, finalTime) {
-  const shareText = buildShareText(finalTime);
-  const originalLabel = buttonEl.querySelector('span')?.textContent || buttonEl.textContent;
-
-  // Try native share first (iOS/Android)
-  if (navigator.share) {
-    try {
-      await navigator.share({ text: shareText });
-      return; // Share was successful or cancelled
-    } catch (err) {
-      // User cancelled or share failed - fall through to clipboard
-      if (err.name === 'AbortError') {
-        return; // User cancelled, don't fall through
-      }
-    }
-  }
-
-  // Fallback to clipboard copy
-  try {
-    await navigator.clipboard.writeText(shareText);
-
-    // Show "Copied!" feedback
-    const spanEl = buttonEl.querySelector('span');
-    if (spanEl) {
-      spanEl.textContent = 'Copied!';
-    } else {
-      buttonEl.textContent = 'Copied!';
-    }
-
-    // Revert after 2 seconds
-    setTimeout(() => {
-      const spanEl = buttonEl.querySelector('span');
-      if (spanEl) {
-        spanEl.textContent = originalLabel;
-      } else {
-        buttonEl.textContent = originalLabel;
-      }
-    }, 2000);
-  } catch (err) {
-    // Clipboard failed - show error briefly
-    const spanEl = buttonEl.querySelector('span');
-    if (spanEl) {
-      spanEl.textContent = 'Failed';
-    } else {
-      buttonEl.textContent = 'Failed';
-    }
-
-    setTimeout(() => {
-      const spanEl = buttonEl.querySelector('span');
-      if (spanEl) {
-        spanEl.textContent = originalLabel;
-      } else {
-        buttonEl.textContent = originalLabel;
-      }
-    }, 2000);
-  }
+  await handleShareUtil(buttonEl, currentGameDifficulty, finalTime);
 }
 
 function updateSegmentedControlState() {
@@ -405,6 +289,11 @@ function changeDifficulty(newDifficulty) {
   cachedLastUnlimitedDifficulty = newDifficulty;
   saveCurrentSettings();
 
+  // Update timer with new difficulty
+  if (gameTimer) {
+    gameTimer.setDifficulty(newDifficulty);
+  }
+
   // Update segmented control UI
   updateSegmentedControlState();
 
@@ -432,12 +321,7 @@ function changeDifficulty(newDifficulty) {
  * ========================================================================= */
 
 function calculateCellSize() {
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const availableHeight = viewportHeight - CONFIG.LAYOUT.TOP_BAR_HEIGHT;
-  const availableWidth = viewportWidth - CONFIG.LAYOUT.HORIZONTAL_PADDING;
-  const maxCellSize = Math.min(availableWidth / gridSize, availableHeight / gridSize);
-  return Math.max(CONFIG.CELL_SIZE_MIN, Math.min(maxCellSize, CONFIG.CELL_SIZE_MAX));
+  return calculateCellSizeUtil(gridSize);
 }
 
 function resizeCanvas() {
@@ -461,9 +345,18 @@ function render(triggerSave = true) {
   const { playerDrawnCells, playerConnections } = gameCore.state;
   const totalSize = cellSize * gridSize;
 
+  // Build player turn map ONCE per render for reuse
+  const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
+
   clearCanvas(ctx, totalSize, totalSize);
   renderGrid(ctx, gridSize, cellSize);
-  renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode, playerDrawnCells, playerConnections, borderMode, countdown);
+
+  // Pass pre-built maps for performance
+  renderCellNumbers(
+    ctx, gridSize, cellSize, solutionPath, hintCells, hintMode,
+    playerDrawnCells, playerConnections, borderMode, countdown,
+    cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers
+  );
 
   if (showSolution) {
     renderPath(ctx, solutionPath, cellSize);
@@ -473,14 +366,15 @@ function render(triggerSave = true) {
 
   if (!hasWon && checkStructuralWin()) {
     // Check if this is a full win or partial win (valid loop but wrong hints)
-    if (checkWin()) {
+    // Pass pre-built player turn map to avoid rebuilding
+    if (checkWin(playerTurnMap)) {
       // Full win - all validation passed
       hasWon = true;
       hasShownPartialWinFeedback = false; // Reset flag
       stopTimer();
 
       // Capture time BEFORE any rendering that might cause re-renders
-      const finalTime = formatTime(elapsedSeconds);
+      const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
 
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
@@ -559,6 +453,10 @@ function generateNewPuzzle() {
     hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY);
   }
 
+  // Cache values that don't change during gameplay for performance
+  cachedSolutionTurnMap = buildSolutionTurnMap(solutionPath);
+  cachedBorderLayers = calculateBorderLayers(hintCells, gridSize);
+
   gameCore.restartPuzzle();
   hasWon = false;
   hasShownPartialWinFeedback = false;
@@ -590,6 +488,10 @@ function loadOrGeneratePuzzle() {
       solutionPath = savedState.solutionPath;
       hintCells = savedState.hintCells;
     }
+
+    // Cache values that don't change during gameplay for performance
+    cachedSolutionTurnMap = buildSolutionTurnMap(solutionPath);
+    cachedBorderLayers = calculateBorderLayers(hintCells, gridSize);
 
     // Restore player progress
     gameCore.state.playerDrawnCells = savedState.playerDrawnCells;
@@ -702,6 +604,14 @@ export function initGame(difficulty) {
     icon: 'settings',
     colorScheme: 'neutral',
     dismissLabel: 'Close'
+  });
+
+  // Create timer instance
+  gameTimer = createGameTimer({
+    onUpdate: (text) => {
+      if (gameTimerEl) gameTimerEl.textContent = text;
+    },
+    difficulty: currentGameDifficulty
   });
 
   // Clear title text (difficulty is shown in timer display)
