@@ -231,6 +231,7 @@ function render() {
         icon: 'party-popper',
         colorScheme: 'success',
         dismissLabel: 'Next',
+        dismissVariant: 'primary',
         onClose: () => {
           // Navigate to next tutorial or complete screen
           if (currentConfig && currentConfig.nextRoute) {

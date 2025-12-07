@@ -588,16 +588,78 @@ body {
   line-height: 1.5;
 }
 
-/* Dismiss button at bottom */
-.bottom-sheet-dismiss-btn {
-  display: block;
-  width: calc(100% - 40px);
-  margin: 24px 20px 20px 20px; /* Increased top margin for consistent spacing */
+/* Button container for multiple buttons */
+.bottom-sheet-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 24px 20px 20px 20px;
+}
+
+/* Base button styles */
+.bottom-sheet-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
   padding: 14px 24px;
   font-size: 17px;
   font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 100ms ease;
+}
+
+.bottom-sheet-btn svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* Primary button - blue background, white text */
+/* Contrast ratio: 3.25:1 (passes WCAG AA for large text) */
+.bottom-sheet-btn-primary {
   color: white;
   background-color: #4A90E2;
+}
+
+.bottom-sheet-btn-primary:hover {
+  background-color: #357ABD;
+}
+
+.bottom-sheet-btn-primary:active {
+  transform: scale(0.98);
+}
+
+/* Secondary button - grey background, black text */
+/* Contrast ratio: 12.6:1 (passes WCAG AAA) */
+.bottom-sheet-btn-secondary {
+  color: #1F2937;
+  background-color: #F3F4F6;
+}
+
+.bottom-sheet-btn-secondary:hover {
+  background-color: #E5E7EB;
+}
+
+.bottom-sheet-btn-secondary:active {
+  transform: scale(0.98);
+}
+
+/* Legacy dismiss button - now uses secondary style for backward compatibility */
+.bottom-sheet-dismiss-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(100% - 40px);
+  margin: 24px 20px 20px 20px;
+  padding: 14px 24px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #1F2937;
+  background-color: #F3F4F6;
   border: none;
   border-radius: 12px;
   cursor: pointer;
@@ -605,7 +667,7 @@ body {
 }
 
 .bottom-sheet-dismiss-btn:hover {
-  background-color: #357ABD;
+  background-color: #E5E7EB;
 }
 
 .bottom-sheet-dismiss-btn:active {
