@@ -373,6 +373,11 @@ function render(triggerSave = true) {
       hasShownPartialWinFeedback = false; // Reset flag
       stopTimer();
 
+      // Disable restart button when game is completed
+      if (restartBtn) {
+        restartBtn.disabled = true;
+      }
+
       // Mark daily puzzle as completed (not for unlimited mode)
       if (isDailyMode) {
         markDailyCompleted(currentGameDifficulty);
@@ -465,6 +470,12 @@ function generateNewPuzzle() {
   gameCore.restartPuzzle();
   hasWon = false;
   hasShownPartialWinFeedback = false;
+
+  // Re-enable restart button for new puzzle
+  if (restartBtn) {
+    restartBtn.disabled = false;
+  }
+
   startTimer();
   render();
 }
@@ -506,6 +517,11 @@ function loadOrGeneratePuzzle() {
     hasWon = savedState.hasWon;
     hasShownPartialWinFeedback = savedState.hasShownPartialWinFeedback || false;
 
+    // Disable restart button if game was already won
+    if (hasWon && restartBtn) {
+      restartBtn.disabled = true;
+    }
+
     // Restore and resume timer
     if (hasWon) {
       // If game was already won, don't start timer
@@ -535,6 +551,12 @@ function restartPuzzle() {
 
   hasWon = false;
   hasShownPartialWinFeedback = false;
+
+  // Re-enable restart button when restarting
+  if (restartBtn) {
+    restartBtn.disabled = false;
+  }
+
   render();
 }
 

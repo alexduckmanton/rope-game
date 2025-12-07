@@ -198,6 +198,12 @@ body {
   height: 24px;
 }
 
+.icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .btn {
   padding: 12px 24px;
   font-size: 16px;
