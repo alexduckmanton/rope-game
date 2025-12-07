@@ -12,7 +12,7 @@ import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
-import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted } from '../persistence.js';
+import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution } from '../persistence.js';
 import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
@@ -42,12 +42,12 @@ let restartBtn;
 let hintsCheckbox;
 let countdownCheckbox;
 let borderCheckbox;
-let solutionCheckbox;
 let backBtn;
 let settingsBtn;
 let difficultySettingsItem;
 let segmentedControl;
 let segmentButtons;
+let viewSolutionBtn;
 
 // Bottom sheet instances
 let settingsSheet;
@@ -58,10 +58,10 @@ let solutionPath = [];
 let hintCells = new Set();
 let hintMode = 'partial';
 let borderMode = 'off';
-let showSolution = false;
 let countdown = true;
 let hasWon = false;
 let hasShownPartialWinFeedback = false;
+let hasViewedSolution = false;
 
 // Cached values for performance (recalculated when puzzle changes)
 let cachedBorderLayers = null;
@@ -102,7 +102,9 @@ function captureGameState() {
     playerConnections,
     elapsedSeconds: gameTimer ? gameTimer.getElapsedSeconds() : 0,
     solutionPath,
-    hintCells
+    hintCells,
+    hasWon,
+    hasViewedSolution
   };
 }
 
@@ -113,7 +115,6 @@ function saveCurrentSettings() {
   const settings = {
     hintMode,
     borderMode,
-    showSolution,
     countdown,
     // Use cached value instead of re-reading from localStorage
     lastUnlimitedDifficulty: cachedLastUnlimitedDifficulty
@@ -358,7 +359,8 @@ function render(triggerSave = true) {
     cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers
   );
 
-  if (showSolution) {
+  // Render solution path if player has viewed it
+  if (hasViewedSolution) {
     renderPath(ctx, solutionPath, cellSize);
   }
 
@@ -376,6 +378,11 @@ function render(triggerSave = true) {
       // Disable restart button when game is completed
       if (restartBtn) {
         restartBtn.disabled = true;
+      }
+
+      // Hide view solution button after winning (they can view it freely now)
+      if (viewSolutionBtn) {
+        viewSolutionBtn.style.display = 'none';
       }
 
       // Mark daily puzzle as completed (not for unlimited mode)
@@ -470,10 +477,21 @@ function generateNewPuzzle() {
   gameCore.restartPuzzle();
   hasWon = false;
   hasShownPartialWinFeedback = false;
+  hasViewedSolution = false;
 
   // Re-enable restart button for new puzzle
   if (restartBtn) {
     restartBtn.disabled = false;
+  }
+
+  // Reset timer display in case it was showing "Viewed solution"
+  if (gameTimerEl) {
+    gameTimerEl.textContent = '0:00';
+  }
+
+  // Show view solution button for new puzzle
+  if (viewSolutionBtn) {
+    viewSolutionBtn.style.display = '';
   }
 
   startTimer();
@@ -516,10 +534,28 @@ function loadOrGeneratePuzzle() {
     // Restore win state
     hasWon = savedState.hasWon;
     hasShownPartialWinFeedback = savedState.hasShownPartialWinFeedback || false;
+    hasViewedSolution = savedState.hasViewedSolution || false;
 
     // Disable restart button if game was already won
     if (hasWon && restartBtn) {
       restartBtn.disabled = true;
+    }
+
+    // Hide view solution button if game was already won
+    if (hasWon && viewSolutionBtn) {
+      viewSolutionBtn.style.display = 'none';
+    }
+
+    // Apply restrictions if solution was viewed
+    if (hasViewedSolution) {
+      // Disable restart button
+      if (restartBtn) {
+        restartBtn.disabled = true;
+      }
+      // Hide view solution button (already viewed)
+      if (viewSolutionBtn) {
+        viewSolutionBtn.style.display = 'none';
+      }
     }
 
     // Restore and resume timer
@@ -527,6 +563,11 @@ function loadOrGeneratePuzzle() {
       // If game was already won, don't start timer
       elapsedSeconds = savedState.elapsedSeconds;
       updateTimerDisplay();
+    } else if (hasViewedSolution) {
+      // If solution was viewed, stop timer and show "Viewed solution"
+      if (gameTimerEl) {
+        gameTimerEl.textContent = 'Viewed solution';
+      }
     } else {
       // Resume timer from saved elapsed time
       startTimer(savedState.elapsedSeconds);
@@ -557,6 +598,43 @@ function restartPuzzle() {
     restartBtn.disabled = false;
   }
 
+  render();
+}
+
+function viewSolution() {
+  // Mark solution as viewed (disqualifies the player)
+  hasViewedSolution = true;
+
+  // Stop the timer
+  stopTimer();
+
+  // Update timer display to show "Viewed solution"
+  if (gameTimerEl) {
+    gameTimerEl.textContent = 'Viewed solution';
+  }
+
+  // Disable restart button (can't retry after viewing solution)
+  if (restartBtn) {
+    restartBtn.disabled = true;
+  }
+
+  // Hide view solution button (already viewed)
+  if (viewSolutionBtn) {
+    viewSolutionBtn.style.display = 'none';
+  }
+
+  // For daily puzzles, mark as completed with viewed solution (skull icon)
+  if (isDailyMode) {
+    markDailyCompletedWithViewedSolution(currentGameDifficulty);
+  }
+
+  // Close the settings sheet
+  hideSettings();
+
+  // Save game state
+  saveGameState(captureGameState());
+
+  // Render to show the solution path
   render();
 }
 
@@ -616,22 +694,37 @@ export function initGame(difficulty) {
   hintsCheckbox = document.getElementById('hints-checkbox');
   countdownCheckbox = document.getElementById('countdown-checkbox');
   borderCheckbox = document.getElementById('border-checkbox');
-  solutionCheckbox = document.getElementById('solution-checkbox');
   backBtn = document.getElementById('back-btn');
   settingsBtn = document.getElementById('settings-btn');
   difficultySettingsItem = document.getElementById('difficulty-settings-item');
   segmentedControl = document.getElementById('difficulty-segmented-control');
   segmentButtons = segmentedControl ? segmentedControl.querySelectorAll('.segment-btn') : [];
 
-  // Create settings bottom sheet with the settings content
+  // Create settings bottom sheet with the settings content and view solution button
   const settingsContent = document.getElementById('settings-content');
   settingsSheet = createBottomSheet({
     title: 'Settings',
     content: settingsContent,
     icon: 'settings',
     colorScheme: 'neutral',
-    dismissLabel: 'Close'
+    dismissLabel: 'Close',
+    primaryButton: {
+      label: 'View solution',
+      icon: 'eye',
+      onClick: () => viewSolution()
+    }
   });
+
+  // Get reference to the view solution button for show/hide control
+  const settingsOverlay = document.querySelector('.bottom-sheet-overlay');
+  if (settingsOverlay) {
+    viewSolutionBtn = settingsOverlay.querySelector('.bottom-sheet-btn-primary');
+    // Apply destructive styling (red text)
+    if (viewSolutionBtn) {
+      viewSolutionBtn.classList.remove('bottom-sheet-btn-primary');
+      viewSolutionBtn.classList.add('bottom-sheet-btn-destructive');
+    }
+  }
 
   // Create timer instance
   gameTimer = createGameTimer({
@@ -661,12 +754,12 @@ export function initGame(difficulty) {
   // Apply saved settings (or defaults)
   hintMode = settings.hintMode;
   borderMode = settings.borderMode;
-  showSolution = settings.showSolution;
   countdown = settings.countdown;
 
   // Reset game state
   hasWon = false;
   hasShownPartialWinFeedback = false;
+  hasViewedSolution = false;
   eventListeners = [];
 
   // Create game core instance
@@ -697,12 +790,6 @@ export function initGame(difficulty) {
     e.preventDefault();
     cycleBorderMode();
   };
-  const solutionHandler = () => {
-    showSolution = solutionCheckbox.checked;
-    saveCurrentSettings();
-    // Don't trigger game state save for display-only changes
-    render(false);
-  };
   const countdownHandler = () => {
     countdown = countdownCheckbox.checked;
     saveCurrentSettings();
@@ -731,12 +818,19 @@ export function initGame(difficulty) {
   };
 
   // Use gameCore methods for pointer events
+  // Prevent drawing if game is won or solution was viewed
   const pointerDownHandler = (e) => {
-    if (!hasWon) gameCore.handlePointerDown(e);
+    if (!hasWon && !hasViewedSolution) gameCore.handlePointerDown(e);
   };
-  const pointerMoveHandler = (e) => gameCore.handlePointerMove(e);
-  const pointerUpHandler = (e) => gameCore.handlePointerUp(e);
-  const pointerCancelHandler = (e) => gameCore.handlePointerCancel(e);
+  const pointerMoveHandler = (e) => {
+    if (!hasViewedSolution) gameCore.handlePointerMove(e);
+  };
+  const pointerUpHandler = (e) => {
+    if (!hasViewedSolution) gameCore.handlePointerUp(e);
+  };
+  const pointerCancelHandler = (e) => {
+    if (!hasViewedSolution) gameCore.handlePointerCancel(e);
+  };
 
   window.addEventListener('resize', resizeHandler);
   newBtn.addEventListener('click', newBtnHandler);
@@ -744,7 +838,6 @@ export function initGame(difficulty) {
   hintsCheckbox.addEventListener('click', hintsHandler);
   countdownCheckbox.addEventListener('change', countdownHandler);
   borderCheckbox.addEventListener('click', borderHandler);
-  solutionCheckbox.addEventListener('change', solutionHandler);
   backBtn.addEventListener('click', backBtnHandler);
   settingsBtn.addEventListener('click', settingsBtnHandler);
   document.addEventListener('visibilitychange', visibilityChangeHandler);
@@ -761,7 +854,6 @@ export function initGame(difficulty) {
     { element: hintsCheckbox, event: 'click', handler: hintsHandler },
     { element: countdownCheckbox, event: 'change', handler: countdownHandler },
     { element: borderCheckbox, event: 'click', handler: borderHandler },
-    { element: solutionCheckbox, event: 'change', handler: solutionHandler },
     { element: backBtn, event: 'click', handler: backBtnHandler },
     { element: settingsBtn, event: 'click', handler: settingsBtnHandler },
     { element: document, event: 'visibilitychange', handler: visibilityChangeHandler },
@@ -796,7 +888,6 @@ export function initGame(difficulty) {
   updateCheckboxState();
   updateBorderCheckboxState();
   countdownCheckbox.checked = countdown;
-  solutionCheckbox.checked = showSolution;
 }
 
 /**

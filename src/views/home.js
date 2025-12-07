@@ -6,16 +6,23 @@
 
 import { navigate } from '../router.js';
 import { getFormattedDate } from '../seededRandom.js';
-import { isDailyCompleted, isTutorialCompleted } from '../persistence.js';
+import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution } from '../persistence.js';
+import { initIcons } from '../icons.js';
 
 /**
  * Update button completed state based on completion status
  * @param {HTMLElement} button - The button element
  * @param {boolean} isCompleted - Whether the associated puzzle is completed
+ * @param {string} icon - Icon name to use ('trophy', 'skull', 'check', etc.)
  */
-function updateCompletedState(button, isCompleted) {
+function updateCompletedState(button, isCompleted, icon = 'trophy') {
   if (isCompleted) {
     button.classList.add('completed');
+    // Update the icon based on completion type
+    const iconElement = button.querySelector('.btn-complete-icon');
+    if (iconElement) {
+      iconElement.setAttribute('data-lucide', icon);
+    }
   } else {
     button.classList.remove('completed');
   }
@@ -41,10 +48,19 @@ export function initHome() {
   const unlimitedBtn = document.getElementById('unlimited-btn');
 
   // Update completed state icons
-  updateCompletedState(tutorialBtn, isTutorialCompleted());
-  updateCompletedState(easyBtn, isDailyCompleted('easy'));
-  updateCompletedState(mediumBtn, isDailyCompleted('medium'));
-  updateCompletedState(hardBtn, isDailyCompleted('hard'));
+  updateCompletedState(tutorialBtn, isTutorialCompleted(), 'check');
+
+  // Check if daily puzzles were completed with viewed solution (skull icon) or normally (trophy icon)
+  const easyViewedSolution = isDailyCompletedWithViewedSolution('easy');
+  const mediumViewedSolution = isDailyCompletedWithViewedSolution('medium');
+  const hardViewedSolution = isDailyCompletedWithViewedSolution('hard');
+
+  updateCompletedState(easyBtn, isDailyCompleted('easy') || easyViewedSolution, easyViewedSolution ? 'skull' : 'trophy');
+  updateCompletedState(mediumBtn, isDailyCompleted('medium') || mediumViewedSolution, mediumViewedSolution ? 'skull' : 'trophy');
+  updateCompletedState(hardBtn, isDailyCompleted('hard') || hardViewedSolution, hardViewedSolution ? 'skull' : 'trophy');
+
+  // Re-initialize icons after updating attributes
+  initIcons();
 
   // Event handlers - pass fromHome state to track navigation origin
   const handleTutorial = () => navigate('/tutorial?page=1', false, { fromHome: true });
