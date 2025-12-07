@@ -308,7 +308,7 @@ function formatShareDate() {
 function buildShareText(finalTime) {
   const dateStr = formatShareDate();
   const difficultyLabel = currentGameDifficulty.charAt(0).toUpperCase() + currentGameDifficulty.slice(1);
-  return `💫 Loopy\n${dateStr}\n${difficultyLabel} ${finalTime}`;
+  return `${difficultyLabel} Loopy ${finalTime}\n${dateStr}`;
 }
 
 /**
