@@ -47,6 +47,7 @@ let segmentButtons;
 
 // Bottom sheet instances
 let settingsSheet;
+let activeGameSheet;  // Track winning/feedback sheets for cleanup
 
 // Puzzle state
 let solutionPath = [];
@@ -503,14 +504,22 @@ function render(triggerSave = true) {
       }
 
       // Show win bottom sheet with completion time
-      showBottomSheetAsync(bottomSheetOptions);
+      // Destroy any previous game sheet before showing new one
+      if (activeGameSheet) {
+        activeGameSheet.destroy();
+      }
+      activeGameSheet = showBottomSheetAsync(bottomSheetOptions);
     } else if (!hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
       // Only show feedback once per structural completion
       hasShownPartialWinFeedback = true;
 
       // Show feedback bottom sheet
-      showBottomSheetAsync({
+      // Destroy any previous game sheet before showing new one
+      if (activeGameSheet) {
+        activeGameSheet.destroy();
+      }
+      activeGameSheet = showBottomSheetAsync({
         title: 'Almost there!',
         content: '<div class="bottom-sheet-message">Nice loop, but not all numbers have the correct amount of bends.</div>',
         icon: 'circle-off',
@@ -872,6 +881,10 @@ export function cleanupGame() {
   // Clean up bottom sheets
   if (settingsSheet) {
     settingsSheet.destroy();
+  }
+  if (activeGameSheet) {
+    activeGameSheet.destroy();
+    activeGameSheet = null;
   }
 
   // Remove all event listeners
