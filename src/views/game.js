@@ -47,7 +47,6 @@ let settingsBtn;
 let difficultySettingsItem;
 let segmentedControl;
 let segmentButtons;
-let viewSolutionBtn;
 
 // Bottom sheet instances
 let settingsSheet;
@@ -126,6 +125,14 @@ function saveCurrentSettings() {
 /* ============================================================================
  * VALIDATION
  * ========================================================================= */
+
+/**
+ * Get reference to view solution button (queries DOM each time)
+ * This ensures we always have the correct reference even if sheets are recreated
+ */
+function getViewSolutionBtn() {
+  return document.querySelector('.bottom-sheet-btn-destructive');
+}
 
 function checkStructuralWin() {
   const { playerDrawnCells, playerConnections } = gameCore.state;
@@ -381,6 +388,7 @@ function render(triggerSave = true) {
       }
 
       // Hide view solution button after winning (they can view it freely now)
+      const viewSolutionBtn = getViewSolutionBtn();
       if (viewSolutionBtn) {
         viewSolutionBtn.style.display = 'none';
       }
@@ -490,6 +498,7 @@ function generateNewPuzzle() {
   }
 
   // Show view solution button for new puzzle
+  const viewSolutionBtn = getViewSolutionBtn();
   if (viewSolutionBtn) {
     viewSolutionBtn.style.display = '';
   }
@@ -542,6 +551,7 @@ function loadOrGeneratePuzzle() {
     }
 
     // Hide view solution button if game was already won
+    const viewSolutionBtn = getViewSolutionBtn();
     if (hasWon && viewSolutionBtn) {
       viewSolutionBtn.style.display = 'none';
     }
@@ -619,6 +629,7 @@ function viewSolution() {
   }
 
   // Hide view solution button (already viewed)
+  const viewSolutionBtn = getViewSolutionBtn();
   if (viewSolutionBtn) {
     viewSolutionBtn.style.display = 'none';
   }
@@ -711,20 +722,10 @@ export function initGame(difficulty) {
     primaryButton: {
       label: 'View solution',
       icon: 'eye',
+      variant: 'destructive',
       onClick: () => viewSolution()
     }
   });
-
-  // Get reference to the view solution button for show/hide control
-  const settingsOverlay = document.querySelector('.bottom-sheet-overlay');
-  if (settingsOverlay) {
-    viewSolutionBtn = settingsOverlay.querySelector('.bottom-sheet-btn-primary');
-    // Apply destructive styling (red text)
-    if (viewSolutionBtn) {
-      viewSolutionBtn.classList.remove('bottom-sheet-btn-primary');
-      viewSolutionBtn.classList.add('bottom-sheet-btn-destructive');
-    }
-  }
 
   // Create timer instance
   gameTimer = createGameTimer({
