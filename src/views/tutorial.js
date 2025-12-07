@@ -120,6 +120,9 @@ let borderMode = 'off';
 // Game core instance
 let gameCore;
 
+// Bottom sheet instance for cleanup
+let activeTutorialSheet;
+
 // Animation tracking
 let animationFrameId = null;
 let isAnimationFramePending = false;
@@ -225,7 +228,11 @@ function render() {
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
       // Show win bottom sheet with navigation on close
-      showBottomSheetAsync({
+      // Destroy any previous tutorial sheet before showing new one
+      if (activeTutorialSheet) {
+        activeTutorialSheet.destroy();
+      }
+      activeTutorialSheet = showBottomSheetAsync({
         title: 'You made a loop!',
         content: '<div class="bottom-sheet-message">Great job! Let\'s continue.</div>',
         icon: 'party-popper',
@@ -270,7 +277,11 @@ function render() {
         feedbackContent = `<div class="bottom-sheet-message">This loop doesn't have the right number of bends for the numbers. Try a different loop shape to complete this tutorial.</div>`;
       }
 
-      showBottomSheetAsync({
+      // Destroy any previous tutorial sheet before showing new one
+      if (activeTutorialSheet) {
+        activeTutorialSheet.destroy();
+      }
+      activeTutorialSheet = showBottomSheetAsync({
         title: 'Not quite!',
         content: feedbackContent,
         icon: 'circle-off',
@@ -414,6 +425,12 @@ export function initTutorial(params) {
         isAnimationFramePending = false;
       }
 
+      // Clean up any active bottom sheet
+      if (activeTutorialSheet) {
+        activeTutorialSheet.destroy();
+        activeTutorialSheet = null;
+      }
+
       for (const { element, event, handler } of eventListeners) {
         element.removeEventListener(event, handler);
       }
@@ -480,6 +497,12 @@ export function initTutorial(params) {
       cancelAnimationFrame(animationFrameId);
       animationFrameId = null;
       isAnimationFramePending = false;
+    }
+
+    // Clean up any active bottom sheet
+    if (activeTutorialSheet) {
+      activeTutorialSheet.destroy();
+      activeTutorialSheet = null;
     }
 
     for (const { element, event, handler } of eventListeners) {

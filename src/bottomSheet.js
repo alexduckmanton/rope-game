@@ -202,8 +202,9 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
 
   /**
    * Hide the bottom sheet with slide-down animation
+   * @param {boolean} suppressOnClose - If true, don't call onClose callback (used by destroy)
    */
-  function hide() {
+  function hide(suppressOnClose = false) {
     // Remove visible class to trigger slide-out animation
     overlay.classList.remove('visible');
 
@@ -211,8 +212,8 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
     setTimeout(() => {
       overlay.style.display = 'none';
 
-      // Call onClose callback if provided
-      if (onClose && typeof onClose === 'function') {
+      // Call onClose callback if provided (unless suppressed by destroy)
+      if (!suppressOnClose && onClose && typeof onClose === 'function') {
         onClose();
       }
     }, ANIMATION_DURATION_MS);
@@ -220,9 +221,11 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
 
   /**
    * Destroy the bottom sheet and clean up event listeners
+   * Note: Does NOT trigger onClose callback - use for cleanup only
    */
   function destroy() {
-    hide();
+    // Suppress onClose when destroying (cleanup should not trigger navigation)
+    hide(true);
 
     // Clean up event listeners
     dismissBtn.removeEventListener('click', handleClose);
