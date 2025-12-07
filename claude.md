@@ -10,12 +10,16 @@
 | `router.js` | Client-side routing | `initRouter()` - History API navigation |
 | `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
 | `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle |
-| `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers(countdown)`, `generateHintCells()` - Countdown param controls remaining vs total display |
-| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()` - Settings include countdown preference |
+| `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCells()`, `calculateBorderLayers()` |
+| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()` |
 | `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles |
-| `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `buildPlayerTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `findShortestPath()` |
+| `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `parseCellKey()`, `createCellKey()` |
 | `config.js` | Configuration constants | `CONFIG` - Colors, sizes, generation tuning, rendering params |
-| `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet({ title, content, icon, colorScheme, dismissLabel, onClose })`, `showBottomSheetAsync(options)` - Factory creates instances with icons and color schemes, helper shows one-time notifications |
+| `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet()`, `showBottomSheetAsync()` - Factory + async helper |
+| `game/timer.js` | Game timer | `createGameTimer({ onUpdate, difficulty })`, `formatTime()` - Encapsulated timer with pause/resume |
+| `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback |
+| `game/validation.js` | Win validation | `checkStructuralWin()`, `checkFullWin()`, `validateHints()` - Shared by game and tutorial |
+| `game/canvasSetup.js` | Canvas sizing | `calculateCellSize(gridSize, extraSpace)`, `setupCanvas()` - Responsive sizing utilities |
 
 ### Core Concepts
 
@@ -151,15 +155,20 @@ rope-game/
 │   ├── icons.js           # Lucide icon initialization (tree-shakeable imports)
 │   ├── bottomSheet.js     # Reusable bottom sheet component (factory + async helper)
 │   ├── config.js          # Centralized constants (colors, sizing, generation tuning)
-│   ├── utils.js           # Shared utility functions (path math, validation helpers)
+│   ├── utils.js           # Shared utility functions (path math, cell key parsing)
 │   ├── seededRandom.js    # Deterministic PRNG for daily puzzles (Mulberry32 algorithm)
 │   ├── generator.js       # Puzzle generation (Warnsdorff's heuristic)
 │   ├── gameCore.js        # Game state and interaction logic (pointer events, drag handling)
 │   ├── renderer.js        # Canvas rendering (grid, paths, hints, borders)
 │   ├── persistence.js     # localStorage save/load/cleanup with throttled writes
+│   ├── game/              # Shared game modules (used by both game and tutorial views)
+│   │   ├── timer.js       # Encapsulated timer with pause/resume support
+│   │   ├── share.js       # Share functionality (Web Share API + clipboard fallback)
+│   │   ├── validation.js  # Win checking and hint validation logic
+│   │   └── canvasSetup.js # Responsive canvas sizing utilities
 │   └── views/
 │       ├── home.js        # Home view with difficulty selection and date display
-│       ├── tutorial.js    # Tutorial view (placeholder for future content)
+│       ├── tutorial.js    # Tutorial view with progressive puzzles
 │       └── game.js        # Game view with daily/unlimited mode logic
 └── package.json
 ```

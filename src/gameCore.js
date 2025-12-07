@@ -6,7 +6,7 @@
  * drag interactions, and connection management.
  */
 
-import { isAdjacent, determineConnectionToBreak, getCellsAlongLine } from './utils.js';
+import { isAdjacent, determineConnectionToBreak, getCellsAlongLine, parseCellKey, createCellKey } from './utils.js';
 
 /**
  * Creates a game core instance with encapsulated state and methods
@@ -40,7 +40,7 @@ export function createGameCore({ gridSize, canvas, onRender }) {
   // ============================================================================
 
   function clearPlayerCell(row, col) {
-    const cellKey = `${row},${col}`;
+    const cellKey = createCellKey(row, col);
     state.playerDrawnCells.delete(cellKey);
     const connections = state.playerConnections.get(cellKey);
     if (connections) {
@@ -56,7 +56,7 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     const row = Math.floor(y / state.cellSize);
 
     if (row >= 0 && row < state.gridSize && col >= 0 && col < state.gridSize) {
-      return { row, col, key: `${row},${col}` };
+      return { row, col, key: createCellKey(row, col) };
     }
     return null;
   }
@@ -109,8 +109,8 @@ export function createGameCore({ gridSize, canvas, onRender }) {
   // ============================================================================
 
   function forceConnection(cellKeyA, cellKeyB, incomingConnectionA = null) {
-    const [r1, c1] = cellKeyA.split(',').map(Number);
-    const [r2, c2] = cellKeyB.split(',').map(Number);
+    const { row: r1, col: c1 } = parseCellKey(cellKeyA);
+    const { row: r2, col: c2 } = parseCellKey(cellKeyB);
 
     if (!isAdjacent(r1, c1, r2, c2)) return false;
     if (state.playerConnections.get(cellKeyA)?.has(cellKeyB)) return false;
@@ -312,7 +312,7 @@ export function createGameCore({ gridSize, canvas, onRender }) {
 
     if (!state.hasDragMoved && cell && state.dragPath.length === 1 && state.dragPath[0] === cell.key) {
       if (!state.cellsAddedThisDrag.has(cell.key)) {
-        const [row, col] = cell.key.split(',').map(Number);
+        const { row, col } = parseCellKey(cell.key);
         clearPlayerCell(row, col);
       }
     }

@@ -2,6 +2,34 @@
  * Shared utility functions for the Loop puzzle game
  */
 
+/* ============================================================================
+ * CELL KEY UTILITIES
+ * ========================================================================= */
+
+/**
+ * Parse a cell key string into row and column numbers
+ * @param {string} cellKey - Cell key in "row,col" format
+ * @returns {{row: number, col: number}} Parsed coordinates
+ */
+export function parseCellKey(cellKey) {
+  const [row, col] = cellKey.split(',').map(Number);
+  return { row, col };
+}
+
+/**
+ * Create a cell key from row and column numbers
+ * @param {number} row - Row index
+ * @param {number} col - Column index
+ * @returns {string} Cell key in "row,col" format
+ */
+export function createCellKey(row, col) {
+  return `${row},${col}`;
+}
+
+/* ============================================================================
+ * ADJACENCY UTILITIES
+ * ========================================================================= */
+
 /**
  * Check if two cells are adjacent (Manhattan distance = 1)
  * @param {number} r1 - Row of first cell
@@ -103,7 +131,7 @@ export function buildSolutionTurnMap(solutionPath) {
       (prev.row === current.row && current.row === next.row) ||
       (prev.col === current.col && current.col === next.col);
 
-    turnMap.set(`${current.row},${current.col}`, !isStraight);
+    turnMap.set(createCellKey(current.row, current.col), !isStraight);
   }
 
   return turnMap;
@@ -147,7 +175,7 @@ export function countTurnsInArea(row, col, gridSize, turnMap) {
   for (const [adjRow, adjCol] of adjacents) {
     // Check bounds
     if (adjRow >= 0 && adjRow < gridSize && adjCol >= 0 && adjCol < gridSize) {
-      const adjKey = `${adjRow},${adjCol}`;
+      const adjKey = createCellKey(adjRow, adjCol);
       if (turnMap.get(adjKey)) {
         turnCount++;
       }
@@ -181,8 +209,8 @@ export function determineConnectionToBreak(targetCell, comingFromCell, existingC
   }
 
   // PRIORITY 2: Use direction-based logic as fallback
-  const [targetRow, targetCol] = targetCell.split(',').map(Number);
-  const [fromRow, fromCol] = comingFromCell.split(',').map(Number);
+  const { row: targetRow, col: targetCol } = parseCellKey(targetCell);
+  const { row: fromRow, col: fromCol } = parseCellKey(comingFromCell);
 
   // Direction vector from comingFrom to target (the direction we're drawing)
   const drawDirection = {
@@ -198,7 +226,7 @@ export function determineConnectionToBreak(targetCell, comingFromCell, existingC
 
   // Find which existing connection is in the opposite direction
   for (const connectedKey of existingConnections) {
-    const [connRow, connCol] = connectedKey.split(',').map(Number);
+    const { row: connRow, col: connCol } = parseCellKey(connectedKey);
     const connectionDirection = {
       row: connRow - targetRow,
       col: connCol - targetCol
@@ -239,7 +267,7 @@ export function getCellsAlongLine(x1, y1, x2, y2, cellSize, gridSize) {
   // If start and end are in the same cell, return just that cell
   if (row1 === row2 && col1 === col2) {
     if (row1 >= 0 && row1 < gridSize && col1 >= 0 && col1 < gridSize) {
-      cells.push(`${row1},${col1}`);
+      cells.push(createCellKey(row1, col1));
     }
     return cells;
   }
@@ -258,7 +286,7 @@ export function getCellsAlongLine(x1, y1, x2, y2, cellSize, gridSize) {
   while (true) {
     // Add current cell if in bounds
     if (row >= 0 && row < gridSize && col >= 0 && col < gridSize) {
-      cells.push(`${row},${col}`);
+      cells.push(createCellKey(row, col));
     }
 
     // Check if we've reached the end
@@ -290,8 +318,8 @@ export function getCellsAlongLine(x1, y1, x2, y2, cellSize, gridSize) {
  * @returns {Array<string>|null} Array of cell keys forming path, or null if no path exists
  */
 export function findShortestPath(fromKey, toKey, gridSize) {
-  const [fromRow, fromCol] = fromKey.split(',').map(Number);
-  const [toRow, toCol] = toKey.split(',').map(Number);
+  const { row: fromRow, col: fromCol } = parseCellKey(fromKey);
+  const { row: toRow, col: toCol } = parseCellKey(toKey);
 
   // If adjacent, just return the target
   if (isAdjacent(fromRow, fromCol, toRow, toCol)) {
@@ -304,7 +332,7 @@ export function findShortestPath(fromKey, toKey, gridSize) {
 
   while (queue.length > 0) {
     const [current, path] = queue.shift();
-    const [r, c] = current.split(',').map(Number);
+    const { row: r, col: c } = parseCellKey(current);
 
     // Get adjacent cells
     const neighbors = [
@@ -314,7 +342,7 @@ export function findShortestPath(fromKey, toKey, gridSize) {
     );
 
     for (const [nr, nc] of neighbors) {
-      const neighborKey = `${nr},${nc}`;
+      const neighborKey = createCellKey(nr, nc);
       if (visited.has(neighborKey)) continue;
 
       // Check if this is the target
