@@ -12,7 +12,7 @@ import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
-import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings } from '../persistence.js';
+import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted } from '../persistence.js';
 import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
@@ -372,6 +372,11 @@ function render(triggerSave = true) {
       hasWon = true;
       hasShownPartialWinFeedback = false; // Reset flag
       stopTimer();
+
+      // Mark daily puzzle as completed (not for unlimited mode)
+      if (isDailyMode) {
+        markDailyCompleted(currentGameDifficulty);
+      }
 
       // Capture time BEFORE any rendering that might cause re-renders
       const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';

@@ -12,6 +12,7 @@ import { createGameCore } from '../gameCore.js';
 import { showBottomSheetAsync } from '../bottomSheet.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
 import { checkStructuralWin as checkStructuralWinUtil, checkFullWin } from '../game/validation.js';
+import { markTutorialCompleted } from '../persistence.js';
 
 /* ============================================================================
  * TUTORIAL CONFIGURATIONS
@@ -415,6 +416,7 @@ export function initTutorial(params) {
 
     // Setup complete home button
     const handleCompleteHome = () => {
+      markTutorialCompleted();
       navigate('/');
     };
     completeHomeBtn.addEventListener('click', handleCompleteHome);

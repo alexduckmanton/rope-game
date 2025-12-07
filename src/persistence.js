@@ -463,6 +463,74 @@ export function createThrottledSave(cooldownMs = SAVE_COOLDOWN_MS) {
 }
 
 /* ============================================================================
+ * COMPLETION TRACKING
+ * ========================================================================= */
+
+/**
+ * Mark a daily puzzle difficulty as completed for today
+ * Stores the completion date, which automatically becomes stale the next day
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {boolean} Whether save was successful
+ */
+export function markDailyCompleted(difficulty) {
+  const today = getTodayDateString();
+  const key = `${STORAGE_PREFIX}:completed:${difficulty}`;
+
+  try {
+    localStorage.setItem(key, today);
+    return true;
+  } catch (error) {
+    console.warn('Failed to save daily completion:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if a daily puzzle difficulty is completed for today
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {boolean} Whether the difficulty is completed today
+ */
+export function isDailyCompleted(difficulty) {
+  const today = getTodayDateString();
+  const key = `${STORAGE_PREFIX}:completed:${difficulty}`;
+
+  try {
+    const completedDate = localStorage.getItem(key);
+    return completedDate === today;
+  } catch (error) {
+    console.warn('Failed to check daily completion:', error);
+    return false;
+  }
+}
+
+/**
+ * Mark the tutorial as completed (permanent, not date-based)
+ * @returns {boolean} Whether save was successful
+ */
+export function markTutorialCompleted() {
+  try {
+    localStorage.setItem(`${STORAGE_PREFIX}:tutorial-completed`, 'true');
+    return true;
+  } catch (error) {
+    console.warn('Failed to save tutorial completion:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if the tutorial has been completed
+ * @returns {boolean} Whether the tutorial is completed
+ */
+export function isTutorialCompleted() {
+  try {
+    return localStorage.getItem(`${STORAGE_PREFIX}:tutorial-completed`) === 'true';
+  } catch (error) {
+    console.warn('Failed to check tutorial completion:', error);
+    return false;
+  }
+}
+
+/* ============================================================================
  * SETTINGS PERSISTENCE
  * ========================================================================= */
 
