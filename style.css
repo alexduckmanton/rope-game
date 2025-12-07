@@ -366,6 +366,28 @@ body {
   font-size: 18px;
   font-weight: 600;
   min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* Completed state icon in buttons - hidden by default, positioned left */
+.btn-complete-icon {
+  display: none;
+  position: absolute;
+  left: 16px;
+}
+
+/* Show completion icon when button has completed class */
+.btn-large.completed .btn-complete-icon {
+  display: inline-flex;
+}
+
+/* Ensure icon inherits text color */
+.btn-complete-icon svg {
+  stroke: currentColor;
+  fill: none;
 }
 
 /* Mobile adjustments for home */

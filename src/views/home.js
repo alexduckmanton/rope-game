@@ -6,6 +6,20 @@
 
 import { navigate } from '../router.js';
 import { getFormattedDate } from '../seededRandom.js';
+import { isDailyCompleted, isTutorialCompleted } from '../persistence.js';
+
+/**
+ * Update button completed state based on completion status
+ * @param {HTMLElement} button - The button element
+ * @param {boolean} isCompleted - Whether the associated puzzle is completed
+ */
+function updateCompletedState(button, isCompleted) {
+  if (isCompleted) {
+    button.classList.add('completed');
+  } else {
+    button.classList.remove('completed');
+  }
+}
 
 /**
  * Initialize the home view
@@ -25,6 +39,12 @@ export function initHome() {
   const mediumBtn = document.getElementById('medium-btn');
   const hardBtn = document.getElementById('hard-btn');
   const unlimitedBtn = document.getElementById('unlimited-btn');
+
+  // Update completed state icons
+  updateCompletedState(tutorialBtn, isTutorialCompleted());
+  updateCompletedState(easyBtn, isDailyCompleted('easy'));
+  updateCompletedState(mediumBtn, isDailyCompleted('medium'));
+  updateCompletedState(hardBtn, isDailyCompleted('hard'));
 
   // Event handlers - pass fromHome state to track navigation origin
   const handleTutorial = () => navigate('/tutorial?page=1', false, { fromHome: true });
