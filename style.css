@@ -369,13 +369,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  position: relative;
 }
 
-/* Completed state icon in buttons - hidden by default */
+/* Completed state icon in buttons - hidden by default, positioned left */
 .btn-complete-icon {
   display: none;
-  flex-shrink: 0;
+  position: absolute;
+  left: 16px;
 }
 
 /* Show completion icon when button has completed class */
