@@ -249,6 +249,15 @@ function cycleBorderMode() {
 function showSettings() {
   if (settingsSheet) {
     settingsSheet.show();
+
+    // Hide view solution button if game is completed or solution was viewed
+    // This ensures button stays hidden after initIcons() is called by sheet.show()
+    if (hasWon || hasViewedSolution) {
+      const viewSolutionBtn = getViewSolutionBtn();
+      if (viewSolutionBtn) {
+        viewSolutionBtn.style.display = 'none';
+      }
+    }
   }
 }
 
