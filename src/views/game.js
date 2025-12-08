@@ -593,6 +593,12 @@ function loadOrGeneratePuzzle() {
       }
     }
 
+    // Enable restart button for in-progress games
+    // (Button may be disabled from a previous game, so explicitly enable it)
+    if (!hasWon && !hasViewedSolution && restartBtn) {
+      restartBtn.disabled = false;
+    }
+
     // Restore and resume timer
     if (hasViewedSolution) {
       // Always show "Viewed solution" if they viewed it (takes priority over win time)
