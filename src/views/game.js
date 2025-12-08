@@ -344,6 +344,8 @@ function resizeCanvas() {
   canvas.style.width = totalSize + 'px';
   canvas.style.height = totalSize + 'px';
 
+  // Reset transform to identity before applying new scale (prevents accumulation)
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.scale(dpr, dpr);
   // Don't render here - let caller decide if render is needed
   // This prevents saving empty state before loadOrGeneratePuzzle() runs
@@ -569,15 +571,15 @@ function loadOrGeneratePuzzle() {
     }
 
     // Restore and resume timer
-    if (hasWon) {
-      // If game was already won, don't start timer
-      elapsedSeconds = savedState.elapsedSeconds;
-      updateTimerDisplay();
-    } else if (hasViewedSolution) {
-      // If solution was viewed, stop timer and show "Viewed solution"
+    if (hasViewedSolution) {
+      // Always show "Viewed solution" if they viewed it (takes priority over win time)
       if (gameTimerEl) {
         gameTimerEl.textContent = 'Viewed solution';
       }
+    } else if (hasWon) {
+      // If game was already won (without viewing solution), show final time
+      elapsedSeconds = savedState.elapsedSeconds;
+      updateTimerDisplay();
     } else {
       // Resume timer from saved elapsed time
       startTimer(savedState.elapsedSeconds);
