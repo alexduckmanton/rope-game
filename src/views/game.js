@@ -259,6 +259,38 @@ function hideSettings() {
 }
 
 /**
+ * Show win celebration bottom sheet
+ * @param {string} finalTime - Formatted completion time (e.g., "2:34")
+ */
+function showWinCelebration(finalTime) {
+  // Build bottom sheet options
+  const bottomSheetOptions = {
+    title: 'You made a loop!',
+    content: `<div class="bottom-sheet-message">You finished in ${finalTime}.</div>`,
+    icon: 'party-popper',
+    colorScheme: 'success',
+    dismissLabel: isDailyMode ? 'Close' : 'Yay!',
+    dismissVariant: isDailyMode ? 'secondary' : 'primary'
+  };
+
+  // Add Share button only for daily mode (not unlimited or tutorial)
+  if (isDailyMode) {
+    bottomSheetOptions.primaryButton = {
+      label: 'Share',
+      icon: 'share-2',
+      onClick: (buttonEl) => handleShare(buttonEl, finalTime)
+    };
+  }
+
+  // Show win bottom sheet with completion time
+  // Destroy any previous game sheet before showing new one
+  if (activeGameSheet) {
+    activeGameSheet.destroy();
+  }
+  activeGameSheet = showBottomSheetAsync(bottomSheetOptions);
+}
+
+/**
  * Handle share button click - delegates to share module
  */
 async function handleShare(buttonEl, finalTime) {
@@ -410,31 +442,8 @@ function render(triggerSave = true) {
 
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
-      // Build bottom sheet options
-      const bottomSheetOptions = {
-        title: 'You made a loop!',
-        content: `<div class="bottom-sheet-message">You finished in ${finalTime}.</div>`,
-        icon: 'party-popper',
-        colorScheme: 'success',
-        dismissLabel: isDailyMode ? 'Close' : 'Yay!',
-        dismissVariant: isDailyMode ? 'secondary' : 'primary'
-      };
-
-      // Add Share button only for daily mode (not unlimited or tutorial)
-      if (isDailyMode) {
-        bottomSheetOptions.primaryButton = {
-          label: 'Share',
-          icon: 'share-2',
-          onClick: (buttonEl) => handleShare(buttonEl, finalTime)
-        };
-      }
-
-      // Show win bottom sheet with completion time
-      // Destroy any previous game sheet before showing new one
-      if (activeGameSheet) {
-        activeGameSheet.destroy();
-      }
-      activeGameSheet = showBottomSheetAsync(bottomSheetOptions);
+      // Show win celebration
+      showWinCelebration(finalTime);
     } else if (!hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
       // Only show feedback once per structural completion
@@ -594,6 +603,12 @@ function loadOrGeneratePuzzle() {
 
     // Render the restored state (don't save - it's already in localStorage)
     render(false);
+
+    // Show win celebration if game was won (but not if solution was viewed)
+    if (hasWon && !hasViewedSolution) {
+      const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
+      showWinCelebration(finalTime);
+    }
   } else {
     // No saved state - generate fresh puzzle
     generateNewPuzzle();
