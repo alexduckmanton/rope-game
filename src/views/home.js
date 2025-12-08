@@ -59,13 +59,18 @@ export function initHome() {
   updateCompletedState(tutorialBtn, isTutorialCompleted(), 'check');
 
   // Check if daily puzzles were completed with viewed solution (skull icon) or normally (trophy icon)
+  // Priority: legitimate wins take precedence over viewed-solution attempts
   const easyViewedSolution = isDailyCompletedWithViewedSolution('easy');
   const mediumViewedSolution = isDailyCompletedWithViewedSolution('medium');
   const hardViewedSolution = isDailyCompletedWithViewedSolution('hard');
 
-  updateCompletedState(easyBtn, isDailyCompleted('easy') || easyViewedSolution, easyViewedSolution ? 'skull' : 'trophy');
-  updateCompletedState(mediumBtn, isDailyCompleted('medium') || mediumViewedSolution, mediumViewedSolution ? 'skull' : 'trophy');
-  updateCompletedState(hardBtn, isDailyCompleted('hard') || hardViewedSolution, hardViewedSolution ? 'skull' : 'trophy');
+  const easyWon = isDailyCompleted('easy');
+  const mediumWon = isDailyCompleted('medium');
+  const hardWon = isDailyCompleted('hard');
+
+  updateCompletedState(easyBtn, easyWon || easyViewedSolution, easyWon ? 'trophy' : 'skull');
+  updateCompletedState(mediumBtn, mediumWon || mediumViewedSolution, mediumWon ? 'trophy' : 'skull');
+  updateCompletedState(hardBtn, hardWon || hardViewedSolution, hardWon ? 'trophy' : 'skull');
 
   // Re-initialize icons after updating attributes
   initIcons();
