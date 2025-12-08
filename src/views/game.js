@@ -344,9 +344,8 @@ function resizeCanvas() {
   canvas.style.width = totalSize + 'px';
   canvas.style.height = totalSize + 'px';
 
-  // Reset transform to identity before applying new scale (prevents accumulation)
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.scale(dpr, dpr);
+  // Note: Setting canvas.width/height resets the context (including transform)
+  // Transform will be set at the start of each render() call
   // Don't render here - let caller decide if render is needed
   // This prevents saving empty state before loadOrGeneratePuzzle() runs
 }
@@ -354,6 +353,12 @@ function resizeCanvas() {
 function render(triggerSave = true) {
   const { playerDrawnCells, playerConnections } = gameCore.state;
   const totalSize = cellSize * gridSize;
+  const dpr = window.devicePixelRatio || 1;
+
+  // Ensure transform is correct before rendering
+  // (Setting canvas.width/height resets the context, so we must reapply the transform)
+  ctx.setTransform(1, 0, 0, 1, 0, 0);  // Reset to identity
+  ctx.scale(dpr, dpr);  // Apply device pixel ratio scaling
 
   // Build player turn map ONCE per render for reuse
   const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
