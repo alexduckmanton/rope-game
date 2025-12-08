@@ -602,11 +602,13 @@ function loadOrGeneratePuzzle() {
     // Restore and resume timer
     if (hasViewedSolution) {
       // Always show "Viewed solution" if they viewed it (takes priority over win time)
+      stopTimer();  // Stop any running timer from previous game
       if (gameTimerEl) {
         gameTimerEl.textContent = 'Viewed solution';
       }
     } else if (hasWon) {
       // If game was already won (without viewing solution), show final time
+      stopTimer();  // Stop any running timer from previous game
       if (gameTimer) {
         gameTimer.setElapsedSeconds(savedState.elapsedSeconds);
         gameTimer.updateDisplay();
