@@ -583,8 +583,9 @@ function loadOrGeneratePuzzle() {
       }
     } else if (hasWon) {
       // If game was already won (without viewing solution), show final time
-      if (gameTimerEl) {
-        gameTimerEl.textContent = formatTime(savedState.elapsedSeconds);
+      if (gameTimer) {
+        gameTimer.setElapsedSeconds(savedState.elapsedSeconds);
+        gameTimer.updateDisplay();
       }
     } else {
       // Resume timer from saved elapsed time
