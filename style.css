@@ -198,6 +198,12 @@ body {
   height: 24px;
 }
 
+.icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .btn {
   padding: 12px 24px;
   font-size: 16px;
@@ -672,6 +678,21 @@ body {
 }
 
 .bottom-sheet-btn-secondary:active {
+  transform: scale(0.98);
+}
+
+/* Destructive button - grey background, red text */
+/* Used for dangerous actions like viewing the solution */
+.bottom-sheet-btn-destructive {
+  color: #EF4444;
+  background-color: #F3F4F6;
+}
+
+.bottom-sheet-btn-destructive:hover {
+  background-color: #FEE2E2;
+}
+
+.bottom-sheet-btn-destructive:active {
   transform: scale(0.98);
 }
 

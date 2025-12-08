@@ -131,7 +131,9 @@ function serializeGameState(state) {
     playerConnections,
     elapsedSeconds,
     solutionPath,
-    hintCells
+    hintCells,
+    hasWon,
+    hasViewedSolution
   } = state;
 
   // Convert Set to Array
@@ -154,6 +156,8 @@ function serializeGameState(state) {
     playerDrawnCells: serializedCells,
     playerConnections: serializedConnections,
     elapsedSeconds,
+    hasWon: hasWon || false,
+    hasViewedSolution: hasViewedSolution || false,
     savedAt: Date.now()
   };
 
@@ -181,7 +185,9 @@ function deserializeGameState(saved) {
     playerConnections,
     elapsedSeconds,
     solutionPath,
-    hintCells
+    hintCells,
+    hasWon,
+    hasViewedSolution
   } = saved;
 
   // Convert Array to Set
@@ -202,7 +208,9 @@ function deserializeGameState(saved) {
     isUnlimitedMode,
     playerDrawnCells: deserializedCells,
     playerConnections: deserializedConnections,
-    elapsedSeconds
+    elapsedSeconds,
+    hasWon: hasWon || false,
+    hasViewedSolution: hasViewedSolution || false
   };
 
   // For unlimited mode, restore the puzzle data
@@ -530,6 +538,43 @@ export function isTutorialCompleted() {
   }
 }
 
+/**
+ * Mark a daily puzzle as completed with viewed solution (disqualified)
+ * Stores the completion date, which automatically becomes stale the next day
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {boolean} Whether save was successful
+ */
+export function markDailyCompletedWithViewedSolution(difficulty) {
+  const today = getTodayDateString();
+  const key = `${STORAGE_PREFIX}:completed-viewed-solution:${difficulty}`;
+
+  try {
+    localStorage.setItem(key, today);
+    return true;
+  } catch (error) {
+    console.warn('Failed to save viewed solution completion:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if a daily puzzle was completed with viewed solution (disqualified)
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {boolean} Whether the difficulty was completed with viewed solution
+ */
+export function isDailyCompletedWithViewedSolution(difficulty) {
+  const today = getTodayDateString();
+  const key = `${STORAGE_PREFIX}:completed-viewed-solution:${difficulty}`;
+
+  try {
+    const completedDate = localStorage.getItem(key);
+    return completedDate === today;
+  } catch (error) {
+    console.warn('Failed to check viewed solution completion:', error);
+    return false;
+  }
+}
+
 /* ============================================================================
  * SETTINGS PERSISTENCE
  * ========================================================================= */
@@ -537,7 +582,6 @@ export function isTutorialCompleted() {
 const DEFAULT_SETTINGS = {
   hintMode: 'partial',
   borderMode: 'off',
-  showSolution: false,
   countdown: true,
   lastUnlimitedDifficulty: 'easy'
 };

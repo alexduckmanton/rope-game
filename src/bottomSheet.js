@@ -51,6 +51,7 @@ const COLOR_SCHEMES = {
  * @param {Object} [options.primaryButton] - Optional primary action button above dismiss
  * @param {string} options.primaryButton.label - Button text
  * @param {string} [options.primaryButton.icon] - Optional Lucide icon name for the button
+ * @param {string} [options.primaryButton.variant='primary'] - Button variant: 'primary', 'secondary', or 'destructive'
  * @param {Function} options.primaryButton.onClick - Click handler (receives button element as argument)
  * @param {Function} [options.onClose] - Optional callback when sheet is closed (via dismiss button or click-outside)
  * @returns {Object} - Object with show(), hide(), destroy() methods
@@ -123,9 +124,20 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
     buttonsContainer = document.createElement('div');
     buttonsContainer.className = 'bottom-sheet-buttons';
 
+    // Determine primary button class based on variant
+    const primaryBtnVariant = primaryButton.variant || 'primary';
+    let primaryBtnClass;
+    if (primaryBtnVariant === 'destructive') {
+      primaryBtnClass = 'bottom-sheet-btn bottom-sheet-btn-destructive';
+    } else if (primaryBtnVariant === 'secondary') {
+      primaryBtnClass = 'bottom-sheet-btn bottom-sheet-btn-secondary';
+    } else {
+      primaryBtnClass = 'bottom-sheet-btn bottom-sheet-btn-primary';
+    }
+
     // Create primary button
     primaryBtn = document.createElement('button');
-    primaryBtn.className = 'bottom-sheet-btn bottom-sheet-btn-primary';
+    primaryBtn.className = primaryBtnClass;
     if (primaryButton.icon) {
       primaryBtn.innerHTML = `<i data-lucide="${primaryButton.icon}"></i><span>${primaryButton.label}</span>`;
     } else {

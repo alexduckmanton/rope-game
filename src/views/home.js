@@ -6,19 +6,51 @@
 
 import { navigate } from '../router.js';
 import { getFormattedDate } from '../seededRandom.js';
-import { isDailyCompleted, isTutorialCompleted } from '../persistence.js';
+import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution } from '../persistence.js';
+import { initIcons } from '../icons.js';
 
 /**
  * Update button completed state based on completion status
  * @param {HTMLElement} button - The button element
  * @param {boolean} isCompleted - Whether the associated puzzle is completed
+ * @param {string} icon - Icon name to use ('trophy', 'skull', 'check', etc.)
  */
-function updateCompletedState(button, isCompleted) {
+function updateCompletedState(button, isCompleted, icon = 'trophy') {
   if (isCompleted) {
     button.classList.add('completed');
+    // Update the icon based on completion type
+    const iconElement = button.querySelector('.btn-complete-icon');
+    if (iconElement) {
+      // Lucide replaces <i> tags with <svg> elements, so we need to replace the element entirely
+      const newIcon = document.createElement('i');
+      newIcon.className = 'btn-complete-icon';
+      newIcon.setAttribute('data-lucide', icon);
+      newIcon.setAttribute('width', '20');
+      newIcon.setAttribute('height', '20');
+
+      // Replace the old element (which is now an SVG) with a fresh <i> tag
+      iconElement.replaceWith(newIcon);
+    }
   } else {
     button.classList.remove('completed');
   }
+}
+
+/**
+ * Update daily puzzle button with appropriate completion icon
+ * Shows trophy for legitimate wins, skull for viewed solutions
+ * Priority: trophy takes precedence over skull
+ *
+ * @param {HTMLElement} button - The difficulty button element
+ * @param {string} difficulty - Difficulty level ('easy', 'medium', 'hard')
+ */
+function updateDailyButtonState(button, difficulty) {
+  const won = isDailyCompleted(difficulty);
+  const viewedSolution = isDailyCompletedWithViewedSolution(difficulty);
+  const isCompleted = won || viewedSolution;
+  const icon = won ? 'trophy' : 'skull';
+
+  updateCompletedState(button, isCompleted, icon);
 }
 
 /**
@@ -41,10 +73,15 @@ export function initHome() {
   const unlimitedBtn = document.getElementById('unlimited-btn');
 
   // Update completed state icons
-  updateCompletedState(tutorialBtn, isTutorialCompleted());
-  updateCompletedState(easyBtn, isDailyCompleted('easy'));
-  updateCompletedState(mediumBtn, isDailyCompleted('medium'));
-  updateCompletedState(hardBtn, isDailyCompleted('hard'));
+  updateCompletedState(tutorialBtn, isTutorialCompleted(), 'check');
+
+  // Update daily puzzle buttons (trophy for wins, skull for viewed solutions)
+  updateDailyButtonState(easyBtn, 'easy');
+  updateDailyButtonState(mediumBtn, 'medium');
+  updateDailyButtonState(hardBtn, 'hard');
+
+  // Re-initialize icons after updating attributes
+  initIcons();
 
   // Event handlers - pass fromHome state to track navigation origin
   const handleTutorial = () => navigate('/tutorial?page=1', false, { fromHome: true });
