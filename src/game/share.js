@@ -26,7 +26,7 @@ export function formatShareDate(date = new Date()) {
 export function buildShareText(difficulty, time) {
   const dateStr = formatShareDate();
   const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
-  return `${label} Loopy ${time}\n${dateStr}`;
+  return `💫 ${label} Loopy ${time}\n${dateStr}`;
 }
 
 /**
