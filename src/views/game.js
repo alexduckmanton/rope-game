@@ -134,6 +134,34 @@ function getViewSolutionBtn() {
   return document.querySelector('.bottom-sheet-btn-destructive');
 }
 
+/**
+ * Set game UI state (button visibility and enabled states)
+ * Centralizes button state management to reduce duplication
+ *
+ * @param {string} state - Game state: 'in-progress', 'won', 'viewed-solution', or 'new'
+ */
+function setGameUIState(state) {
+  const viewSolutionBtn = getViewSolutionBtn();
+
+  if (state === 'in-progress' || state === 'new') {
+    // Enable restart button and show view solution button
+    if (restartBtn) {
+      restartBtn.disabled = false;
+    }
+    if (viewSolutionBtn) {
+      viewSolutionBtn.style.display = '';
+    }
+  } else if (state === 'won' || state === 'viewed-solution') {
+    // Disable restart button and hide view solution button
+    if (restartBtn) {
+      restartBtn.disabled = true;
+    }
+    if (viewSolutionBtn) {
+      viewSolutionBtn.style.display = 'none';
+    }
+  }
+}
+
 function checkStructuralWin() {
   const { playerDrawnCells, playerConnections } = gameCore.state;
   return checkStructuralWinUtil(playerDrawnCells, playerConnections, gridSize);
@@ -268,8 +296,13 @@ function hideSettings() {
 }
 
 /**
- * Show win celebration bottom sheet
- * @param {string} finalTime - Formatted completion time (e.g., "2:34")
+ * Show win celebration bottom sheet with completion time
+ *
+ * Displays different UI based on game mode:
+ * - Daily mode: Shows "Close" button (secondary) + "Share" button (primary)
+ * - Unlimited/Tutorial: Shows "Yay!" button (primary), no share option
+ *
+ * @param {string} finalTime - Formatted completion time (e.g., "Easy • 2:34")
  */
 function showWinCelebration(finalTime) {
   // Build bottom sheet options
@@ -430,16 +463,8 @@ function render(triggerSave = true) {
       hasShownPartialWinFeedback = false; // Reset flag
       stopTimer();
 
-      // Disable restart button when game is completed
-      if (restartBtn) {
-        restartBtn.disabled = true;
-      }
-
-      // Hide view solution button after winning (they can view it freely now)
-      const viewSolutionBtn = getViewSolutionBtn();
-      if (viewSolutionBtn) {
-        viewSolutionBtn.style.display = 'none';
-      }
+      // Update UI state for completed game
+      setGameUIState('won');
 
       // Mark daily puzzle as completed (not for unlimited mode)
       if (isDailyMode) {
@@ -485,6 +510,15 @@ function render(triggerSave = true) {
   }
 }
 
+/**
+ * Generate and start a new puzzle
+ *
+ * - Daily mode: Uses seeded random for consistent daily puzzles
+ * - Unlimited mode: Uses true random for unique puzzles each time
+ *
+ * Clears any saved progress, resets game state, and starts a fresh timer.
+ * Only available in unlimited mode (daily puzzles are fixed per day).
+ */
 function generateNewPuzzle() {
   // Clear any saved progress when generating a new puzzle
   // (Important for unlimited mode when user clicks "New")
@@ -512,24 +546,82 @@ function generateNewPuzzle() {
   hasShownPartialWinFeedback = false;
   hasViewedSolution = false;
 
-  // Re-enable restart button for new puzzle
-  if (restartBtn) {
-    restartBtn.disabled = false;
-  }
+  // Update UI state for new puzzle
+  setGameUIState('new');
 
   // Reset timer display in case it was showing "Viewed solution"
   if (gameTimerEl) {
     gameTimerEl.textContent = '0:00';
   }
 
-  // Show view solution button for new puzzle
-  const viewSolutionBtn = getViewSolutionBtn();
-  if (viewSolutionBtn) {
-    viewSolutionBtn.style.display = '';
-  }
-
   startTimer();
   render();
+}
+
+/**
+ * Restore or regenerate puzzle data (solution path and hint cells)
+ * @param {Object|null} savedState - Saved game state, or null to skip restoration
+ */
+function restorePuzzleData(savedState) {
+  if (isDailyMode) {
+    // For daily puzzles, regenerate from seed (deterministic)
+    const seed = getDailySeed(currentGameDifficulty);
+    const random = createSeededRandom(seed);
+    solutionPath = generateSolutionPath(gridSize, random);
+    hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, random);
+  } else if (savedState) {
+    // For unlimited mode, restore saved puzzle data (was truly random)
+    solutionPath = savedState.solutionPath;
+    hintCells = savedState.hintCells;
+  }
+}
+
+/**
+ * Cache computed values that don't change during gameplay
+ * Improves performance by avoiding repeated calculations
+ */
+function cachePuzzleComputations() {
+  cachedSolutionTurnMap = buildSolutionTurnMap(solutionPath);
+  cachedBorderLayers = calculateBorderLayers(hintCells, gridSize);
+}
+
+/**
+ * Restore player progress from saved state
+ * @param {Object} savedState - Saved game state
+ */
+function restorePlayerProgress(savedState) {
+  // Restore drawn cells and connections
+  gameCore.state.playerDrawnCells = savedState.playerDrawnCells;
+  gameCore.state.playerConnections = savedState.playerConnections;
+
+  // Restore game state flags
+  hasWon = savedState.hasWon;
+  hasShownPartialWinFeedback = savedState.hasShownPartialWinFeedback || false;
+  hasViewedSolution = savedState.hasViewedSolution || false;
+}
+
+/**
+ * Restore timer state based on game completion status
+ * @param {Object} savedState - Saved game state with elapsedSeconds
+ */
+function restoreTimerState(savedState) {
+  if (hasViewedSolution) {
+    // Show "Viewed solution" text (takes priority over win time)
+    stopTimer();
+    if (gameTimerEl) {
+      gameTimerEl.textContent = 'Viewed solution';
+    }
+  } else if (hasWon) {
+    // Show final completion time (but don't resume timer)
+    stopTimer();
+    if (gameTimer) {
+      gameTimer.setElapsedSeconds(savedState.elapsedSeconds);
+      gameTimer.updateDisplay();
+    }
+  } else {
+    // Resume timer for in-progress game
+    startTimer(savedState.elapsedSeconds);
+  }
 }
 
 /**
@@ -541,87 +633,27 @@ function loadOrGeneratePuzzle() {
   const savedState = loadGameState(currentPuzzleId, currentGameDifficulty, isUnlimitedMode);
 
   if (savedState) {
-    // Saved state exists - restore the game
+    // Restore puzzle, progress, and UI state
+    restorePuzzleData(savedState);
+    cachePuzzleComputations();
+    restorePlayerProgress(savedState);
 
-    // For daily puzzles, regenerate the puzzle from seed
-    // (we don't save puzzle data for daily since it's deterministic)
-    if (isDailyMode) {
-      const seed = getDailySeed(currentGameDifficulty);
-      const random = createSeededRandom(seed);
-      solutionPath = generateSolutionPath(gridSize, random);
-      hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, random);
-    } else {
-      // For unlimited mode, restore the saved puzzle data
-      // (we can't regenerate it since it was truly random)
-      solutionPath = savedState.solutionPath;
-      hintCells = savedState.hintCells;
-    }
-
-    // Cache values that don't change during gameplay for performance
-    cachedSolutionTurnMap = buildSolutionTurnMap(solutionPath);
-    cachedBorderLayers = calculateBorderLayers(hintCells, gridSize);
-
-    // Restore player progress
-    gameCore.state.playerDrawnCells = savedState.playerDrawnCells;
-    gameCore.state.playerConnections = savedState.playerConnections;
-
-    // Restore win state
-    hasWon = savedState.hasWon;
-    hasShownPartialWinFeedback = savedState.hasShownPartialWinFeedback || false;
-    hasViewedSolution = savedState.hasViewedSolution || false;
-
-    // Disable restart button if game was already won
-    if (hasWon && restartBtn) {
-      restartBtn.disabled = true;
-    }
-
-    // Hide view solution button if game was already won
-    const viewSolutionBtn = getViewSolutionBtn();
-    if (hasWon && viewSolutionBtn) {
-      viewSolutionBtn.style.display = 'none';
-    }
-
-    // Apply restrictions if solution was viewed
+    // Update UI based on completion status
     if (hasViewedSolution) {
-      // Disable restart button
-      if (restartBtn) {
-        restartBtn.disabled = true;
-      }
-      // Hide view solution button (already viewed)
-      if (viewSolutionBtn) {
-        viewSolutionBtn.style.display = 'none';
-      }
-    }
-
-    // Enable restart button for in-progress games
-    // (Button may be disabled from a previous game, so explicitly enable it)
-    if (!hasWon && !hasViewedSolution && restartBtn) {
-      restartBtn.disabled = false;
-    }
-
-    // Restore and resume timer
-    if (hasViewedSolution) {
-      // Always show "Viewed solution" if they viewed it (takes priority over win time)
-      stopTimer();  // Stop any running timer from previous game
-      if (gameTimerEl) {
-        gameTimerEl.textContent = 'Viewed solution';
-      }
+      setGameUIState('viewed-solution');
     } else if (hasWon) {
-      // If game was already won (without viewing solution), show final time
-      stopTimer();  // Stop any running timer from previous game
-      if (gameTimer) {
-        gameTimer.setElapsedSeconds(savedState.elapsedSeconds);
-        gameTimer.updateDisplay();
-      }
+      setGameUIState('won');
     } else {
-      // Resume timer from saved elapsed time
-      startTimer(savedState.elapsedSeconds);
+      setGameUIState('in-progress');
     }
 
-    // Render the restored state (don't save - it's already in localStorage)
+    // Restore timer state
+    restoreTimerState(savedState);
+
+    // Render restored state (don't trigger save)
     render(false);
 
-    // Show win celebration if game was won (but not if solution was viewed)
+    // Show win celebration if applicable
     if (hasWon && !hasViewedSolution) {
       const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
       showWinCelebration(finalTime);
@@ -632,6 +664,13 @@ function loadOrGeneratePuzzle() {
   }
 }
 
+/**
+ * Restart the current puzzle (clear player progress but keep same puzzle)
+ *
+ * Clears all drawn cells and connections, resets game state flags,
+ * and restarts the timer (if game was won) or keeps it running.
+ * Does not generate a new puzzle - same solution path and hint cells.
+ */
 function restartPuzzle() {
   gameCore.restartPuzzle();
 
@@ -644,14 +683,23 @@ function restartPuzzle() {
   hasWon = false;
   hasShownPartialWinFeedback = false;
 
-  // Re-enable restart button when restarting
-  if (restartBtn) {
-    restartBtn.disabled = false;
-  }
+  // Update UI state for in-progress game
+  setGameUIState('in-progress');
 
   render();
 }
 
+/**
+ * View the solution path (disqualifies the player from legitimate completion)
+ *
+ * This function:
+ * - Marks the puzzle as viewed (shows skull icon for daily puzzles)
+ * - Stops the timer and displays "Viewed solution"
+ * - Disables restart button and hides view solution button
+ * - Renders the solution path overlay on the canvas
+ * - Saves the disqualified state to localStorage
+ * - Closes the settings sheet
+ */
 function viewSolution() {
   // Mark solution as viewed (disqualifies the player)
   hasViewedSolution = true;
@@ -664,16 +712,8 @@ function viewSolution() {
     gameTimerEl.textContent = 'Viewed solution';
   }
 
-  // Disable restart button (can't retry after viewing solution)
-  if (restartBtn) {
-    restartBtn.disabled = true;
-  }
-
-  // Hide view solution button (already viewed)
-  const viewSolutionBtn = getViewSolutionBtn();
-  if (viewSolutionBtn) {
-    viewSolutionBtn.style.display = 'none';
-  }
+  // Update UI state for viewed solution
+  setGameUIState('viewed-solution');
 
   // For daily puzzles, mark as completed with viewed solution (skull icon)
   if (isDailyMode) {
