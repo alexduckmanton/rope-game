@@ -13,7 +13,7 @@ import { initIcons } from '../icons.js';
  * Update button completed state based on completion status
  * @param {HTMLElement} button - The button element
  * @param {boolean} isCompleted - Whether the associated puzzle is completed
- * @param {string} icon - Icon name to use ('trophy', 'x-circle', 'check', etc.)
+ * @param {string} icon - Icon name to use ('trophy', 'skull', 'check', etc.)
  */
 function updateCompletedState(button, isCompleted, icon = 'trophy') {
   if (isCompleted) {
@@ -58,14 +58,14 @@ export function initHome() {
   // Update completed state icons
   updateCompletedState(tutorialBtn, isTutorialCompleted(), 'check');
 
-  // Check if daily puzzles were completed with viewed solution (x-circle icon) or normally (trophy icon)
+  // Check if daily puzzles were completed with viewed solution (skull icon) or normally (trophy icon)
   const easyViewedSolution = isDailyCompletedWithViewedSolution('easy');
   const mediumViewedSolution = isDailyCompletedWithViewedSolution('medium');
   const hardViewedSolution = isDailyCompletedWithViewedSolution('hard');
 
-  updateCompletedState(easyBtn, isDailyCompleted('easy') || easyViewedSolution, easyViewedSolution ? 'x-circle' : 'trophy');
-  updateCompletedState(mediumBtn, isDailyCompleted('medium') || mediumViewedSolution, mediumViewedSolution ? 'x-circle' : 'trophy');
-  updateCompletedState(hardBtn, isDailyCompleted('hard') || hardViewedSolution, hardViewedSolution ? 'x-circle' : 'trophy');
+  updateCompletedState(easyBtn, isDailyCompleted('easy') || easyViewedSolution, easyViewedSolution ? 'skull' : 'trophy');
+  updateCompletedState(mediumBtn, isDailyCompleted('medium') || mediumViewedSolution, mediumViewedSolution ? 'skull' : 'trophy');
+  updateCompletedState(hardBtn, isDailyCompleted('hard') || hardViewedSolution, hardViewedSolution ? 'skull' : 'trophy');
 
   // Re-initialize icons after updating attributes
   initIcons();

@@ -15,9 +15,11 @@
  * - Share2: Share button in win bottom sheet
  * - Check: Tutorial completed icon on home screen
  * - Trophy: Daily puzzle completed icon on home screen
+ * - Skull: Viewed solution completed icon on home screen
+ * - Eye: View solution button icon in settings
  */
 
-import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, PartyPopper, CircleOff, Share2, Check, Trophy } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, PartyPopper, CircleOff, Share2, Check, Trophy, Skull, Eye } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -42,7 +44,9 @@ export function initIcons() {
       CircleOff,
       Share2,
       Check,
-      Trophy
+      Trophy,
+      Skull,
+      Eye
     },
     attrs: {
       'stroke-width': '2',
