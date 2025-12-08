@@ -37,6 +37,23 @@ function updateCompletedState(button, isCompleted, icon = 'trophy') {
 }
 
 /**
+ * Update daily puzzle button with appropriate completion icon
+ * Shows trophy for legitimate wins, skull for viewed solutions
+ * Priority: trophy takes precedence over skull
+ *
+ * @param {HTMLElement} button - The difficulty button element
+ * @param {string} difficulty - Difficulty level ('easy', 'medium', 'hard')
+ */
+function updateDailyButtonState(button, difficulty) {
+  const won = isDailyCompleted(difficulty);
+  const viewedSolution = isDailyCompletedWithViewedSolution(difficulty);
+  const isCompleted = won || viewedSolution;
+  const icon = won ? 'trophy' : 'skull';
+
+  updateCompletedState(button, isCompleted, icon);
+}
+
+/**
  * Initialize the home view
  * Sets up button click handlers for navigation
  * @returns {Function|null} Cleanup function (none needed for home view)
@@ -58,19 +75,10 @@ export function initHome() {
   // Update completed state icons
   updateCompletedState(tutorialBtn, isTutorialCompleted(), 'check');
 
-  // Check if daily puzzles were completed with viewed solution (skull icon) or normally (trophy icon)
-  // Priority: legitimate wins take precedence over viewed-solution attempts
-  const easyViewedSolution = isDailyCompletedWithViewedSolution('easy');
-  const mediumViewedSolution = isDailyCompletedWithViewedSolution('medium');
-  const hardViewedSolution = isDailyCompletedWithViewedSolution('hard');
-
-  const easyWon = isDailyCompleted('easy');
-  const mediumWon = isDailyCompleted('medium');
-  const hardWon = isDailyCompleted('hard');
-
-  updateCompletedState(easyBtn, easyWon || easyViewedSolution, easyWon ? 'trophy' : 'skull');
-  updateCompletedState(mediumBtn, mediumWon || mediumViewedSolution, mediumWon ? 'trophy' : 'skull');
-  updateCompletedState(hardBtn, hardWon || hardViewedSolution, hardWon ? 'trophy' : 'skull');
+  // Update daily puzzle buttons (trophy for wins, skull for viewed solutions)
+  updateDailyButtonState(easyBtn, 'easy');
+  updateDailyButtonState(mediumBtn, 'medium');
+  updateDailyButtonState(hardBtn, 'hard');
 
   // Re-initialize icons after updating attributes
   initIcons();

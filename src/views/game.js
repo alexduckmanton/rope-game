@@ -20,6 +20,21 @@ import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.
 import { checkStructuralWin as checkStructuralWinUtil, checkFullWin } from '../game/validation.js';
 
 /* ============================================================================
+ * CONSTANTS
+ * ========================================================================= */
+
+/**
+ * Game state constants for UI state management
+ * Used by setGameUIState() to ensure type safety and prevent typos
+ */
+const GAME_STATE = {
+  IN_PROGRESS: 'in-progress',
+  WON: 'won',
+  VIEWED_SOLUTION: 'viewed-solution',
+  NEW: 'new'
+};
+
+/* ============================================================================
  * STATE VARIABLES
  * ========================================================================= */
 
@@ -138,12 +153,12 @@ function getViewSolutionBtn() {
  * Set game UI state (button visibility and enabled states)
  * Centralizes button state management to reduce duplication
  *
- * @param {string} state - Game state: 'in-progress', 'won', 'viewed-solution', or 'new'
+ * @param {string} state - Game state from GAME_STATE constants (IN_PROGRESS, WON, VIEWED_SOLUTION, or NEW)
  */
 function setGameUIState(state) {
   const viewSolutionBtn = getViewSolutionBtn();
 
-  if (state === 'in-progress' || state === 'new') {
+  if (state === GAME_STATE.IN_PROGRESS || state === GAME_STATE.NEW) {
     // Enable restart button and show view solution button
     if (restartBtn) {
       restartBtn.disabled = false;
@@ -151,7 +166,7 @@ function setGameUIState(state) {
     if (viewSolutionBtn) {
       viewSolutionBtn.style.display = '';
     }
-  } else if (state === 'won' || state === 'viewed-solution') {
+  } else if (state === GAME_STATE.WON || state === GAME_STATE.VIEWED_SOLUTION) {
     // Disable restart button and hide view solution button
     if (restartBtn) {
       restartBtn.disabled = true;
@@ -183,33 +198,54 @@ function checkWin(playerTurnMap = null) {
 }
 
 /* ============================================================================
- * TIMER FUNCTIONS (thin wrappers around gameTimer instance)
+ * TIMER FUNCTIONS
  * ========================================================================= */
 
-function updateTimerDisplay() {
-  if (gameTimer) {
-    gameTimer.updateDisplay();
-  }
-}
+/**
+ * Wrapper functions for timer lifecycle operations (start, stop, pause, resume)
+ * These wrappers provide:
+ * - Null safety: safe to call even if gameTimer is not initialized
+ * - Consistent API: all timer lifecycle changes go through these functions
+ * - Testability: easier to mock in tests
+ *
+ * For timer getters/setters (getFormattedTime, setElapsedSeconds, setDifficulty, updateDisplay),
+ * call gameTimer directly with optional chaining: gameTimer?.method()
+ */
 
+/**
+ * Start the game timer
+ * @param {number} resumeFromSeconds - Seconds to resume from (default: 0 for new games)
+ */
 function startTimer(resumeFromSeconds = 0) {
   if (gameTimer) {
     gameTimer.start(resumeFromSeconds);
   }
 }
 
+/**
+ * Stop the game timer
+ * Used when game is completed (won or solution viewed)
+ */
 function stopTimer() {
   if (gameTimer) {
     gameTimer.stop();
   }
 }
 
+/**
+ * Pause the game timer
+ * Used when tab becomes hidden/backgrounded
+ */
 function pauseTimer() {
   if (gameTimer) {
     gameTimer.pause();
   }
 }
 
+/**
+ * Resume the game timer
+ * Used when tab becomes visible/foregrounded again
+ */
 function resumeTimer() {
   if (gameTimer) {
     gameTimer.resume();
@@ -464,7 +500,7 @@ function render(triggerSave = true) {
       stopTimer();
 
       // Update UI state for completed game
-      setGameUIState('won');
+      setGameUIState(GAME_STATE.WON);
 
       // Mark daily puzzle as completed (not for unlimited mode)
       if (isDailyMode) {
@@ -547,7 +583,7 @@ function generateNewPuzzle() {
   hasViewedSolution = false;
 
   // Update UI state for new puzzle
-  setGameUIState('new');
+  setGameUIState(GAME_STATE.NEW);
 
   // Reset timer display in case it was showing "Viewed solution"
   if (gameTimerEl) {
@@ -640,11 +676,11 @@ function loadOrGeneratePuzzle() {
 
     // Update UI based on completion status
     if (hasViewedSolution) {
-      setGameUIState('viewed-solution');
+      setGameUIState(GAME_STATE.VIEWED_SOLUTION);
     } else if (hasWon) {
-      setGameUIState('won');
+      setGameUIState(GAME_STATE.WON);
     } else {
-      setGameUIState('in-progress');
+      setGameUIState(GAME_STATE.IN_PROGRESS);
     }
 
     // Restore timer state
@@ -684,7 +720,7 @@ function restartPuzzle() {
   hasShownPartialWinFeedback = false;
 
   // Update UI state for in-progress game
-  setGameUIState('in-progress');
+  setGameUIState(GAME_STATE.IN_PROGRESS);
 
   render();
 }
@@ -713,7 +749,7 @@ function viewSolution() {
   }
 
   // Update UI state for viewed solution
-  setGameUIState('viewed-solution');
+  setGameUIState(GAME_STATE.VIEWED_SOLUTION);
 
   // For daily puzzles, mark as completed with viewed solution (skull icon)
   if (isDailyMode) {
