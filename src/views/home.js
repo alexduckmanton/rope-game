@@ -21,6 +21,9 @@ function updateCompletedState(button, isCompleted, icon = 'trophy') {
     // Update the icon based on completion type
     const iconElement = button.querySelector('.btn-complete-icon');
     if (iconElement) {
+      // Clear existing icon content (lucide replaces the <i> tag with SVG)
+      iconElement.innerHTML = '';
+      // Update the data-lucide attribute
       iconElement.setAttribute('data-lucide', icon);
     }
   } else {
