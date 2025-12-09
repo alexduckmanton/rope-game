@@ -250,13 +250,6 @@ export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells
   const solutionTurnMap = prebuiltSolutionTurnMap || buildSolutionTurnMap(solutionPath);
   const playerTurnMap = prebuiltPlayerTurnMap || buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
-  // Assign colors to hint cells (same as in renderCellNumbers)
-  const hintCellsArray = Array.from(hintCells);
-  const hintColorMap = new Map();
-  hintCellsArray.forEach((cellKey, index) => {
-    hintColorMap.set(cellKey, CONFIG.COLORS.HINT_COLORS[index % CONFIG.COLORS.HINT_COLORS.length]);
-  });
-
   // Calculate pulse opacity using sine wave
   // Goes from 0 to max opacity over PULSE_DURATION ms
   const cycle = (animationTime % CONFIG.HINT.PULSE_DURATION) / CONFIG.HINT.PULSE_DURATION;
@@ -274,8 +267,8 @@ export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells
     const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
     const isValid = expectedTurnCount === actualTurnCount;
 
-    // Use green when validated, original color when not
-    const hintColor = isValid ? CONFIG.COLORS.HINT_VALIDATED : hintColorMap.get(cellKey);
+    // Get color based on magnitude
+    const hintColor = getColorByMagnitude(expectedTurnCount, isValid);
 
     // Calculate validation area (3x3 around hint, bounded by grid)
     const minRow = Math.max(0, row - 1);
@@ -297,6 +290,34 @@ export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells
 
   // Restore context state
   ctx.restore();
+}
+
+/**
+ * Get color for a hint cell based on its magnitude (distance from zero)
+ * @param {number} value - The turn count value for this hint
+ * @param {boolean} isValidated - Whether the hint has been validated by the player
+ * @returns {string} Hex color code
+ */
+function getColorByMagnitude(value, isValidated) {
+  // Validated hints are always green
+  if (isValidated) {
+    return CONFIG.COLORS.HINT_VALIDATED;
+  }
+
+  // Zero is always green (special case - no turns in area)
+  if (value === 0) {
+    return CONFIG.COLORS.HINT_VALIDATED;
+  }
+
+  // For non-zero values, use magnitude (absolute value) to determine color
+  const magnitude = Math.abs(value);
+
+  // Clamp magnitude to valid range (1-9)
+  // If somehow we get a value outside this range, use closest valid color
+  const clampedMagnitude = Math.max(1, Math.min(9, magnitude));
+
+  // Return color from palette (magnitude 1 = index 0, magnitude 9 = index 8)
+  return CONFIG.COLORS.HINT_COLORS[clampedMagnitude - 1];
 }
 
 /**
@@ -322,13 +343,6 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
   // Use pre-built maps if provided, otherwise build them
   const solutionTurnMap = prebuiltSolutionTurnMap || buildSolutionTurnMap(solutionPath);
   const playerTurnMap = prebuiltPlayerTurnMap || buildPlayerTurnMap(playerDrawnCells, playerConnections);
-
-  // Assign a color to each hint cell
-  const hintCellsArray = Array.from(hintCells);
-  const hintColorMap = new Map();
-  hintCellsArray.forEach((cellKey, index) => {
-    hintColorMap.set(cellKey, CONFIG.COLORS.HINT_COLORS[index % CONFIG.COLORS.HINT_COLORS.length]);
-  });
 
   // Use pre-built border layers if provided, otherwise calculate
   const borderLayers = borderMode === 'full'
@@ -361,7 +375,7 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 
       // Collect border drawing information for hint cells (deferred rendering)
       if (isInHintSet && borderMode !== 'off') {
-        const hintColor = isValid ? CONFIG.COLORS.HINT_VALIDATED : hintColorMap.get(cellKey);
+        const hintColor = getColorByMagnitude(expectedTurnCount, isValid);
         const borderWidth = CONFIG.BORDER.WIDTH;
 
         // Calculate the bounding box based on border mode
@@ -397,7 +411,7 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 
       // Set text color and opacity based on whether cell is in the hint set
       if (isInHintSet) {
-        const hintColor = isValid ? CONFIG.COLORS.HINT_VALIDATED : hintColorMap.get(cellKey);
+        const hintColor = getColorByMagnitude(expectedTurnCount, isValid);
         ctx.fillStyle = hintColor;
         ctx.globalAlpha = 1.0;  // Always 100% opacity
       } else {
