@@ -54,16 +54,16 @@ export const CONFIG = {
     // Hints
     HINT_EXTRA: '#C0C0C0',       // Color for non-hint cells in 'all' mode
     HINT_VALIDATED: '#ACF39D',   // Color when hint is satisfied
-    HINT_COLORS: [               // Magnitude-based color palette (light to dark for magnitudes 1-9)
-      '#E09F7D',  // Magnitude 1 - Peachy orange (lightest)
-      '#ED8C6E',  // Magnitude 2 - Coral peach
-      '#EF5D60',  // Magnitude 3 - Coral red
-      '#EE4F64',  // Magnitude 4 - Red pink
-      '#EC4067',  // Magnitude 5 - Pink magenta
-      '#D14376',  // Magnitude 6 - Deep pink
-      '#B54585',  // Magnitude 7 - Light purple
-      '#C72072',  // Magnitude 8 - Pink purple
-      '#A01A7D',  // Magnitude 9 - Purple (darkest)
+    HINT_COLORS: [               // Magnitude-based color palette (bright yellow-orange → dark magenta)
+      '#FFB04A',  // Magnitude 1 - Bright orange-yellow (lightest)
+      '#FF8C42',  // Magnitude 2 - Bright orange
+      '#FF6347',  // Magnitude 3 - Tomato red
+      '#FF4169',  // Magnitude 4 - Red-pink
+      '#F03A7C',  // Magnitude 5 - Hot pink
+      '#D4357F',  // Magnitude 6 - Pink-magenta
+      '#B02D8A',  // Magnitude 7 - Magenta
+      '#8C1F7D',  // Magnitude 8 - Dark magenta
+      '#661565',  // Magnitude 9 - Very dark magenta (darkest)
     ],
   },
 
