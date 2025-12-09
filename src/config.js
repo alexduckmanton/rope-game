@@ -37,7 +37,7 @@ export const CONFIG = {
     LAYER_OFFSET: 6,             // Additional inset per layer for concentric borders
   },
 
-  // Colors
+  // Colors - Tropical Beachy Theme
   COLORS: {
     // Grid and background
     BACKGROUND: '#F5F5F5',
@@ -51,19 +51,32 @@ export const CONFIG = {
     // UI elements
     UI_TEXT: '#34495E',
 
+    // Tropical Theme Colors
+    TROPICAL: {
+      OCEAN_BLUE: '#0077B6',        // Deep tropical ocean (home background)
+      SUNSHINE_YELLOW: '#FFD60A',   // Bright beach sunshine (title)
+      CORAL: '#FF6B6B',             // Tropical coral reef
+      CORAL_RED: '#E63946',         // Deeper coral
+      TURQUOISE: '#48BFE3',         // Shallow lagoon
+      TROPICAL_TEAL: '#06A77D',     // Palm leaf green-blue
+      PEACHY_CORAL: '#FF7B54',      // Peachy coral
+      PALE_SKY: '#ADE8F4',          // Pale sky blue
+      DEEP_NAVY: '#023E8A',         // Deep ocean
+    },
+
     // Hints
     HINT_EXTRA: '#C0C0C0',       // Color for non-hint cells in 'all' mode
     HINT_VALIDATED: '#ACF39D',   // Color when hint is satisfied
-    HINT_COLORS: [               // Magnitude-based color palette (bright yellow-orange → dark magenta)
-      '#FFB04A',  // Magnitude 1 - Bright orange-yellow (lightest)
-      '#FF8C42',  // Magnitude 2 - Bright orange
-      '#FF6347',  // Magnitude 3 - Tomato red
-      '#FF4169',  // Magnitude 4 - Red-pink
-      '#F03A7C',  // Magnitude 5 - Hot pink
-      '#D4357F',  // Magnitude 6 - Pink-magenta
-      '#B02D8A',  // Magnitude 7 - Magenta
-      '#8C1F7D',  // Magnitude 8 - Dark magenta
-      '#661565',  // Magnitude 9 - Very dark magenta (darkest)
+    HINT_COLORS: [               // Tropical magnitude-based gradient (warm beach → cool ocean)
+      '#FFD60A',  // Magnitude 1 - Sunshine yellow (warmest/brightest)
+      '#FFBE0B',  // Magnitude 2 - Golden yellow
+      '#FF9F1C',  // Magnitude 3 - Orange-yellow
+      '#FF7B54',  // Magnitude 4 - Peachy coral
+      '#FF6B6B',  // Magnitude 5 - Coral
+      '#48BFE3',  // Magnitude 6 - Bright turquoise
+      '#0096C7',  // Magnitude 7 - Ocean blue
+      '#0077B6',  // Magnitude 8 - Deep ocean blue
+      '#023E8A',  // Magnitude 9 - Navy blue (coolest/darkest)
     ],
   },
 

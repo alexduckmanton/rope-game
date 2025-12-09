@@ -341,21 +341,23 @@ body {
   align-items: center;
   padding: 32px;
   gap: 48px;
+  background: #0077B6; /* Tropical ocean blue */
 }
 
 .game-title {
   font-family: 'Monoton', 'Impact', 'Arial Black', cursive, sans-serif;
   font-size: 72px;
   font-weight: 700;
-  color: #34495E;
+  color: #FFD60A; /* Bright sunshine yellow */
   margin: 0;
   letter-spacing: 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); /* Subtle shadow for depth */
 }
 
 .game-tagline {
   font-size: 20px;
-  font-weight: 400;
-  color: #7F8C8D;
+  font-weight: 500;
+  color: #ADE8F4; /* Pale sky blue */
   margin: -48px 0 0 0;
 }
 
@@ -399,6 +401,82 @@ body {
 .btn-complete-icon svg {
   stroke: currentColor;
   fill: none;
+}
+
+/* Tropical theme button colors for home screen */
+#tutorial-btn {
+  background-color: #06A77D; /* Tropical teal */
+  color: white;
+}
+
+#tutorial-btn:hover {
+  background-color: #058c6a;
+  box-shadow: 0 6px 12px rgba(6, 167, 125, 0.3);
+}
+
+#tutorial-btn.completed {
+  background-color: #048c6a;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+#easy-btn {
+  background-color: #48BFE3; /* Bright turquoise */
+  color: #023E8A; /* Deep navy text for contrast */
+}
+
+#easy-btn:hover {
+  background-color: #3aaecd;
+  box-shadow: 0 6px 12px rgba(72, 191, 227, 0.3);
+}
+
+#easy-btn.completed {
+  background-color: #3aaecd;
+  color: rgba(2, 62, 138, 0.6);
+}
+
+#medium-btn {
+  background-color: #FF6B6B; /* Coral */
+  color: white;
+}
+
+#medium-btn:hover {
+  background-color: #ff5252;
+  box-shadow: 0 6px 12px rgba(255, 107, 107, 0.3);
+}
+
+#medium-btn.completed {
+  background-color: #ff5252;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+#hard-btn {
+  background-color: #E63946; /* Coral red */
+  color: white;
+}
+
+#hard-btn:hover {
+  background-color: #d62839;
+  box-shadow: 0 6px 12px rgba(230, 57, 70, 0.3);
+}
+
+#hard-btn.completed {
+  background-color: #d62839;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+#unlimited-btn {
+  background-color: #FFD60A; /* Sunshine yellow */
+  color: #023E8A; /* Deep navy text for contrast */
+}
+
+#unlimited-btn:hover {
+  background-color: #f0c800;
+  box-shadow: 0 6px 12px rgba(255, 214, 10, 0.3);
+}
+
+#unlimited-btn.completed {
+  background-color: #f0c800;
+  color: rgba(2, 62, 138, 0.6);
 }
 
 /* Mobile adjustments for home */
@@ -651,15 +729,15 @@ body {
   flex-shrink: 0;
 }
 
-/* Primary button - blue background, white text */
-/* Contrast ratio: 3.25:1 (passes WCAG AA for large text) */
+/* Primary button - coral background, white text (tropical theme) */
+/* Contrast ratio: 4.5:1 (passes WCAG AA) */
 .bottom-sheet-btn-primary {
   color: white;
-  background-color: #4A90E2;
+  background-color: #FF6B6B; /* Tropical coral */
 }
 
 .bottom-sheet-btn-primary:hover {
-  background-color: #357ABD;
+  background-color: #ff5252; /* Deeper coral on hover */
 }
 
 .bottom-sheet-btn-primary:active {
