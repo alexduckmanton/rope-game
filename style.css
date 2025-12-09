@@ -334,7 +334,7 @@ body {
  * ========================================================================= */
 
 #home-view {
-  background-color: #661565; /* Magnitude 9 hint color */
+  background-color: #2D0A2C; /* Deeper, darker magenta */
 }
 
 .home-container {
@@ -373,7 +373,8 @@ body {
 
 /* Home screen button styling with magnitude 1 hint color */
 .home-buttons .btn {
-  color: #FFB04A; /* Magnitude 1 hint color */
+  color: #F5F5F5; /* Body background color for text */
+  background-color: #FFB04A; /* Magnitude 1 hint color for button background */
 }
 
 .btn-large {
