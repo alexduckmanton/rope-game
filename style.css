@@ -333,6 +333,10 @@ body {
  * HOME VIEW
  * ========================================================================= */
 
+#home-view {
+  background-color: #661565; /* Magnitude 9 hint color */
+}
+
 .home-container {
   flex: 1;
   display: flex;
@@ -347,7 +351,7 @@ body {
   font-family: 'Monoton', 'Impact', 'Arial Black', cursive, sans-serif;
   font-size: 72px;
   font-weight: 700;
-  color: #34495E;
+  color: #FFB04A; /* Magnitude 1 hint color */
   margin: 0;
   letter-spacing: 0;
 }
@@ -355,7 +359,7 @@ body {
 .game-tagline {
   font-size: 20px;
   font-weight: 400;
-  color: #7F8C8D;
+  color: #FFB04A; /* Magnitude 1 hint color for contrast with dark background */
   margin: -48px 0 0 0;
 }
 
@@ -365,6 +369,11 @@ body {
   gap: 16px;
   width: 100%;
   max-width: 300px;
+}
+
+/* Home screen button styling with magnitude 1 hint color */
+.home-buttons .btn {
+  color: #FFB04A; /* Magnitude 1 hint color */
 }
 
 .btn-large {
