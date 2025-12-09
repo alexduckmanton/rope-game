@@ -240,10 +240,11 @@ export function calculateBorderLayers(hintCells, gridSize) {
  * @param {number} animationTime - Current animation time in milliseconds
  * @param {Set<string>} playerDrawnCells - Set of "row,col" strings for drawn cells
  * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
+ * @param {boolean} countdown - Whether to show remaining (true) or total required (false) corners
  * @param {Map<string, boolean>} [prebuiltSolutionTurnMap] - Optional pre-built solution turn map for performance
  * @param {Map<string, boolean>} [prebuiltPlayerTurnMap] - Optional pre-built player turn map for performance
  */
-export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells = new Set(), playerConnections = new Map(), prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null) {
+export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells = new Set(), playerConnections = new Map(), countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null) {
   if (!hintCells || hintCells.size === 0) return;
 
   // Use pre-built maps if provided, otherwise build them
@@ -265,10 +266,14 @@ export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells
     // Check if this hint is validated (same logic as renderCellNumbers)
     const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
     const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
-    const isValid = expectedTurnCount === actualTurnCount;
+    const remainingTurns = expectedTurnCount - actualTurnCount;
+    const isValid = remainingTurns === 0;
+
+    // Determine display value based on countdown mode
+    const displayValue = countdown ? remainingTurns : expectedTurnCount;
 
     // Get color based on magnitude
-    const hintColor = getColorByMagnitude(expectedTurnCount, isValid);
+    const hintColor = getColorByMagnitude(displayValue, isValid);
 
     // Calculate validation area (3x3 around hint, bounded by grid)
     const minRow = Math.max(0, row - 1);
@@ -373,9 +378,12 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       const remainingTurns = expectedTurnCount - actualTurnCount;
       const isValid = remainingTurns === 0;
 
+      // Determine display value based on countdown mode
+      const displayValue = countdown ? remainingTurns : expectedTurnCount;
+
       // Collect border drawing information for hint cells (deferred rendering)
       if (isInHintSet && borderMode !== 'off') {
-        const hintColor = getColorByMagnitude(expectedTurnCount, isValid);
+        const hintColor = getColorByMagnitude(displayValue, isValid);
         const borderWidth = CONFIG.BORDER.WIDTH;
 
         // Calculate the bounding box based on border mode
@@ -411,7 +419,7 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 
       // Set text color and opacity based on whether cell is in the hint set
       if (isInHintSet) {
-        const hintColor = getColorByMagnitude(expectedTurnCount, isValid);
+        const hintColor = getColorByMagnitude(displayValue, isValid);
         ctx.fillStyle = hintColor;
         ctx.globalAlpha = 1.0;  // Always 100% opacity
       } else {
@@ -421,7 +429,6 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 
       const x = col * cellSize + cellSize / 2;
       const y = row * cellSize + cellSize / 2;
-      const displayValue = countdown ? remainingTurns : expectedTurnCount;
       ctx.fillText(displayValue.toString(), x, y);
     }
   }
