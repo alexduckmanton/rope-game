@@ -351,7 +351,7 @@ body {
   font-family: 'Monoton', 'Impact', 'Arial Black', cursive, sans-serif;
   font-size: 72px;
   font-weight: 700;
-  color: #FFB04A; /* Magnitude 1 hint color */
+  color: #FFDD00; /* Brighter, more vibrant yellow */
   margin: 0;
   letter-spacing: 0;
 }
@@ -359,7 +359,7 @@ body {
 .game-tagline {
   font-size: 20px;
   font-weight: 400;
-  color: #FFB04A; /* Magnitude 1 hint color for contrast with dark background */
+  color: #FFDD00; /* Brighter, more vibrant yellow for contrast with dark background */
   margin: -48px 0 0 0;
 }
 
@@ -371,10 +371,10 @@ body {
   max-width: 300px;
 }
 
-/* Home screen button styling with magnitude 1 hint color */
+/* Home screen button styling with brighter yellow */
 .home-buttons .btn {
   color: #2D0A2C; /* Deep magenta for text */
-  background-color: #FFB04A; /* Magnitude 1 hint color for button background */
+  background-color: #FFDD00; /* Brighter, more vibrant yellow for button background */
 }
 
 .btn-large {
