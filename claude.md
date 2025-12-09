@@ -86,7 +86,7 @@ Each numbered hint validates the 3x3 area centered on itself (8 neighbors + self
    - Sums up cells where `turnMap.get(cellKey) === true`
 
 4. Validation compares `expectedTurnCount` (from solution) vs `actualTurnCount` (from player)
-   - Hint colored green when counts match, otherwise uses assigned color from palette
+   - Hint colored green when counts match, otherwise uses magnitude-based color from gradient palette
 
 ### Player Feedback Systems
 
@@ -99,13 +99,13 @@ Players can toggle between two number display modes via the Countdown setting:
 - **Dynamic feedback**: Numbers update in real-time as players draw their path
 - **Progress tracking**: Numbers count down toward zero as correct corners are added
 - **Negative values**: When players draw too many corners, number goes negative (e.g., need 3, drew 4 → shows "-1")
-- **Color feedback**: Zero displays in green (validated), all other values use hint color palette
+- **Color feedback**: Colors shift dynamically with magnitude (see Magnitude-Based Color System for details)
 
 **Countdown OFF (Classic Mode):**
 - Numbers show **total required corners**: `expectedTurnCount` (static)
 - **Static display**: Numbers never change regardless of player progress
 - **Traditional puzzle style**: Mirrors physical puzzle books where constraints stay constant
-- **Color feedback**: Still turns green when satisfied, but number value remains fixed
+- **Color feedback**: Colors remain static based on expected turn count, only shift to green upon validation
 
 **Design Rationale:**
 
@@ -126,6 +126,90 @@ Validation logic remains identical - both modes use the same `isValid = remainin
 **User Control:**
 
 Setting is accessible via bottom sheet under Hints checkbox. Changes apply immediately with live re-render. Setting persists across sessions and applies to all game modes (daily and unlimited).
+
+### Magnitude-Based Color System
+
+**Core Concept:**
+
+Hint numbers are colored based on their magnitude (distance from zero) rather than randomly assigned colors. This creates an intuitive visual hierarchy where the color itself communicates information about the constraint difficulty.
+
+**Color Assignment Logic:**
+
+Each hint number receives a color from a nine-shade gradient based on its absolute value:
+
+- **Zero (0)**: Always green, matching validated state color
+- **Magnitude 1** (±1): Bright yellow-orange, lightest shade in the palette
+- **Magnitude 2-8**: Progressive darkening through vibrant warm-to-cool gradient
+- **Magnitude 9** (±9): Very dark magenta, darkest shade in the palette
+
+Negative numbers use the same color as their positive counterparts. For example, both 3 and -3 display in the same coral-red tone. This emphasizes that magnitude (not sign) determines difficulty.
+
+**Gradient Progression:**
+
+The nine-color palette flows through a warm-to-cool spectrum creating visual distinction:
+
+1. Bright yellow-orange (magnitude 1, easiest)
+2. Bright orange
+3. Tomato red
+4. Red-pink
+5. Hot pink
+6. Pink-magenta
+7. Magenta
+8. Dark magenta
+9. Very dark magenta (magnitude 9, hardest)
+
+This chromatic progression provides natural visual chunking - warm tones (orange/red) signal low-to-medium constraints, while cool tones (pink/magenta) signal high constraints.
+
+**Dynamic Color Updates:**
+
+Colors update in real-time as players draw their path, creating animated feedback:
+
+- **Countdown mode enabled**: Colors shift as remaining turns decrease
+  - Start: Hint shows 7 remaining turns → magenta (high urgency)
+  - Progress: Draw correctly, now 3 remaining → red (medium urgency)
+  - Near completion: Down to 1 remaining → bright orange (almost there)
+  - Complete: 0 remaining → green (validated)
+
+- **Countdown mode disabled**: Colors remain static based on total required turns
+  - Hint always shows expected turn count with corresponding magnitude color
+  - Only changes to green upon validation
+
+This dynamic behavior transforms hints into progress indicators. Players can visually scan the grid and immediately identify which constraints need more work (darker colors) versus which are nearly complete (lighter colors).
+
+**Design Rationale:**
+
+**Cognitive Load Reduction:**
+
+Traditional puzzle games assign random colors to constraints purely for differentiation. This forces players to maintain mental mappings between colors and constraint values. Magnitude-based coloring eliminates this overhead by making color semantically meaningful.
+
+**At-a-Glance Priority Assessment:**
+
+Players can instantly identify high-priority constraints (dark magenta 8s and 9s) versus low-priority ones (bright orange 1s and 2s) without reading numbers. This becomes increasingly valuable on larger grids where many constraints compete for attention.
+
+**Progress Visualization:**
+
+In countdown mode, the color shift from dark to light provides visceral satisfaction. Players literally watch constraints "cool down" as they approach completion. This positive reinforcement loop encourages continued engagement.
+
+**Accessibility Benefits:**
+
+While the system relies on color, the gradient spans multiple visual dimensions:
+- **Hue shift**: Orange through red to magenta (color-blind friendly warm-cool progression)
+- **Lightness contrast**: Bright to dark provides luminance-based distinction
+- **Saturation variation**: Vibrant to deep creates intensity differentiation
+
+This multi-dimensional approach ensures the system remains functional across various forms of color vision deficiency.
+
+**Zero as Special Case:**
+
+Zero receiving green treatment (instead of a gradient color) serves dual purposes:
+1. Reinforces that zero-turn constraints are fundamentally different (straight paths, no corners)
+2. Creates consistency with the validated state, reducing cognitive dissonance
+
+When an unvalidated hint displays zero, showing it in green doesn't create confusion because the border color still indicates unvalidated status. The number itself being green communicates "this area should have zero turns."
+
+**Implementation Advantage:**
+
+The system maintains visual consistency between the number display and the pulsing background animation. Both use identical color-by-magnitude logic, ensuring the hint and its validation area always match tonally. This coherence strengthens the association between constraints and their spatial influence.
 
 -----
 
@@ -432,7 +516,7 @@ Component could be extended to support multiple simultaneous sheets with z-index
 | Player path (win) | `#ACF39D` | Soft green when puzzle solved |
 | Solution path | `#4A90E2` | Calm blue (when "Solution" enabled) |
 | Hint validated | `#ACF39D` | Green when constraint satisfied |
-| Hint colors | 8-color palette | Peachy orange → pink → purple gradient for different hints |
+| Hint colors | 9-color palette | Bright yellow-orange → dark magenta, magnitude-based gradient (see Magnitude-Based Color System) |
 | UI text | `#34495E` | Dark gray for buttons/labels |
 
 **Typography:**
@@ -487,9 +571,9 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 - Path thickness: 4px, rounded line caps
 
 **Constraint Feedback:**
-- Number color transitions smoothly (300ms ease)
+- Number color transitions smoothly (300ms ease) as magnitude changes in countdown mode
 - Pulsing background for hint validation areas (2s cycle, max 20% opacity)
-- Colors: Assigned palette color → Green when satisfied
+- Colors: Magnitude-based gradient (bright yellow-orange through dark magenta) → Green when satisfied
 
 **Victory Animation:**
 - Path color shifts from black (`#000000`) to green (`#ACF39D`)
@@ -692,15 +776,15 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 | **Tab focus** | Timer resumes automatically |
 
 **Constraint States:**
-- **Colorful (palette)**: Constraint not yet satisfied
-- **Green**: Constraint satisfied (turn count matches)
-- **Pulsing background**: Animated 3x3 area showing validation region
+- **Colorful (magnitude-based)**: Constraint not yet satisfied, color indicates difficulty (bright orange for low, dark magenta for high)
+- **Green**: Constraint satisfied (turn count matches) or displays zero
+- **Pulsing background**: Animated 3x3 area showing validation region, color matches hint number
 
 **Number Display Behavior:**
 - **Countdown ON (default)**: Shows remaining corners (e.g., need 3, drew 1 → shows "2")
 - **Countdown OFF**: Shows total required corners (e.g., need 3 → always shows "3")
 - **Negative values**: When too many corners drawn (e.g., need 3, drew 5 → shows "-2")
-- **Color**: Zero displays in green (validated), all other values use hint color palette
+- **Color**: Magnitude-based gradient from bright yellow-orange to dark magenta (see Magnitude-Based Color System)
 
 **Path Colors:**
 - **Black**: Player's active drawing
