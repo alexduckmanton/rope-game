@@ -7,6 +7,8 @@
  * - Browser back/forward support
  */
 
+import { trackPageView } from './analytics.js';
+
 let currentViewId = null;
 let currentCleanup = null;
 let currentUrl = null;
@@ -83,6 +85,9 @@ async function renderRoute() {
     viewElement.classList.add('active');
     currentViewId = route.viewId;
     currentUrl = newUrl;
+
+    // Track page view for analytics
+    trackPageView(newUrl);
 
     // Call view-specific initialization
     const cleanup = await initView(route.viewId, params);
