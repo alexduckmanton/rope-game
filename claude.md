@@ -389,6 +389,31 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Benefits:** Fair competition (daily times exclude time away), better UX (no time anxiety), accurate metrics.
 
+### Google Analytics
+
+**Setup:** Google Analytics 4 (GA4) with measurement ID `G-9BFMVX4CLE`.
+
+**Implementation:**
+- **Script tag**: Loaded in `index.html` head immediately after opening `<head>` tag (as Google recommends)
+- **SPA tracking**: `src/analytics.js` module exports `trackPageView(path, title)` for virtual page views
+- **Router integration**: `router.js` calls `trackPageView()` on every route change
+
+**Tracked Pages:**
+- `/` (home)
+- `/tutorial`
+- `/play?difficulty=easy|medium|hard`
+
+**Key Files:**
+| File | Purpose |
+|------|---------|
+| `index.html` (lines 4-11) | GA script tag and gtag initialization |
+| `src/analytics.js` | SPA page view tracking module |
+| `src/router.js` | Calls trackPageView on route changes |
+
+**Notes:**
+- The `trackPageView()` function safely checks if `gtag` exists before calling it (graceful degradation if blocked)
+- Initial page load is tracked by the script in `index.html`; subsequent SPA navigations are tracked by the router
+
 ### Bottom Sheet Component System
 
 **Purpose:** Unified modal overlay system replacing browser alerts throughout the application. Provides consistent animations, dismissal methods, visual design with icons and color schemes for all transient notifications and persistent settings panels.
