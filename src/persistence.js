@@ -35,7 +35,7 @@
 
 /**
  * @typedef {Object} Settings
- * @property {string} hintMode - Hint display mode: "none", "partial", or "all"
+ * @property {string} hintMode - Hint display mode: "partial" or "all"
  * @property {string} borderMode - Border display mode: "off", "center", or "full"
  * @property {boolean} showSolution - Whether to show the solution path
  * @property {boolean} countdown - Whether numbers show remaining (true) or total required (false) corners
@@ -617,7 +617,15 @@ export function loadSettings() {
 
     const settings = JSON.parse(json);
     // Merge with defaults in case new settings are added in future
-    return { ...DEFAULT_SETTINGS, ...settings };
+    const merged = { ...DEFAULT_SETTINGS, ...settings };
+
+    // MIGRATION: Convert old 'none' state to 'partial'
+    // This ensures existing users who had numbers disabled will now see partial numbers
+    if (merged.hintMode === 'none') {
+      merged.hintMode = 'partial';
+    }
+
+    return merged;
   } catch (error) {
     console.warn('Failed to load settings:', error);
     return { ...DEFAULT_SETTINGS };
