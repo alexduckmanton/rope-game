@@ -783,13 +783,13 @@ function getGridSizeFromDifficulty(difficulty) {
 /**
  * Get maximum hint count for a difficulty level
  * @param {string} difficulty - 'easy', 'medium', or 'hard'
- * @param {boolean} isDailyMode - Whether this is a daily puzzle
+ * @param {boolean} isDailyMode - Whether this is a daily puzzle (unused, kept for API consistency)
  * @returns {number|null} Maximum hints (null for unlimited)
  */
 function getMaxHintsForDifficulty(difficulty, isDailyMode) {
-  // Daily easy puzzles are capped at 3 hints to make them easier
-  // All other modes/difficulties have unlimited hints
-  return (isDailyMode && difficulty === 'easy') ? 3 : null;
+  // Easy puzzles (both daily and unlimited) are capped at 3 hints to make them easier
+  // Medium and hard have unlimited hints
+  return (difficulty === 'easy') ? 3 : null;
 }
 
 /**
