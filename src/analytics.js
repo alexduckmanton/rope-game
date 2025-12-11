@@ -1,7 +1,7 @@
 /**
  * Google Analytics integration for SPA
  *
- * Handles page view tracking for client-side route changes.
+ * Handles page view and event tracking for client-side route changes.
  * The gtag script is loaded in index.html.
  */
 
@@ -18,8 +18,22 @@ export function trackPageView(path, title) {
     return;
   }
 
-  gtag('config', GA_MEASUREMENT_ID, {
-    page_path: path,
+  // GA4 uses page_location (full URL) instead of deprecated page_path
+  gtag('event', 'page_view', {
+    page_location: window.location.origin + path,
     page_title: title || document.title,
   });
+}
+
+/**
+ * Track a custom event
+ * @param {string} eventName - The event name (e.g., 'puzzle_complete', 'tutorial_complete')
+ * @param {Object} [params] - Optional event parameters
+ */
+export function trackEvent(eventName, params = {}) {
+  if (typeof gtag !== 'function') {
+    return;
+  }
+
+  gtag('event', eventName, params);
 }
