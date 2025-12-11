@@ -78,15 +78,20 @@ export function renderPath(ctx, path, cellSize) {
  * @param {number} gridSize - Grid size (e.g., 6 for 6x6)
  * @param {number} probability - Probability (0-1) that each cell shows its hint
  * @param {function(): number} randomFn - Optional random function (defaults to Math.random)
+ * @param {number|null} maxHints - Optional maximum number of hints (null for unlimited)
  * @returns {Set<string>} Set of "row,col" strings for cells that should show hints
  */
-export function generateHintCells(gridSize, probability = 0.3, randomFn = Math.random) {
+export function generateHintCells(gridSize, probability = 0.3, randomFn = Math.random, maxHints = null) {
   const hintCells = new Set();
 
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
       if (randomFn() < probability) {
         hintCells.add(createCellKey(row, col));
+        // Early return if we've reached the max hint limit
+        if (maxHints !== null && hintCells.size >= maxHints) {
+          return hintCells;
+        }
       }
     }
   }
