@@ -561,9 +561,11 @@ function generateNewPuzzle() {
     const random = createSeededRandom(seed);
 
     solutionPath = generateSolutionPath(gridSize, random);
-    hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, random);
+    // Limit daily easy puzzles to max 3 hints
+    const maxHints = (currentGameDifficulty === 'easy') ? 3 : null;
+    hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, random, maxHints);
   } else {
-    // Unlimited mode - truly random puzzles
+    // Unlimited mode - truly random puzzles (no hint limit)
     solutionPath = generateSolutionPath(gridSize);
     hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY);
   }
