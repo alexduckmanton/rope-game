@@ -561,13 +561,13 @@ function generateNewPuzzle() {
     const random = createSeededRandom(seed);
 
     solutionPath = generateSolutionPath(gridSize, random);
-    // Limit daily easy puzzles to max 3 hints
-    const maxHints = (currentGameDifficulty === 'easy') ? 3 : null;
+    const maxHints = getMaxHintsForDifficulty(currentGameDifficulty, isDailyMode);
     hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, random, maxHints);
   } else {
     // Unlimited mode - truly random puzzles (no hint limit)
     solutionPath = generateSolutionPath(gridSize);
-    hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY);
+    const maxHints = getMaxHintsForDifficulty(currentUnlimitedDifficulty, isDailyMode);
+    hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, Math.random, maxHints);
   }
 
   // Cache values that don't change during gameplay for performance
@@ -601,7 +601,8 @@ function restorePuzzleData(savedState) {
     const seed = getDailySeed(currentGameDifficulty);
     const random = createSeededRandom(seed);
     solutionPath = generateSolutionPath(gridSize, random);
-    hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, random);
+    const maxHints = getMaxHintsForDifficulty(currentGameDifficulty, isDailyMode);
+    hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, random, maxHints);
   } else if (savedState) {
     // For unlimited mode, restore saved puzzle data (was truly random)
     solutionPath = savedState.solutionPath;
@@ -777,6 +778,18 @@ function getGridSizeFromDifficulty(difficulty) {
     'hard': 8
   };
   return difficultyMap[difficulty] || 6; // Default to medium
+}
+
+/**
+ * Get maximum hint count for a difficulty level
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @param {boolean} isDailyMode - Whether this is a daily puzzle
+ * @returns {number|null} Maximum hints (null for unlimited)
+ */
+function getMaxHintsForDifficulty(difficulty, isDailyMode) {
+  // Daily easy puzzles are capped at 3 hints to make them easier
+  // All other modes/difficulties have unlimited hints
+  return (isDailyMode && difficulty === 'easy') ? 3 : null;
 }
 
 /**
