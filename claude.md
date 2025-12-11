@@ -332,7 +332,7 @@ When navigating FROM home to a subpage, the router adds metadata to history stat
 - Deterministic generation from date-based seed
 - New button hidden (can't regenerate daily puzzles)
 - Restart button replays same puzzle
-- Settings: Hints, Border, Solution
+- Settings: Hints, Countdown, Borders, Solution
 
 **Unlimited Mode**
 - True random generation (not date-based)
@@ -581,9 +581,9 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 - **Layout**: Settings displayed as list items with grey dividers
 - **Available Settings:**
   - **Difficulty** (Unlimited mode only): iOS-style segmented control for switching grid sizes
-  - **Hints**: Three-state toggle (None → Partial → All) cycles hint visibility
+  - **Hints**: Binary toggle between Partial (30% of cells, unchecked) and All (100% of cells, checked). Default: Partial. Migration: Old 'none' values automatically converted to 'partial' on load.
   - **Countdown**: Boolean toggle for remaining vs total corners display (default ON)
-  - **Border**: Three-state toggle (Off → Center → Full) for hint area borders
+  - **Borders**: Three-state toggle (Off → Center → Full) for hint area borders
   - **Solution**: Boolean toggle to overlay solution path in blue
 - **Behavior**: Context-aware (difficulty segmented control appears only in Unlimited mode), changes apply immediately with live re-render (no save/cancel buttons), click outside or X button to dismiss
 - **Visibility**: Hidden in tutorial view
@@ -685,6 +685,15 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 5. **UI positioning**: Modify checkbox placement in `index.html` settings list
 6. **Setting label**: Change "Countdown" text in checkbox span element
 
+**Modify Hints Setting:**
+1. **Change default**: Update `hintMode: 'partial'` in `DEFAULT_SETTINGS` object in `persistence.js`
+2. **Toggle behavior**: Modify `cycleHintMode()` in `game.js` (currently binary toggle between 'partial' and 'all')
+3. **Checkbox state**: Update `updateCheckboxState()` in `game.js` for visual representation
+4. **Add new hint modes**: Extend conditional logic in `renderer.js:renderCellNumbers()` to support additional display modes
+5. **Migration**: Add migration logic in `persistence.js:loadSettings()` for backward compatibility
+6. **UI positioning**: Modify checkbox placement in `index.html` settings list
+7. **Setting label**: Change "Hints" text in checkbox span element
+
 **Change Persistence Behavior:**
 1. **Save cooldown**: Modify `SAVE_COOLDOWN_MS` constant in `persistence.js` (default 5000ms)
 2. **Storage keys**: Update `getStorageKey()` function in `persistence.js`
@@ -781,7 +790,7 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 | **Difficulty** | Fixed by initial selection | Switchable in-session via settings segmented control |
 | **Grid Size** | Easy 4x4, Medium 6x6, Hard 8x8 | Same sizes, switchable within session |
 | **Timer Display** | Shows selected difficulty (e.g., "Medium • 0:00") | Shows current difficulty (e.g., "Easy • 0:00") |
-| **Settings** | Hints, Countdown, Border, Solution toggles | Same + difficulty segmented control at top |
+| **Settings** | Hints, Countdown, Borders, Solution toggles | Same + difficulty segmented control at top |
 | **Save Slots** | One per date+difficulty | One per difficulty (persistent across sessions) |
 | **Restart** | Replays same daily puzzle | Replays current random puzzle |
 | **Rotation** | New puzzle at local midnight | N/A (always generates random) |

@@ -257,12 +257,9 @@ function resumeTimer() {
  * ========================================================================= */
 
 function updateCheckboxState() {
-  if (hintMode === 'none') {
+  if (hintMode === 'partial') {
     hintsCheckbox.checked = false;
     hintsCheckbox.indeterminate = false;
-  } else if (hintMode === 'partial') {
-    hintsCheckbox.checked = false;
-    hintsCheckbox.indeterminate = true;
   } else if (hintMode === 'all') {
     hintsCheckbox.checked = true;
     hintsCheckbox.indeterminate = false;
@@ -270,12 +267,10 @@ function updateCheckboxState() {
 }
 
 function cycleHintMode() {
-  if (hintMode === 'none') {
-    hintMode = 'partial';
-  } else if (hintMode === 'partial') {
+  if (hintMode === 'partial') {
     hintMode = 'all';
   } else {
-    hintMode = 'none';
+    hintMode = 'partial';
   }
   setTimeout(updateCheckboxState, 0);
   saveCurrentSettings();
