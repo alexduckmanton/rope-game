@@ -135,6 +135,7 @@ let canvas;
 let ctx;
 let tutorialTitle;
 let restartBtn;
+let helpBtn;
 let backBtn;
 let headingEl;
 let instructionEl;
@@ -428,6 +429,7 @@ export function initTutorial(params) {
   ctx = canvas.getContext('2d');
   tutorialTitle = document.getElementById('tutorial-title');
   restartBtn = document.getElementById('tutorial-restart-btn');
+  helpBtn = document.getElementById('tutorial-help-btn');
   backBtn = document.getElementById('tutorial-back-btn');
   headingEl = document.getElementById('tutorial-heading');
   instructionEl = document.getElementById('tutorial-instruction');
@@ -511,6 +513,19 @@ export function initTutorial(params) {
   // Setup event handlers
   const resizeHandler = () => resizeCanvas();
   const restartBtnHandler = () => restartPuzzle();
+  const helpBtnHandler = () => {
+    // Re-open the tutorial lesson sheet
+    if (config.introContent) {
+      activeTutorialSheet = showBottomSheetAsync({
+        title: config.introTitle,
+        content: config.introContent,
+        icon: 'graduation-cap',
+        colorScheme: 'info',
+        dismissLabel: 'Try it',
+        dismissVariant: 'primary'
+      });
+    }
+  };
   const backBtnHandler = () => {
     if (history.state?.fromHome) {
       history.back();
@@ -530,6 +545,7 @@ export function initTutorial(params) {
   // Attach event listeners
   window.addEventListener('resize', resizeHandler);
   restartBtn.addEventListener('click', restartBtnHandler);
+  helpBtn.addEventListener('click', helpBtnHandler);
   backBtn.addEventListener('click', backBtnHandler);
   canvas.addEventListener('pointerdown', pointerDownHandler);
   canvas.addEventListener('pointermove', pointerMoveHandler);
@@ -540,6 +556,7 @@ export function initTutorial(params) {
   eventListeners = [
     { element: window, event: 'resize', handler: resizeHandler },
     { element: restartBtn, event: 'click', handler: restartBtnHandler },
+    { element: helpBtn, event: 'click', handler: helpBtnHandler },
     { element: backBtn, event: 'click', handler: backBtnHandler },
     { element: canvas, event: 'pointerdown', handler: pointerDownHandler },
     { element: canvas, event: 'pointermove', handler: pointerMoveHandler },

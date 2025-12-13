@@ -18,9 +18,10 @@
  * - Skull: Viewed solution completed icon on home screen
  * - Eye: View solution button icon in settings
  * - GraduationCap: Tutorial lesson intro bottom sheets
+ * - CircleHelp: Help button in tutorial navigation to re-open lesson sheet
  */
 
-import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, PartyPopper, CircleOff, Share2, Check, Trophy, Skull, Eye, GraduationCap } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, PartyPopper, CircleOff, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -48,7 +49,8 @@ export function initIcons() {
       Trophy,
       Skull,
       Eye,
-      GraduationCap
+      GraduationCap,
+      CircleHelp
     },
     attrs: {
       'stroke-width': '2',
