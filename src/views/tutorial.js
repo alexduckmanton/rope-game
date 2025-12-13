@@ -116,6 +116,7 @@ let completeHomeBtn;
 // Game state
 let hasWon = false;
 let hasShownPartialWinFeedback = false;
+let hasShownIncompleteLoopFeedback = false;
 let solutionPath = [];
 let hintCells = new Set();
 let borderMode = 'off';
@@ -228,13 +229,34 @@ function render() {
     animationFrameId = requestAnimationFrame(render);
   }
 
-  if (!hasWon && checkStructuralWin()) {
+  const totalCells = gridSize * gridSize;
+
+  // Check for incomplete loop (all cells filled but invalid structure)
+  if (!hasWon && playerDrawnCells.size === totalCells && !checkStructuralWin()) {
+    if (!hasShownIncompleteLoopFeedback) {
+      hasShownIncompleteLoopFeedback = true;
+
+      // Show feedback bottom sheet
+      // Destroy any previous tutorial sheet before showing new one
+      if (activeTutorialSheet) {
+        activeTutorialSheet.destroy();
+      }
+      activeTutorialSheet = showBottomSheetAsync({
+        title: 'Not quite!',
+        content: '<div class="bottom-sheet-message">Nice drawing, but you need to draw a single line connected at both ends.</div>',
+        icon: 'circle-off',
+        colorScheme: 'error',
+        dismissLabel: 'Keep trying'
+      });
+    }
+  } else if (!hasWon && checkStructuralWin()) {
     // Check if this is a full win or partial win (valid loop but wrong hints)
     // Pass pre-built player turn map to avoid rebuilding
     if (checkWin(playerTurnMap)) {
       // Full win - all validation passed
       hasWon = true;
       hasShownPartialWinFeedback = false; // Reset flag
+      hasShownIncompleteLoopFeedback = false; // Reset flag
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
       // Show win bottom sheet with navigation on close
@@ -300,9 +322,10 @@ function render() {
       });
     }
   } else {
-    // If structural win is no longer valid, reset the feedback flag
+    // If structural win is no longer valid, reset the feedback flags
     if (!checkStructuralWin()) {
       hasShownPartialWinFeedback = false;
+      hasShownIncompleteLoopFeedback = false;
     }
   }
 }
@@ -311,6 +334,7 @@ function restartPuzzle() {
   gameCore.restartPuzzle();
   hasWon = false;
   hasShownPartialWinFeedback = false;
+  hasShownIncompleteLoopFeedback = false;
   render();
 }
 
@@ -349,6 +373,7 @@ function initTutorialGame(config) {
   // Reset state
   hasWon = false;
   hasShownPartialWinFeedback = false;
+  hasShownIncompleteLoopFeedback = false;
 
   // Set up hints and border for tutorial 3
   if (config.hasHints) {

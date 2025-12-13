@@ -75,6 +75,7 @@ let borderMode = 'off';
 let countdown = true;
 let hasWon = false;
 let hasShownPartialWinFeedback = false;
+let hasShownIncompleteLoopFeedback = false;
 let hasViewedSolution = false;
 
 // Cached values for performance (recalculated when puzzle changes)
@@ -485,13 +486,34 @@ function render(triggerSave = true) {
 
   renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
-  if (!hasWon && checkStructuralWin()) {
+  const totalCells = gridSize * gridSize;
+
+  // Check for incomplete loop (all cells filled but invalid structure)
+  if (!hasWon && playerDrawnCells.size === totalCells && !checkStructuralWin()) {
+    if (!hasShownIncompleteLoopFeedback) {
+      hasShownIncompleteLoopFeedback = true;
+
+      // Show feedback bottom sheet
+      // Destroy any previous game sheet before showing new one
+      if (activeGameSheet) {
+        activeGameSheet.destroy();
+      }
+      activeGameSheet = showBottomSheetAsync({
+        title: 'Not quite!',
+        content: '<div class="bottom-sheet-message">Nice drawing, but you need to draw a single line connected at both ends.</div>',
+        icon: 'circle-off',
+        colorScheme: 'error',
+        dismissLabel: 'Keep trying'
+      });
+    }
+  } else if (!hasWon && checkStructuralWin()) {
     // Check if this is a full win or partial win (valid loop but wrong hints)
     // Pass pre-built player turn map to avoid rebuilding
     if (checkWin(playerTurnMap)) {
       // Full win - all validation passed
       hasWon = true;
       hasShownPartialWinFeedback = false; // Reset flag
+      hasShownIncompleteLoopFeedback = false; // Reset flag
       stopTimer();
 
       // Update UI state for completed game
@@ -528,9 +550,10 @@ function render(triggerSave = true) {
       });
     }
   } else {
-    // If structural win is no longer valid, reset the feedback flag
+    // If structural win is no longer valid, reset the feedback flags
     if (!checkStructuralWin()) {
       hasShownPartialWinFeedback = false;
+      hasShownIncompleteLoopFeedback = false;
     }
   }
 
@@ -577,6 +600,7 @@ function generateNewPuzzle() {
   gameCore.restartPuzzle();
   hasWon = false;
   hasShownPartialWinFeedback = false;
+  hasShownIncompleteLoopFeedback = false;
   hasViewedSolution = false;
 
   // Update UI state for new puzzle
@@ -631,6 +655,7 @@ function restorePlayerProgress(savedState) {
   // Restore game state flags
   hasWon = savedState.hasWon;
   hasShownPartialWinFeedback = savedState.hasShownPartialWinFeedback || false;
+  hasShownIncompleteLoopFeedback = savedState.hasShownIncompleteLoopFeedback || false;
   hasViewedSolution = savedState.hasViewedSolution || false;
 }
 
@@ -716,6 +741,7 @@ function restartPuzzle() {
 
   hasWon = false;
   hasShownPartialWinFeedback = false;
+  hasShownIncompleteLoopFeedback = false;
 
   // Update UI state for in-progress game
   setGameUIState(GAME_STATE.IN_PROGRESS);
@@ -887,6 +913,7 @@ export function initGame(difficulty) {
   // Reset game state
   hasWon = false;
   hasShownPartialWinFeedback = false;
+  hasShownIncompleteLoopFeedback = false;
   hasViewedSolution = false;
   eventListeners = [];
 
