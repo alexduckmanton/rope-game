@@ -521,7 +521,7 @@ function render(triggerSave = true) {
       }
       activeGameSheet = showBottomSheetAsync({
         title: 'Almost there!',
-        content: '<div class="bottom-sheet-message">Nice loop, but not all numbers have the correct amount of bends.</div>',
+        content: '<div class="bottom-sheet-message"><p>Numbers count your loop's bends in the squares immediately around them.</p><p>Some numbers are touching the wrong amount of bends in your loop.</p><p>Draw a loop that satisfies all numbers.</p></div>',
         icon: 'circle-off',
         colorScheme: 'error',
         dismissLabel: 'Keep trying'
