@@ -238,7 +238,7 @@ function render() {
   // Render pulsing hint backgrounds (before grid for proper layering)
   if (currentConfig && currentConfig.hasHints) {
     const animationTime = Date.now();
-    renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells, playerConnections, cachedSolutionTurnMap, playerTurnMap);
+    renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells, playerConnections, true, cachedSolutionTurnMap, playerTurnMap);
   }
 
   renderGrid(ctx, gridSize, cellSize);
