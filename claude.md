@@ -207,9 +207,9 @@ Zero receiving green treatment (instead of a gradient color) serves dual purpose
 
 When an unvalidated hint displays zero, showing it in green doesn't create confusion because the border color still indicates unvalidated status. The number itself being green communicates "this area should have zero turns."
 
-**Implementation Advantage:**
+**Tutorial Visual Design:**
 
-The system maintains visual consistency between the number display and the pulsing background animation. Both use identical color-by-magnitude logic, ensuring the hint and its validation area always match tonally. This coherence strengthens the association between constraints and their spatial influence.
+In tutorial pages, hint numbers use the magnitude-based gradient for educational clarity, while pulsing backgrounds use a uniform blue color (matching the primary button color). This design separates the information hierarchy: numbers communicate difficulty through color variation, while the pulsing animation provides a consistent, non-distracting spatial indicator. Validated hints display green in both cases, creating immediate positive feedback when constraints are satisfied.
 
 -----
 
@@ -541,7 +541,8 @@ Component could be extended to support multiple simultaneous sheets with z-index
 | Player path (win) | `#ACF39D` | Soft green when puzzle solved |
 | Solution path | `#4A90E2` | Calm blue (when "Solution" enabled) |
 | Hint validated | `#ACF39D` | Green when constraint satisfied |
-| Hint colors | 9-color palette | Bright yellow-orange → dark magenta, magnitude-based gradient (see Magnitude-Based Color System) |
+| Hint pulsing background | `#4A90E2` | Blue for unvalidated tutorials hints (matches primary buttons) |
+| Hint number colors | 9-color palette | Bright yellow-orange → dark magenta, magnitude-based gradient (see Magnitude-Based Color System) |
 | UI text | `#34495E` | Dark gray for buttons/labels |
 
 **Typography:**
@@ -597,8 +598,9 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 
 **Constraint Feedback:**
 - Number color transitions smoothly (300ms ease) as magnitude changes in countdown mode
+- Number text uses magnitude-based gradient (bright yellow-orange through dark magenta) for visual hierarchy
 - Pulsing background for hint validation areas (2s cycle, max 20% opacity)
-- Colors: Magnitude-based gradient (bright yellow-orange through dark magenta) → Green when satisfied
+- Pulsing background color: Blue (matching primary buttons) for unvalidated hints, green when satisfied
 
 **Victory Animation:**
 - Path color shifts from black (`#000000`) to green (`#ACF39D`)
@@ -672,10 +674,11 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 3. Consider impact on puzzle generation difficulty and solvability
 
 **Modify Hint Display:**
-1. **Hint colors**: Update `CONFIG.COLORS.HINT_COLORS` array in `config.js`
-2. **Hint probability**: Change `CONFIG.HINT.PROBABILITY` (0-1) or modify `generateHintCells()` in `renderer.js`
-3. **Border rendering**: Modify `drawHintBorders()` in `renderer.js` (width, inset, layer offset)
-4. **Pulse animation**: Adjust `CONFIG.HINT.PULSE_DURATION` and `CONFIG.HINT.PULSE_MAX_OPACITY`
+1. **Hint number colors**: Update `CONFIG.COLORS.HINT_COLORS` array in `config.js` (affects number text and borders)
+2. **Hint pulsing background color**: Modify color assignment in `renderHintPulse()` function in `renderer.js` (currently uses blue for unvalidated, green for validated)
+3. **Hint probability**: Change `CONFIG.HINT.PROBABILITY` (0-1) or modify `generateHintCells()` in `renderer.js`
+4. **Border rendering**: Modify `drawHintBorders()` in `renderer.js` (width, inset, layer offset)
+5. **Pulse animation timing**: Adjust `CONFIG.HINT.PULSE_DURATION` and `CONFIG.HINT.PULSE_MAX_OPACITY`
 
 **Modify Player Feedback (Countdown Feature):**
 1. **Change default**: Update `countdown: true` in `DEFAULT_SETTINGS` object in `persistence.js`

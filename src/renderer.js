@@ -277,8 +277,8 @@ export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells
     // Determine display value based on countdown mode
     const displayValue = countdown ? remainingTurns : expectedTurnCount;
 
-    // Get color based on magnitude
-    const hintColor = getColorByMagnitude(displayValue, isValid);
+    // Get color for pulsing background: green if validated, blue otherwise
+    const hintColor = isValid ? CONFIG.COLORS.HINT_VALIDATED : CONFIG.COLORS.SOLUTION_PATH;
 
     // Calculate validation area (3x3 around hint, bounded by grid)
     const minRow = Math.max(0, row - 1);
