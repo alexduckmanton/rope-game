@@ -40,7 +40,7 @@ const TUTORIAL_CONFIGS = {
     hasHints: false,
     introContent: `
       <div class="bottom-sheet-message">
-        <p>Try another one, but this time with a bigger grid. Remember, you need to draw a single line that touches every square, with the ends connected.</p>
+        <p>Try another with a bigger grid. Remember, you need to draw a single line that touches every square, with the ends connected.</p>
         <p>Try drawing a connected line in this grid.</p>
       </div>
     `
