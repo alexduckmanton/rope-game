@@ -24,14 +24,26 @@ const TUTORIAL_CONFIGS = {
     heading: 'Tutorial 1/4',
     instruction: 'Drag to make a loop',
     nextRoute: '/tutorial?page=2',
-    hasHints: false
+    hasHints: false,
+    introContent: `
+      <div class="bottom-sheet-message">
+        <p>To win Loopy, you draw a line in the grid that touches every grid square, and connects at both ends.</p>
+        <p>Try drawing a circle in this grid.</p>
+      </div>
+    `
   },
   '2': {
     gridSize: 4,
     heading: 'Tutorial 2/4',
     instruction: 'Loops must touch every square.\nTap to erase parts of your loop.',
     nextRoute: '/tutorial?page=3',
-    hasHints: false
+    hasHints: false,
+    introContent: `
+      <div class="bottom-sheet-message">
+        <p>Try another one, but this time with a bigger grid. Remember, you need to draw a single line that touches every square, with the ends connected.</p>
+        <p>Try drawing a connected line in this grid.</p>
+      </div>
+    `
   },
   '3': {
     gridSize: 4,
@@ -60,7 +72,13 @@ const TUTORIAL_CONFIGS = {
       {row: 3, col: 0}
     ],
     hintCells: new Set(['2,1']),
-    borderMode: 'off'
+    borderMode: 'off',
+    introContent: `
+      <div class="bottom-sheet-message">
+        <p>Look out for numbers! They count down every time your loop bends in the squares they touch. To win, all numbers must be 0.</p>
+        <p>Try drawing a loop that has exactly 3 bends in the highlighted squares.</p>
+      </div>
+    `
   },
   '4': {
     gridSize: 4,
@@ -89,7 +107,13 @@ const TUTORIAL_CONFIGS = {
       {row: 0, col: 3}
     ],
     hintCells: new Set(['3,0', '1,2']),
-    borderMode: 'off'
+    borderMode: 'off',
+    introContent: `
+      <div class="bottom-sheet-message">
+        <p>Things get trickier when there are multiple numbers. They can even overlap!</p>
+        <p>Try drawing a loop that satisfies both numbers in the grid.</p>
+      </div>
+    `
   }
 };
 
@@ -467,6 +491,18 @@ export function initTutorial(params) {
 
   // Initialize tutorial game
   initTutorialGame(config);
+
+  // Show intro bottom sheet for this lesson (if configured)
+  if (config.introContent) {
+    activeTutorialSheet = showBottomSheetAsync({
+      title: `Lesson ${page}`,
+      content: config.introContent,
+      icon: 'graduation-cap',
+      colorScheme: 'info',
+      dismissLabel: 'Try it',
+      dismissVariant: 'primary'
+    });
+  }
 
   // Setup event handlers
   const resizeHandler = () => resizeCanvas();

@@ -621,6 +621,14 @@ body {
   line-height: 1.5;
 }
 
+.bottom-sheet-message p {
+  margin: 0 0 12px 0; /* Bottom margin for paragraph spacing */
+}
+
+.bottom-sheet-message p:last-child {
+  margin-bottom: 0; /* Remove bottom margin from last paragraph */
+}
+
 /* Button container for multiple buttons */
 .bottom-sheet-buttons {
   display: flex;
