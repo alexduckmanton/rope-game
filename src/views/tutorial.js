@@ -25,6 +25,7 @@ const TUTORIAL_CONFIGS = {
     instruction: 'Drag to make a loop',
     nextRoute: '/tutorial?page=2',
     hasHints: false,
+    introTitle: 'Draw a circle',
     introContent: `
       <div class="bottom-sheet-message">
         <p>To win, draw a line in the grid that touches every square, and connects at both ends.</p>
@@ -38,6 +39,7 @@ const TUTORIAL_CONFIGS = {
     instruction: 'Loops must touch every square.\nTap to erase parts of your loop.',
     nextRoute: '/tutorial?page=3',
     hasHints: false,
+    introTitle: 'Touch every square',
     introContent: `
       <div class="bottom-sheet-message">
         <p>Try another with a bigger grid. Remember, you need to draw a single line that touches every square, with the ends connected.</p>
@@ -73,6 +75,7 @@ const TUTORIAL_CONFIGS = {
     ],
     hintCells: new Set(['2,1']),
     borderMode: 'off',
+    introTitle: 'Crunch the numbers',
     introContent: `
       <div class="bottom-sheet-message">
         <p>Numbers count down every time your loop bends in the squares they touch. To win, all numbers must be 0.</p>
@@ -108,6 +111,7 @@ const TUTORIAL_CONFIGS = {
     ],
     hintCells: new Set(['3,0', '1,2']),
     borderMode: 'off',
+    introTitle: 'Multiple numbers',
     introContent: `
       <div class="bottom-sheet-message">
         <p>Things get trickier when there are multiple numbers. They can even overlap!</p>
@@ -495,7 +499,7 @@ export function initTutorial(params) {
   // Show intro bottom sheet for this lesson (if configured)
   if (config.introContent) {
     activeTutorialSheet = showBottomSheetAsync({
-      title: `Lesson ${page}`,
+      title: config.introTitle,
       content: config.introContent,
       icon: 'graduation-cap',
       colorScheme: 'info',
