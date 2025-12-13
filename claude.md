@@ -31,11 +31,11 @@
 
 ### Grid Sizes
 
-| Difficulty | Grid Size | Total Cells | Warnsdorff Attempts |
-|------------|-----------|-------------|---------------------|
-| Easy       | 4x4       | 16          | 20                  |
-| Medium     | 6x6       | 36          | 50                  |
-| Hard       | 8x8       | 64          | 100                 |
+| Difficulty | Grid Size | Total Cells | Max Hints | Warnsdorff Attempts |
+|------------|-----------|-------------|-----------|---------------------|
+| Easy       | 4x4       | 16          | 2         | 20                  |
+| Medium     | 6x6       | 36          | Unlimited | 50                  |
+| Hard       | 8x8       | 64          | Unlimited | 100                 |
 
 ### Storage Keys
 
@@ -273,7 +273,7 @@ Generates Hamiltonian cycles (paths visiting all cells exactly once forming a lo
 
 **Warnsdorff's Rule:** Always move to the neighbor with the fewest unvisited neighbors. This greedy strategy avoids dead ends by saving well-connected cells for later.
 
-**Hint Cell Selection:** After generating solution path, `generateHintCells()` randomly selects ~30% of cells to show hints using seeded random for daily puzzles or true random for unlimited mode.
+**Hint Cell Selection:** After generating solution path, `generateHintCells()` randomly selects ~30% of cells to show hints using seeded random for daily puzzles or true random for unlimited mode. Easy difficulty is capped at 2 hints maximum to reduce complexity; medium and hard have no cap.
 
 **Performance:** ~50ms average for 8x8, >99.99% success rate
 
@@ -672,6 +672,11 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 1. Modify turn counting logic in `utils.js:countTurnsInArea()` or create new validation function
 2. Update validation rendering in `renderer.js:renderCellNumbers()` to display new constraint type
 3. Consider impact on puzzle generation difficulty and solvability
+
+**Modify Maximum Hints by Difficulty:**
+1. **Change max hints**: Update `getMaxHintsForDifficulty()` in `game.js` (currently returns 2 for easy, null for medium/hard)
+2. **Affects all modes**: Change applies to new daily puzzles, restored daily puzzles, and new unlimited puzzles
+3. **Saved unlimited puzzles**: Will retain their original hint count when restored (no automatic migration)
 
 **Modify Hint Display:**
 1. **Hint number colors**: Update `CONFIG.COLORS.HINT_COLORS` array in `config.js` (affects number text and borders)
