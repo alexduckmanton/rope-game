@@ -79,7 +79,7 @@ const TUTORIAL_CONFIGS = {
     introContent: `
       <div class="bottom-sheet-message">
         <p>Numbers count down every time your loop bends in the squares they touch. To win, all numbers must be 0.</p>
-        <p>Try drawing a loop that has exactly 3 bends in the highlighted squares.</p>
+        <p>Try drawing a line through every square, with 3 bends in the highlighted squares.</p>
       </div>
     `
   },
