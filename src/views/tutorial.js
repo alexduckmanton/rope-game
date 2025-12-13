@@ -27,8 +27,8 @@ const TUTORIAL_CONFIGS = {
     hasHints: false,
     introContent: `
       <div class="bottom-sheet-message">
-        <p>To win Loopy, you draw a line in the grid that touches every grid square, and connects at both ends.</p>
-        <p>Try drawing a circle in this grid.</p>
+        <p>To win, draw a line in the grid that touches every square, and connects at both ends.</p>
+        <p>Try drawing a circle!</p>
       </div>
     `
   },
