@@ -75,7 +75,7 @@ const TUTORIAL_CONFIGS = {
     borderMode: 'off',
     introContent: `
       <div class="bottom-sheet-message">
-        <p>Look out for numbers! They count down every time your loop bends in the squares they touch. To win, all numbers must be 0.</p>
+        <p>Numbers count down every time your loop bends in the squares they touch. To win, all numbers must be 0.</p>
         <p>Try drawing a loop that has exactly 3 bends in the highlighted squares.</p>
       </div>
     `
