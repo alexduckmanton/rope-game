@@ -542,7 +542,7 @@ Component could be extended to support multiple simultaneous sheets with z-index
 |----------|-------|-----------|
 | **Particle Count** | 150 | Heavy density creates dramatic celebration without overwhelming the screen |
 | **Direction** | 90° (straight up) | Upward trajectory feels triumphant and matches party-popper metaphor |
-| **Spread** | 145° | Wide arc ensures particles fill most of the screen width for maximum visual impact |
+| **Spread** | 90° | Focused upward arc creates concentrated fountain effect from the icon |
 | **Start Velocity** | 30 | Medium velocity balances dramatic effect with mobile performance, particles arc gracefully |
 | **Gravity** | 1.0 | Standard gravity creates natural falling motion after upward burst |
 | **Particle Size** | 1.2x scalar | Slightly larger than default for visibility on mobile screens |
