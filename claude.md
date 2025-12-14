@@ -546,7 +546,7 @@ Component could be extended to support multiple simultaneous sheets with z-index
 | **Start Velocity** | 30 | Medium velocity balances dramatic effect with mobile performance, particles arc gracefully |
 | **Gravity** | 1.0 | Standard gravity creates natural falling motion after upward burst |
 | **Particle Size** | 1.2x scalar | Slightly larger than default for visibility on mobile screens |
-| **Duration** | 300 ticks (~3 seconds) | Long enough to appreciate the effect, short enough to not overstay welcome |
+| **Duration** | 180 ticks (3 seconds at 60fps) | Particles complete animation before canvas cleanup at 3.5 seconds |
 
 **Color Palette:**
 
@@ -608,7 +608,7 @@ This architecture avoids the need for dedicated "hasShownConfetti" tracking vari
 
 **Rendering Layer:** Confetti renders on a dedicated canvas element positioned above the bottom sheet (z-index 1002, compared to bottom sheet's 1001). The canvas has pointer-events: none to ensure confetti particles don't block user interactions with the bottom sheet buttons. This allows users to click "Yay!" or "Close" while confetti is still falling, creating seamless interaction during the celebration.
 
-**Memory Cleanup:** The custom canvas element is automatically removed from the DOM after the confetti animation completes (3.5 seconds), ensuring no memory leaks or orphaned elements. The confetti library handles cleanup of animation frames and particle state internally.
+**Memory Cleanup:** The custom canvas element is automatically removed from the DOM 3.5 seconds after confetti fires, providing a 500ms buffer after particles complete their 3-second animation lifecycle. This ensures no memory leaks or orphaned elements. The confetti library handles cleanup of animation frames and particle state internally.
 
 **Design Rationale:**
 
@@ -724,7 +724,7 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 - Path color shifts from black (`#000000`) to green (`#ACF39D`)
 - Constraint numbers fade to green
 - "Puzzle Solved" message with completion time
-- Gold confetti particles (150 count) shoot upward from party-popper icon with wide spread, arcing naturally over three seconds
+- Gold confetti particles (150 count) shoot upward from party-popper icon with focused 90° spread, arcing naturally over three seconds
 
 **Settings Bottom Sheet:**
 - Slide up: Ease-out with bounce (cubic-bezier(0.34, 1.3, 0.64, 1))
