@@ -33,7 +33,7 @@ const ANIMATION_DELAY_MS = 350;
  * Configuration:
  * - 150 particles (heavy density)
  * - Shoots straight up (90°) with wide spread (145°)
- * - High velocity for dramatic effect
+ * - Medium velocity for balanced effect
  * - Gold/amber color scheme
  * - ~3 second animation duration
  *
@@ -65,7 +65,7 @@ export function fireConfettiFromIcon() {
       particleCount: 150,      // Heavy density (100+ particles)
       angle: 90,               // Straight up
       spread: 145,             // Wide spread for full dramatic effect
-      startVelocity: 60,       // High velocity to shoot particles upward
+      startVelocity: 30,       // Medium velocity to shoot particles upward
       gravity: 1.0,            // Standard gravity
       decay: 0.91,             // Natural fade rate
       origin: { x: originX, y: originY }, // Shoot from icon center
