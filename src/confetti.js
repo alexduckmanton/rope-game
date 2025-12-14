@@ -25,6 +25,17 @@ const CONFETTI_COLORS = [
 const ANIMATION_DELAY_MS = 350;
 
 /**
+ * Total duration of confetti animation (ticks / 60fps ≈ 3 seconds)
+ * Adding buffer for cleanup timing
+ */
+const CONFETTI_DURATION_MS = 3500;
+
+/**
+ * Z-index for confetti canvas (must be above bottom sheet which is at 1001)
+ */
+const CONFETTI_Z_INDEX = 1002;
+
+/**
  * Fire confetti from the bottom sheet icon position.
  *
  * Heavy configuration with particles shooting upward from the party-popper icon.
@@ -36,12 +47,32 @@ const ANIMATION_DELAY_MS = 350;
  * - Medium velocity for balanced effect
  * - Gold/amber color scheme
  * - ~3 second animation duration
+ * - Renders above bottom sheet (z-index 1002)
+ * - Non-blocking (pointer-events: none)
  *
  * Usage:
  *   fireConfettiFromIcon(); // Call after showWinCelebration()
  */
 export function fireConfettiFromIcon() {
   setTimeout(() => {
+    // Create dedicated canvas element for confetti
+    // Positioned above bottom sheet with pointer-events: none to avoid blocking interactions
+    const canvas = document.createElement('canvas');
+    canvas.style.position = 'fixed';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.zIndex = CONFETTI_Z_INDEX.toString();
+    canvas.style.pointerEvents = 'none'; // Don't block clicks on bottom sheet buttons
+    document.body.appendChild(canvas);
+
+    // Create confetti instance bound to this canvas
+    const myConfetti = confetti.create(canvas, {
+      resize: true, // Auto-resize canvas on window resize
+      useWorker: true // Use web worker for better performance
+    });
+
     // Find the bottom sheet icon container to calculate origin position
     const iconContainer = document.querySelector('.bottom-sheet-icon-container');
 
@@ -61,7 +92,7 @@ export function fireConfettiFromIcon() {
     }
 
     // Fire heavy confetti burst
-    confetti({
+    myConfetti({
       particleCount: 150,      // Heavy density (100+ particles)
       angle: 90,               // Straight up
       spread: 145,             // Wide spread for full dramatic effect
@@ -73,5 +104,10 @@ export function fireConfettiFromIcon() {
       scalar: 1.2,             // Slightly larger particles for visibility
       ticks: 300               // Animation duration (~3 seconds)
     });
+
+    // Clean up canvas after animation completes
+    setTimeout(() => {
+      document.body.removeChild(canvas);
+    }, CONFETTI_DURATION_MS);
   }, ANIMATION_DELAY_MS);
 }
