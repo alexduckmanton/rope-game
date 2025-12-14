@@ -25,8 +25,13 @@ const CONFETTI_COLORS = [
 const ANIMATION_DELAY_MS = 350;
 
 /**
- * Total duration of confetti animation (ticks / 60fps ≈ 3 seconds)
- * Adding buffer for cleanup timing
+ * Particle animation duration in ticks (180 ticks / 60fps = 3 seconds)
+ */
+const CONFETTI_TICKS = 180;
+
+/**
+ * Total cleanup delay (animation duration + 500ms buffer)
+ * Canvas removed after particles complete their lifecycle
  */
 const CONFETTI_DURATION_MS = 3500;
 
@@ -46,7 +51,7 @@ const CONFETTI_Z_INDEX = 1002;
  * - Shoots straight up (90°) with focused spread (90°)
  * - Medium velocity for balanced effect
  * - Gold/amber color scheme
- * - ~3 second animation duration
+ * - 3 second animation duration (180 ticks at 60fps)
  * - Renders above bottom sheet (z-index 1002)
  * - Non-blocking (pointer-events: none)
  *
@@ -111,7 +116,7 @@ export function fireConfettiFromIcon() {
       origin: { x: originX, y: originY }, // Shoot from icon center
       colors: CONFETTI_COLORS, // Gold/amber theme
       scalar: 1.2,             // Slightly larger particles for visibility
-      ticks: 300               // Animation duration (~3 seconds)
+      ticks: CONFETTI_TICKS    // Animation duration (3 seconds)
     });
 
     // Clean up canvas after animation completes
