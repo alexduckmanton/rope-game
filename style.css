@@ -133,6 +133,11 @@ body {
   user-select: none;
 }
 
+/* Ensure buttons inherit font-family (needed for Android/WebView where buttons don't inherit by default) */
+button {
+  font-family: inherit;
+}
+
 #app {
   display: flex;
   flex-direction: column;
@@ -148,17 +153,24 @@ body {
   height: 64px;
   padding: 0 4px;
   background-color: #F5F5F5;
+  position: relative;
 }
 
 .top-bar-title {
-  flex: 1;
-  margin: 0 16px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
   font-size: 22px;
   font-weight: 500;
   color: #34495E;
   letter-spacing: 0;
   line-height: 28px;
   text-align: center;
+  max-width: 60%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .top-bar-actions {
@@ -346,7 +358,7 @@ body {
 .game-title {
   font-family: 'Monoton', 'Impact', 'Arial Black', cursive, sans-serif;
   font-size: 72px;
-  font-weight: 700;
+  font-weight: 400;
   color: #34495E;
   margin: 0;
   letter-spacing: 0;
