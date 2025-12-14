@@ -606,9 +606,9 @@ This architecture avoids the need for dedicated "hasShownConfetti" tracking vari
 
 **Mobile Performance:** The heavy particle configuration (150 particles) is deliberately chosen because canvas-confetti uses GPU-accelerated canvas rendering and requestAnimationFrame for smooth 60fps animation. Testing on mid-range mobile devices shows no perceptible frame drops or lag during confetti animation.
 
-**Rendering Layer:** Confetti renders on its own canvas element positioned above the game canvas but below the bottom sheet (z-index hierarchy managed by canvas-confetti). This layering prevents confetti from interfering with game interactions or covering important UI elements.
+**Rendering Layer:** Confetti renders on a dedicated canvas element positioned above the bottom sheet (z-index 1002, compared to bottom sheet's 1001). The canvas has pointer-events: none to ensure confetti particles don't block user interactions with the bottom sheet buttons. This allows users to click "Yay!" or "Close" while confetti is still falling, creating seamless interaction during the celebration.
 
-**Memory Cleanup:** Canvas-confetti automatically cleans up particle canvas and animation frames after the effect completes. No manual cleanup required from the game code.
+**Memory Cleanup:** The custom canvas element is automatically removed from the DOM after the confetti animation completes (3.5 seconds), ensuring no memory leaks or orphaned elements. The confetti library handles cleanup of animation frames and particle state internally.
 
 **Design Rationale:**
 
@@ -637,7 +637,7 @@ Future enhancement could include a settings toggle to disable confetti for playe
 
 **Known Limitations:**
 
-No user control to skip or disable confetti animation. No keyboard or screen reader announcements for the confetti effect. Confetti particles can briefly cover hint numbers or UI elements during the three-second animation (acceptable since game interaction is paused during celebration). Position calculation depends on DOM structure remaining consistent with current bottom sheet implementation.
+No user control to skip or disable confetti animation. No keyboard or screen reader announcements for the confetti effect. Confetti particles visually render on top of all UI elements during the three-second animation, though pointer-events: none ensures they don't block user interactions with the bottom sheet buttons. Position calculation depends on DOM structure remaining consistent with current bottom sheet implementation.
 
 **Future Enhancements:**
 
