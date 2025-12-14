@@ -13,6 +13,7 @@ import { showBottomSheetAsync } from '../bottomSheet.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
 import { checkStructuralWin as checkStructuralWinUtil, checkFullWin } from '../game/validation.js';
 import { markTutorialCompleted } from '../persistence.js';
+import { fireConfettiFromIcon } from '../confetti.js';
 
 /* ============================================================================
  * TUTORIAL CONFIGURATIONS
@@ -285,6 +286,9 @@ function render() {
           }
         }
       });
+
+      // Fire confetti from the bottom sheet icon
+      fireConfettiFromIcon();
     } else if (currentConfig && currentConfig.hasHints && !hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
       // Only show feedback once per structural completion
