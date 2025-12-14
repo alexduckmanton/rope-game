@@ -133,6 +133,11 @@ body {
   user-select: none;
 }
 
+/* Ensure buttons inherit font-family (needed for Android/WebView where buttons don't inherit by default) */
+button {
+  font-family: inherit;
+}
+
 #app {
   display: flex;
   flex-direction: column;
@@ -148,17 +153,24 @@ body {
   height: 64px;
   padding: 0 4px;
   background-color: #F5F5F5;
+  position: relative;
 }
 
 .top-bar-title {
-  flex: 1;
-  margin: 0 16px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
   font-size: 22px;
   font-weight: 500;
   color: #34495E;
   letter-spacing: 0;
   line-height: 28px;
   text-align: center;
+  max-width: 60%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .top-bar-actions {
@@ -346,7 +358,7 @@ body {
 .game-title {
   font-family: 'Monoton', 'Impact', 'Arial Black', cursive, sans-serif;
   font-size: 72px;
-  font-weight: 700;
+  font-weight: 400;
   color: #34495E;
   margin: 0;
   letter-spacing: 0;
@@ -729,6 +741,52 @@ body {
 
 .bottom-sheet-dismiss-btn:active {
   transform: scale(0.98);
+}
+
+/* Desktop styling for bottom sheet - centered modal */
+@media (min-width: 768px) {
+  /* Semi-transparent black overlay for desktop - starts invisible */
+  .bottom-sheet-overlay {
+    background-color: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    /* Fade-out transition - steep ease-in */
+    transition: opacity 300ms cubic-bezier(0.6, 0, 0.9, 1);
+  }
+
+  /* Overlay fades in when visible */
+  .bottom-sheet-overlay.visible {
+    opacity: 1;
+    /* Fade-in transition - ease-out */
+    transition: opacity 300ms cubic-bezier(0.34, 1.3, 0.64, 1);
+  }
+
+  /* Center the bottom sheet and make it 400px wide with all corners rounded */
+  .bottom-sheet {
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    width: 400px;
+    border-radius: 16px;
+    padding-bottom: 0;
+    /* Hidden state: centered, 1rem below final position, invisible */
+    transform: translate(-50%, calc(-50% + 1rem));
+    opacity: 0;
+    /* Add opacity to transitions for fade effect */
+    transition: transform 300ms cubic-bezier(0.6, 0, 0.9, 1),
+                box-shadow 300ms cubic-bezier(0.6, 0, 0.9, 1),
+                opacity 300ms cubic-bezier(0.6, 0, 0.9, 1);
+  }
+
+  /* Shown state: fully centered and visible */
+  .bottom-sheet-overlay.visible .bottom-sheet {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+    /* Show transition with opacity fade-in */
+    transition: transform 300ms cubic-bezier(0.34, 1.3, 0.64, 1),
+                box-shadow 300ms cubic-bezier(0.34, 1.3, 0.64, 1),
+                opacity 300ms cubic-bezier(0.34, 1.3, 0.64, 1);
+  }
 }
 
 /* Settings list container */
