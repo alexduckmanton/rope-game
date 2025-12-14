@@ -133,6 +133,11 @@ body {
   user-select: none;
 }
 
+/* Ensure buttons inherit font-family (needed for Android/WebView where buttons don't inherit by default) */
+button {
+  font-family: inherit;
+}
+
 #app {
   display: flex;
   flex-direction: column;
@@ -346,7 +351,7 @@ body {
 .game-title {
   font-family: 'Monoton', 'Impact', 'Arial Black', cursive, sans-serif;
   font-size: 72px;
-  font-weight: 700;
+  font-weight: 400;
   color: #34495E;
   margin: 0;
   letter-spacing: 0;
