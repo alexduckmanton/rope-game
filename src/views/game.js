@@ -18,6 +18,7 @@ import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
 import { checkStructuralWin as checkStructuralWinUtil, checkFullWin } from '../game/validation.js';
+import { fireConfettiFromIcon } from '../confetti.js';
 
 /* ============================================================================
  * CONSTANTS
@@ -509,6 +510,9 @@ function render(triggerSave = true) {
 
       // Show win celebration
       showWinCelebration(finalTime);
+
+      // Fire confetti from the bottom sheet icon
+      fireConfettiFromIcon();
     } else if (!hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
       // Only show feedback once per structural completion
