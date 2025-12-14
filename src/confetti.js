@@ -58,6 +58,15 @@ export function fireConfettiFromIcon() {
     // Create dedicated canvas element for confetti
     // Positioned above bottom sheet with pointer-events: none to avoid blocking interactions
     const canvas = document.createElement('canvas');
+
+    // Get device pixel ratio for high-DPI screens (Retina, etc.)
+    const dpr = window.devicePixelRatio || 1;
+
+    // Set canvas internal dimensions to match physical pixels for crisp rendering
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+
+    // Set CSS dimensions to match viewport (100%)
     canvas.style.position = 'fixed';
     canvas.style.top = '0';
     canvas.style.left = '0';
@@ -69,7 +78,7 @@ export function fireConfettiFromIcon() {
 
     // Create confetti instance bound to this canvas
     const myConfetti = confetti.create(canvas, {
-      resize: true, // Auto-resize canvas on window resize
+      resize: true, // Auto-resize canvas on window resize (handles DPR automatically)
       useWorker: true // Use web worker for better performance
     });
 
