@@ -731,6 +731,31 @@ body {
   transform: scale(0.98);
 }
 
+/* Desktop styling for bottom sheet - centered modal */
+@media (min-width: 768px) {
+  /* Semi-transparent black overlay for desktop */
+  .bottom-sheet-overlay {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  /* Center the bottom sheet and make it 400px wide with all corners rounded */
+  .bottom-sheet {
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    width: 400px;
+    border-radius: 16px;
+    /* Hidden state: centered horizontally, but positioned below viewport */
+    transform: translate(-50%, calc(-50% + 100vh));
+  }
+
+  /* Shown state: fully centered */
+  .bottom-sheet-overlay.visible .bottom-sheet {
+    transform: translate(-50%, -50%);
+  }
+}
+
 /* Settings list container */
 .settings-list {
   padding: 0;
