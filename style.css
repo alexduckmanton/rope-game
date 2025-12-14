@@ -153,17 +153,24 @@ button {
   height: 64px;
   padding: 0 4px;
   background-color: #F5F5F5;
+  position: relative;
 }
 
 .top-bar-title {
-  flex: 1;
-  margin: 0 16px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
   font-size: 22px;
   font-weight: 500;
   color: #34495E;
   letter-spacing: 0;
   line-height: 28px;
   text-align: center;
+  max-width: 60%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .top-bar-actions {
