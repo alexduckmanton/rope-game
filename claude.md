@@ -20,6 +20,7 @@
 | `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback |
 | `game/validation.js` | Win validation | `checkStructuralWin()`, `checkFullWin()`, `validateHints()` - Shared by game and tutorial |
 | `game/canvasSetup.js` | Canvas sizing | `calculateCellSize(gridSize, extraSpace)`, `setupCanvas()` - Responsive sizing utilities |
+| `confetti.js` | Win celebration effects | `fireConfettiFromIcon()` - Particle animation for puzzle completion |
 
 ### Core Concepts
 
@@ -222,6 +223,7 @@ In tutorial pages, hint numbers use the magnitude-based gradient for educational
 - **CSS3** - Animations, layouts, bottom sheet transitions
 - **Vite** - Dev server and build tooling (fast HMR, tree-shaking)
 - **Lucide Icons** - Tree-shakeable SVG icons (~2-3KB bundle)
+- **canvas-confetti** - GPU-accelerated particle effects for win celebrations (~26KB bundle, 10KB gzipped)
 - **Fonts**: Inter (UI text) and Monoton (title only), self-hosted via @fontsource
 
 ### File Structure
@@ -245,6 +247,7 @@ rope-game/
 │   ├── gameCore.js        # Game state and interaction logic (pointer events, drag handling)
 │   ├── renderer.js        # Canvas rendering (grid, paths, hints, borders)
 │   ├── persistence.js     # localStorage save/load/cleanup with throttled writes
+│   ├── confetti.js        # Win celebration particle effects (wraps canvas-confetti library)
 │   ├── game/              # Shared game modules (used by both game and tutorial views)
 │   │   ├── timer.js       # Encapsulated timer with pause/resume support
 │   │   ├── share.js       # Share functionality (Web Share API + clipboard fallback)
@@ -525,6 +528,121 @@ No built-in state tracking across multiple sheets (only one should be visible at
 
 Component could be extended to support multiple simultaneous sheets with z-index stacking, animation queueing for rapid successive shows, keyboard navigation (Escape to close), focus management (trap focus within sheet, restore on close), and ARIA attributes for screen readers. Current implementation prioritizes simplicity and covers all existing use cases without over-engineering for hypothetical requirements.
 
+### Confetti Celebration System
+
+**Purpose:** Provides celebratory particle effects when players complete puzzles, creating an immediate emotional reward at the moment of victory. Confetti shoots upward from the golden party-popper icon in the winning bottom sheet, reinforcing the success state with dynamic visual feedback.
+
+**Architecture:** Single-function module wrapping the canvas-confetti library with game-specific configuration. The module exports one function that handles timing synchronization, position calculation, and particle burst configuration.
+
+**Library Choice:** Uses canvas-confetti as the underlying particle system rather than implementing custom particle physics. This decision prioritizes reliability and performance over bundle size. Canvas-confetti is well-optimized for mobile devices with GPU-accelerated rendering, cross-browser consistency, and professional-quality particle physics including gravity, velocity decay, and natural rotation.
+
+**Visual Configuration:**
+
+| Property | Value | Rationale |
+|----------|-------|-----------|
+| **Particle Count** | 150 | Heavy density creates dramatic celebration without overwhelming the screen |
+| **Direction** | 90° (straight up) | Upward trajectory feels triumphant and matches party-popper metaphor |
+| **Spread** | 145° | Wide arc ensures particles fill most of the screen width for maximum visual impact |
+| **Start Velocity** | 30 | Medium velocity balances dramatic effect with mobile performance, particles arc gracefully |
+| **Gravity** | 1.0 | Standard gravity creates natural falling motion after upward burst |
+| **Particle Size** | 1.2x scalar | Slightly larger than default for visibility on mobile screens |
+| **Duration** | 300 ticks (~3 seconds) | Long enough to appreciate the effect, short enough to not overstay welcome |
+
+**Color Palette:**
+
+Confetti uses three shades of gold and amber matching the success color scheme from the bottom sheet party-popper icon. This creates visual coherence between the icon and the particles shooting from it.
+
+| Color | Hex Code | Usage | Visual Role |
+|-------|----------|-------|-------------|
+| Rich amber/gold | `#F59E0B` | Primary | Dominant warm tone, matches icon color directly |
+| Pale golden yellow | `#FEF3C7` | Secondary | Light accent, matches icon background |
+| Medium gold | `#FBBF24` | Tertiary | Mid-tone bridge between primary and secondary |
+
+The three-color palette avoids visual clutter while providing enough variation for natural-looking particle diversity. All colors stay within the warm gold family to maintain thematic consistency with the success state.
+
+**Timing Architecture:**
+
+Confetti triggering involves careful synchronization with the bottom sheet animation to ensure particles appear to originate from the visible icon rather than off-screen.
+
+**Animation Sequence:**
+1. Player completes puzzle (win validation passes)
+2. Bottom sheet slides up from bottom edge (300ms cubic-bezier animation)
+3. Party-popper icon becomes visible as sheet slides into view
+4. Confetti fires after 350ms delay (300ms animation + 50ms buffer)
+5. Particles shoot upward from icon center, arc, and fall naturally over three seconds
+
+The 350ms delay ensures the bottom sheet is fully visible and settled before confetti fires. Without this delay, particles would appear to shoot from below the screen edge, breaking the illusion of originating from the icon.
+
+**Position Calculation:**
+
+Origin point is calculated dynamically from the bottom sheet icon container DOM element rather than using fixed coordinates. This approach adapts to different screen sizes, orientations, and potential future layout changes.
+
+**Calculation Steps:**
+1. Query DOM for bottom sheet icon container using class selector
+2. Get bounding rectangle of container element
+3. Calculate center point (left + width/2, top + height/2)
+4. Normalize coordinates to canvas space (x and y as 0-1 range)
+5. Pass normalized coordinates to confetti library as origin point
+
+**Fallback Behavior:** If icon container is not found in DOM (rare edge case), confetti defaults to center-bottom position (x: 0.5, y: 0.7). This ensures celebration still occurs even if DOM structure changes unexpectedly.
+
+**Integration Points:**
+
+Confetti fires at two distinct locations in the codebase, both in win detection paths:
+
+**Game Win (Daily & Unlimited):** Integrated into game view win detection path immediately after win celebration bottom sheet is shown. Triggered only on fresh puzzle completions, not when restoring saved win state from localStorage. This distinction prevents confetti from firing every time a player returns to an already-completed puzzle.
+
+**Tutorial Completion:** Integrated into tutorial view win detection path for all four tutorial lessons. Each lesson completion triggers confetti when the win celebration bottom sheet appears. Tutorial wins always trigger confetti since there is no state restoration for tutorial progress.
+
+**Prevention of Duplicate Triggers:**
+
+The system relies on selective code placement rather than explicit state flags to prevent confetti from firing on page refresh. Win detection code runs inside a guard condition checking that the win state is transitioning from false to true. When a player refreshes the page with a saved win state, the win flag is already true (loaded from localStorage), so the win detection code path never executes. Since the confetti trigger only exists in the fresh win detection path, it never fires on restoration.
+
+This architecture avoids the need for dedicated "hasShownConfetti" tracking variables while ensuring confetti fires exactly once per puzzle completion.
+
+**Performance Considerations:**
+
+**Bundle Size Impact:** Canvas-confetti adds approximately 26KB to the production bundle (10KB gzipped). This is acceptable given the emotional value of the celebration and the reliability benefits of using a battle-tested library.
+
+**Mobile Performance:** The heavy particle configuration (150 particles) is deliberately chosen because canvas-confetti uses GPU-accelerated canvas rendering and requestAnimationFrame for smooth 60fps animation. Testing on mid-range mobile devices shows no perceptible frame drops or lag during confetti animation.
+
+**Rendering Layer:** Confetti renders on its own canvas element positioned above the game canvas but below the bottom sheet (z-index hierarchy managed by canvas-confetti). This layering prevents confetti from interfering with game interactions or covering important UI elements.
+
+**Memory Cleanup:** Canvas-confetti automatically cleans up particle canvas and animation frames after the effect completes. No manual cleanup required from the game code.
+
+**Design Rationale:**
+
+**Emotional Reward Timing:** Confetti fires immediately when the bottom sheet appears rather than waiting for user interaction or adding delays. This instant feedback creates stronger association between completing the puzzle and receiving the reward, reinforcing the positive achievement loop.
+
+**Visual Coherence:** Shooting confetti from the party-popper icon rather than screen center or random positions creates a clear visual story - the icon "pops" and releases celebration particles. This narrative quality makes the effect feel intentional rather than arbitrary.
+
+**Intensity Selection:** Heavy particle count (150) was chosen over lighter alternatives because puzzle completion is a significant achievement worthy of enthusiastic celebration. The dramatic effect compensates for the lack of sound effects and provides satisfying closure to the gameplay session.
+
+**Color Consistency:** Using the gold color palette throughout (icon background, icon color, confetti particles) creates a unified success aesthetic. Players subconsciously associate the gold color with winning, building brand consistency across the game experience.
+
+**Accessibility Considerations:**
+
+Confetti is purely decorative and does not convey essential information. Players with motion sensitivity or visual processing challenges can still understand they have won through the bottom sheet message, green path color, and validated hint colors. The confetti enhances but does not replace these primary success indicators.
+
+Future enhancement could include a settings toggle to disable confetti for players who find motion effects distracting or overwhelming.
+
+**Current Usage:**
+
+| Trigger | Location | Frequency | User Control |
+|---------|----------|-----------|--------------|
+| Daily puzzle completion | Fresh win in game view | Once per daily puzzle | Cannot skip or replay |
+| Unlimited puzzle completion | Fresh win in game view | Once per puzzle | Can generate new puzzles for repeated effect |
+| Tutorial lesson completion | All 4 tutorial wins | Once per lesson | Cannot skip, lessons not repeatable |
+| Page refresh with saved win | Never triggers | N/A | Intentionally prevented |
+
+**Known Limitations:**
+
+No user control to skip or disable confetti animation. No keyboard or screen reader announcements for the confetti effect. Confetti particles can briefly cover hint numbers or UI elements during the three-second animation (acceptable since game interaction is paused during celebration). Position calculation depends on DOM structure remaining consistent with current bottom sheet implementation.
+
+**Future Enhancements:**
+
+Settings toggle to disable confetti for motion-sensitive players. Alternative celebration styles (gentle sparkle vs heavy burst) based on puzzle difficulty or user preference. Confetti color themes matching different achievement types or special daily puzzles. Sound effects synchronized with confetti burst for enhanced celebration feel. Haptic feedback on mobile devices timed with particle burst.
+
 -----
 
 ## UI/UX Specifications
@@ -606,6 +724,7 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 - Path color shifts from black (`#000000`) to green (`#ACF39D`)
 - Constraint numbers fade to green
 - "Puzzle Solved" message with completion time
+- Gold confetti particles (150 count) shoot upward from party-popper icon with wide spread, arcing naturally over three seconds
 
 **Settings Bottom Sheet:**
 - Slide up: Ease-out with bounce (cubic-bezier(0.34, 1.3, 0.64, 1))
