@@ -43,7 +43,7 @@ const CONFETTI_Z_INDEX = 1002;
  *
  * Configuration:
  * - 150 particles (heavy density)
- * - Shoots straight up (90°) with wide spread (145°)
+ * - Shoots straight up (90°) with focused spread (90°)
  * - Medium velocity for balanced effect
  * - Gold/amber color scheme
  * - ~3 second animation duration
@@ -104,7 +104,7 @@ export function fireConfettiFromIcon() {
     myConfetti({
       particleCount: 150,      // Heavy density (100+ particles)
       angle: 90,               // Straight up
-      spread: 145,             // Wide spread for full dramatic effect
+      spread: 90,              // Focused upward spread for concentrated effect
       startVelocity: 30,       // Medium velocity to shoot particles upward
       gravity: 1.0,            // Standard gravity
       decay: 0.91,             // Natural fade rate
