@@ -568,8 +568,9 @@ function render(triggerSave = true) {
         });
       }
     }
-  } else {
-    // If partial structural win is no longer valid, reset both feedback flags
+  } else if (!hasWon) {
+    // Only check for flag reset if game is not won
+    // (avoids redundant checkPartialStructuralWin call after winning)
     if (!checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
       hasShownPartialWinFeedback = false;
       hasShownIncompleteLoopFeedback = false;
@@ -996,13 +997,13 @@ export function initGame(difficulty) {
     if (!hasWon && !hasViewedSolution) gameCore.handlePointerDown(e);
   };
   const pointerMoveHandler = (e) => {
-    if (!hasViewedSolution) gameCore.handlePointerMove(e);
+    if (!hasWon && !hasViewedSolution) gameCore.handlePointerMove(e);
   };
   const pointerUpHandler = (e) => {
-    if (!hasViewedSolution) gameCore.handlePointerUp(e);
+    if (!hasWon && !hasViewedSolution) gameCore.handlePointerUp(e);
   };
   const pointerCancelHandler = (e) => {
-    if (!hasViewedSolution) gameCore.handlePointerCancel(e);
+    if (!hasWon && !hasViewedSolution) gameCore.handlePointerCancel(e);
   };
 
   window.addEventListener('resize', resizeHandler);
