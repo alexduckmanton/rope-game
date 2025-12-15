@@ -534,7 +534,7 @@ function render(triggerSave = true) {
           activeGameSheet.destroy();
         }
         activeGameSheet = showBottomSheetAsync({
-          title: 'Nice loop!',
+          title: 'Almost there',
           content: '<div class="bottom-sheet-message">Nice loop, but you need to draw through every square in the grid to win.</div>',
           icon: 'circle-off',
           colorScheme: 'error',
