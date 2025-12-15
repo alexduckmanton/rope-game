@@ -39,11 +39,11 @@ const TUTORIAL_CONFIGS = {
     instruction: 'Your loop can be any shape.\nTap to erase parts of your loop.',
     nextRoute: '/tutorial?page=3',
     hasHints: false,
-    introTitle: 'Any shape works',
+    introTitle: 'Draw any shape',
     introContent: `
       <div class="bottom-sheet-message">
-        <p>Your loop can be any shape, as long as it connects back to itself.</p>
-        <p>Try drawing different loop shapes in this grid.</p>
+        <p>Try another with a bigger grid. Your loop can be any shape, so long as it connects at both ends.</p>
+        <p>Try drawing a bigger loop.</p>
       </div>
     `
   },
