@@ -31,11 +31,11 @@
 
 ### Grid Sizes
 
-| Difficulty | Grid Size | Total Cells | Max Hints | Win Requirement | Warnsdorff Attempts |
-|------------|-----------|-------------|-----------|-----------------|---------------------|
-| Easy       | 4x4       | 16          | 2         | Any valid loop  | 20                  |
-| Medium     | 6x6       | 36          | Unlimited | Any valid loop  | 50                  |
-| Hard       | 8x8       | 64          | Unlimited | All cells       | 100                 |
+| Difficulty | Grid Size | Total Cells | Max Hints | Hint Probability | Win Requirement | Warnsdorff Attempts |
+|------------|-----------|-------------|-----------|------------------|-----------------|---------------------|
+| Easy       | 4x4       | 16          | 2         | 30%              | Any valid loop  | 20                  |
+| Medium     | 6x6       | 36          | Unlimited | 20%              | Any valid loop  | 50                  |
+| Hard       | 8x8       | 64          | Unlimited | 30%              | All cells       | 100                 |
 
 ### Storage Keys
 
@@ -304,7 +304,7 @@ Generates Hamiltonian cycles (paths visiting all cells exactly once forming a lo
 
 **Warnsdorff's Rule:** Always move to the neighbor with the fewest unvisited neighbors. This greedy strategy avoids dead ends by saving well-connected cells for later.
 
-**Hint Cell Selection:** After generating solution path, `generateHintCells()` randomly selects ~30% of cells to show hints using seeded random for daily puzzles or true random for unlimited mode. Easy difficulty is capped at 2 hints maximum to reduce complexity; medium and hard have no cap.
+**Hint Cell Selection:** After generating solution path, `generateHintCells()` probabilistically selects cells to show hints using difficulty-specific probabilities. Each cell has a chance of becoming a hint based on the configured probability for that difficulty level. Easy uses 30% probability but caps at 2 hints maximum to reduce complexity. Medium uses 20% probability with no cap, creating sparser but more challenging puzzles. Hard uses 30% probability with no cap, providing more hints across the larger grid. Probabilities are controlled by `getHintProbabilityForDifficulty()` and apply consistently across both daily puzzles (seeded random) and unlimited mode (true random).
 
 **Performance:** ~50ms average for 8x8, >99.99% success rate
 
@@ -712,7 +712,7 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 **Modify Hint Display:**
 1. **Hint number colors**: Update `CONFIG.COLORS.HINT_COLORS` array in `config.js` (affects number text and borders)
 2. **Hint pulsing background color**: Modify color assignment in `renderHintPulse()` function in `renderer.js` (currently uses blue for unvalidated, green for validated)
-3. **Hint probability**: Change `CONFIG.HINT.PROBABILITY` (0-1) or modify `generateHintCells()` in `renderer.js`
+3. **Hint probability per difficulty**: Modify `getHintProbabilityForDifficulty()` function in `game.js` to change probability values for each difficulty level. Changes apply to both daily and unlimited modes automatically since both use the same difficulty-based function. Note: Easy caps at 2 hints regardless of probability, while medium and hard have unlimited hints.
 4. **Border rendering**: Modify `drawHintBorders()` in `renderer.js` (width, inset, layer offset)
 5. **Pulse animation timing**: Adjust `CONFIG.HINT.PULSE_DURATION` and `CONFIG.HINT.PULSE_MAX_OPACITY`
 
