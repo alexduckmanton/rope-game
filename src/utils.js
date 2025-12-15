@@ -405,6 +405,49 @@ export function checkStructuralLoop(playerDrawnCells, playerConnections, gridSiz
 }
 
 /**
+ * Check if drawn cells form a valid closed loop structure
+ * WITHOUT requiring all grid cells to be visited
+ * @param {Set<string>} playerDrawnCells - Set of drawn cell keys
+ * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
+ * @returns {boolean} True if drawn cells form a valid single closed loop
+ */
+export function checkPartialStructuralLoop(playerDrawnCells, playerConnections) {
+  // Need at least some cells to form a loop
+  if (playerDrawnCells.size === 0) return false;
+
+  // Check if each drawn cell has exactly 2 connections (closed loop requirement)
+  for (const cellKey of playerDrawnCells) {
+    const connections = playerConnections.get(cellKey);
+    if (!connections || connections.size !== 2) return false;
+  }
+
+  // Check if all drawn cells form a SINGLE connected loop
+  // Use BFS to traverse from one cell and verify we can reach all drawn cells
+  const startCell = playerDrawnCells.values().next().value;
+  const visited = new Set();
+  const queue = [startCell];
+  visited.add(startCell);
+
+  while (queue.length > 0) {
+    const currentCell = queue.shift();
+    const connections = playerConnections.get(currentCell);
+
+    if (connections) {
+      for (const connectedCell of connections) {
+        if (!visited.has(connectedCell)) {
+          visited.add(connectedCell);
+          queue.push(connectedCell);
+        }
+      }
+    }
+  }
+
+  // If we visited all drawn cells, it's a single connected loop
+  // If we didn't, there are multiple disconnected loops (invalid)
+  return visited.size === playerDrawnCells.size;
+}
+
+/**
  * Show an alert message asynchronously with optional callback
  * Uses requestAnimationFrame + setTimeout to ensure render completes before alert
  * @param {string} message - The alert message to display
