@@ -202,13 +202,23 @@ function checkWin(playerTurnMap = null) {
 /**
  * Compute a unique key representing the current player path state.
  * Used to detect if the path has actually changed between renders.
+ * Only includes cells with connections - orphaned cells (from taps) are ignored
+ * since they don't affect validation and are removed by cleanup.
  * @returns {string} A string uniquely identifying the current path state
  */
 function computeStateKey() {
   const { playerDrawnCells, playerConnections } = gameCore.state;
 
-  // Create sorted list of cells
-  const cellsStr = [...playerDrawnCells].sort().join(',');
+  // Only include cells that have connections (ignore orphaned cells)
+  // Orphaned cells don't affect validation and are temporary during taps
+  const connectedCells = [];
+  for (const cellKey of playerDrawnCells) {
+    const connections = playerConnections.get(cellKey);
+    if (connections && connections.size > 0) {
+      connectedCells.push(cellKey);
+    }
+  }
+  const cellsStr = connectedCells.sort().join(',');
 
   // Create sorted list of connection pairs (each connection represented once)
   const connectionPairs = new Set();
