@@ -17,7 +17,7 @@ import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
-import { checkStructuralWin as checkStructuralWinUtil, checkFullWin, checkPartialStructuralWin, checkAllCellsVisited, validateHints } from '../game/validation.js';
+import { checkStructuralWin as checkStructuralWinUtil, checkFullWin, checkPartialStructuralWin, checkAllCellsVisited, validateHints, DIFFICULTY, computeStateKey } from '../game/validation.js';
 
 /* ============================================================================
  * CONSTANTS
@@ -77,6 +77,7 @@ let hasWon = false;
 let hasShownPartialWinFeedback = false;
 let hasShownIncompleteLoopFeedback = false;
 let hasViewedSolution = false;
+let lastValidatedStateKey = '';  // Track state to avoid redundant validation
 
 // Cached values for performance (recalculated when puzzle changes)
 let cachedBorderLayers = null;
@@ -197,6 +198,7 @@ function checkWin(playerTurnMap = null) {
     pTurnMap
   );
 }
+
 
 /* ============================================================================
  * TIMER FUNCTIONS
@@ -486,12 +488,20 @@ function render(triggerSave = true) {
 
   renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
-  // New validation flow:
+  // Skip validation if the path hasn't changed since last validation
+  // This prevents error modals from appearing on taps that don't modify the path
+  const currentStateKey = computeStateKey(playerDrawnCells, playerConnections);
+  const stateChanged = currentStateKey !== lastValidatedStateKey;
+  if (stateChanged) {
+    lastValidatedStateKey = currentStateKey;
+  }
+
+  // Validation flow (only runs if state changed):
   // 1. Check if drawn cells form a valid closed loop (not necessarily all cells)
   // 2. If yes, check if all hints are validated
-  // 3. If hints valid, check if all cells visited
-  // 4. Show appropriate error/win message based on conditions
-  if (!hasWon && checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
+  // 3. For easy/medium: hints valid = win; for hard: also requires all cells visited
+  // 4. Show appropriate error/win message based on difficulty and conditions
+  if (stateChanged && !hasWon && checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
     // Player has drawn a valid closed loop (single connected loop, each cell has 2 connections)
 
     // Build turn maps for validation
@@ -501,10 +511,14 @@ function render(triggerSave = true) {
     // Check if all hints in the grid are validated correctly
     const hintsValid = validateHints(solMap, playerMap, hintCells, gridSize);
 
+    // Hard mode requires visiting all cells; easy/medium only require satisfying hints
+    const requiresAllCells = currentGameDifficulty === DIFFICULTY.HARD;
+    const allCellsVisited = checkAllCellsVisited(playerDrawnCells, gridSize);
+
     if (hintsValid) {
-      // All hints are correct! Check if all cells are visited
-      if (checkAllCellsVisited(playerDrawnCells, gridSize)) {
-        // FULL WIN - all cells visited, all hints correct, valid loop
+      // All hints are correct! Check win condition based on difficulty
+      if (!requiresAllCells || allCellsVisited) {
+        // WIN - either all cells not required (easy/medium), or all cells visited (hard)
         hasWon = true;
         hasShownPartialWinFeedback = false;
         hasShownIncompleteLoopFeedback = false;
@@ -526,7 +540,7 @@ function render(triggerSave = true) {
         // Show win celebration
         showWinCelebration(finalTime);
       } else if (!hasShownIncompleteLoopFeedback) {
-        // NEW ERROR: Valid loop, all hints correct, but not all cells visited
+        // Hard mode only: Valid loop, all hints correct, but not all cells visited
         hasShownIncompleteLoopFeedback = true;
 
         // Destroy any previous game sheet before showing new one
@@ -535,7 +549,7 @@ function render(triggerSave = true) {
         }
         activeGameSheet = showBottomSheetAsync({
           title: 'Almost there',
-          content: '<div class="bottom-sheet-message">Nice loop, but you need to draw through every square in the grid to win.</div>',
+          content: '<div class="bottom-sheet-message">In hard mode, your loop must pass through every square in the grid.</div>',
           icon: 'circle-off',
           colorScheme: 'error',
           dismissLabel: 'Keep trying'
@@ -543,9 +557,12 @@ function render(triggerSave = true) {
       }
     } else {
       // Hints are wrong
-      // Only show "almost there" if all cells are visited
-      if (checkAllCellsVisited(playerDrawnCells, gridSize) && !hasShownPartialWinFeedback) {
-        // "Almost there!" error - all cells visited but hints don't match
+      // For easy/medium: show error on any complete loop
+      // For hard: show error only when all cells visited
+      const shouldShowHintsError = requiresAllCells ? allCellsVisited : true;
+
+      if (shouldShowHintsError && !hasShownPartialWinFeedback) {
+        // "Almost there!" error - hints don't match
         hasShownPartialWinFeedback = true;
 
         // Destroy any previous game sheet before showing new one
@@ -560,10 +577,9 @@ function render(triggerSave = true) {
           dismissLabel: 'Keep trying'
         });
       }
-      // If not all cells visited and hints wrong, don't show feedback yet
     }
-  } else {
-    // If partial structural win is no longer valid, reset both feedback flags
+  } else if (stateChanged && !hasWon) {
+    // Only check for flag reset if state changed and game is not won
     if (!checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
       hasShownPartialWinFeedback = false;
       hasShownIncompleteLoopFeedback = false;
@@ -615,6 +631,7 @@ function generateNewPuzzle() {
   hasShownPartialWinFeedback = false;
   hasShownIncompleteLoopFeedback = false;
   hasViewedSolution = false;
+  lastValidatedStateKey = '';
 
   // Update UI state for new puzzle
   setGameUIState(GAME_STATE.NEW);
@@ -754,6 +771,7 @@ function restartPuzzle() {
   hasWon = false;
   hasShownPartialWinFeedback = false;
   hasShownIncompleteLoopFeedback = false;
+  lastValidatedStateKey = '';
 
   // Update UI state for in-progress game
   setGameUIState(GAME_STATE.IN_PROGRESS);
@@ -927,6 +945,7 @@ export function initGame(difficulty) {
   hasShownPartialWinFeedback = false;
   hasShownIncompleteLoopFeedback = false;
   hasViewedSolution = false;
+  lastValidatedStateKey = '';
   eventListeners = [];
 
   // Create game core instance
@@ -990,13 +1009,13 @@ export function initGame(difficulty) {
     if (!hasWon && !hasViewedSolution) gameCore.handlePointerDown(e);
   };
   const pointerMoveHandler = (e) => {
-    if (!hasViewedSolution) gameCore.handlePointerMove(e);
+    if (!hasWon && !hasViewedSolution) gameCore.handlePointerMove(e);
   };
   const pointerUpHandler = (e) => {
-    if (!hasViewedSolution) gameCore.handlePointerUp(e);
+    if (!hasWon && !hasViewedSolution) gameCore.handlePointerUp(e);
   };
   const pointerCancelHandler = (e) => {
-    if (!hasViewedSolution) gameCore.handlePointerCancel(e);
+    if (!hasWon && !hasViewedSolution) gameCore.handlePointerCancel(e);
   };
 
   window.addEventListener('resize', resizeHandler);

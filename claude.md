@@ -25,17 +25,17 @@
 
 - **Turn**: Path changes direction within a cell. Corner = 1 turn, straight = 0 turns.
 - **Constraint (Hint)**: Number showing expected turn count in surrounding 3x3 area (includes diagonals + self).
-- **Victory**: Complete loop visiting all cells exactly once + all constraints satisfied.
+- **Victory**: Closed loop satisfying all constraints. Hard mode additionally requires visiting every cell.
 - **Daily Puzzle**: Deterministic generation using date-based seed (YYYYMMDD + difficulty offset 0/1/2).
 - **Unlimited Mode**: True random generation (not date-based), allows infinite practice with difficulty switching.
 
 ### Grid Sizes
 
-| Difficulty | Grid Size | Total Cells | Max Hints | Warnsdorff Attempts |
-|------------|-----------|-------------|-----------|---------------------|
-| Easy       | 4x4       | 16          | 2         | 20                  |
-| Medium     | 6x6       | 36          | Unlimited | 50                  |
-| Hard       | 8x8       | 64          | Unlimited | 100                 |
+| Difficulty | Grid Size | Total Cells | Max Hints | Win Requirement | Warnsdorff Attempts |
+|------------|-----------|-------------|-----------|-----------------|---------------------|
+| Easy       | 4x4       | 16          | 2         | Any valid loop  | 20                  |
+| Medium     | 6x6       | 36          | Unlimited | Any valid loop  | 50                  |
+| Hard       | 8x8       | 64          | Unlimited | All cells       | 100                 |
 
 ### Storage Keys
 
@@ -49,15 +49,28 @@
 
 ### Core Rules
 
-1. **Draw ONE continuous path** that visits every cell exactly once and returns to the starting point
+1. **Draw ONE continuous path** that forms a closed loop returning to its starting point
 2. **Path can only move UP, DOWN, LEFT, RIGHT** (no diagonals)
 3. **Numbered cells are clues** that indicate how many turns (corners/bends) the path must make in the surrounding 3x3 area
 4. **The number counts a 3x3 grid centered on itself** - includes orthogonal neighbors, diagonal neighbors, and the numbered cell itself
 5. A "turn" = when the path changes direction within a cell (straight = 0 turns, corner = 1 turn)
+6. **Hard mode only**: The path must visit every cell exactly once (Hamiltonian cycle)
 
 ### Victory Condition
 
-All constraints are satisfied AND the path forms a complete loop visiting every cell exactly once.
+Victory requirements vary by difficulty:
+
+**Tutorial, Easy, and Medium:**
+- Path forms a valid closed loop (any shape, any size)
+- All hint constraints are satisfied (turn counts match)
+- Loop does NOT need to visit every cell
+
+**Hard Mode:**
+- Path forms a valid closed loop
+- All hint constraints are satisfied
+- Loop MUST visit every cell in the grid
+
+This design makes easier difficulties more accessible by allowing creative loop shapes, while hard mode preserves the traditional Hamiltonian cycle challenge.
 
 ### Constraint Validation Algorithm
 
@@ -126,6 +139,24 @@ Validation logic remains identical - both modes use the same `isValid = remainin
 **User Control:**
 
 Setting is accessible via bottom sheet under Hints checkbox. Changes apply immediately with live re-render. Setting persists across sessions and applies to all game modes (daily and unlimited).
+
+**Validation Error Modals:**
+
+When players complete a closed loop, contextual feedback modals appear based on validation state:
+
+| Condition | Modal Title | When Shown | Difficulty |
+|-----------|-------------|------------|------------|
+| Hints satisfied, all cells visited | "You made a loop!" | Win state | All |
+| Hints satisfied, not all cells | "You made a loop!" | Win state | Easy/Medium |
+| Hints satisfied, not all cells | "Almost there" | Error | Hard only |
+| Hints wrong, any complete loop | "Almost there!" | Error | Easy/Medium |
+| Hints wrong, all cells visited | "Almost there!" | Error | Hard |
+
+The hard mode incomplete loop error specifically mentions "In hard mode, your loop must pass through every square" to clarify the requirement.
+
+**Validation Optimization:**
+
+To prevent frustrating accidental modal triggers, validation only runs when the path actually changes. The system computes a state key from connected cells and their connections, ignoring orphaned cells (temporary cells from taps that are immediately cleaned up). This prevents error modals from reappearing when players tap without modifying their loop.
 
 ### Magnitude-Based Color System
 
@@ -797,6 +828,7 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 | **New Button** | Hidden (can't regenerate daily puzzle) | Visible (generate fresh puzzle anytime) |
 | **Difficulty** | Fixed by initial selection | Switchable in-session via settings segmented control |
 | **Grid Size** | Easy 4x4, Medium 6x6, Hard 8x8 | Same sizes, switchable within session |
+| **Win Requirement** | Easy/Medium: any loop; Hard: all cells | Same (based on selected difficulty) |
 | **Timer Display** | Shows selected difficulty (e.g., "Medium • 0:00") | Shows current difficulty (e.g., "Easy • 0:00") |
 | **Settings** | Hints, Countdown, Borders, Solution toggles | Same + difficulty segmented control at top |
 | **Save Slots** | One per date+difficulty | One per difficulty (persistent across sessions) |
@@ -830,5 +862,5 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 
 **Path Colors:**
 - **Black**: Player's active drawing
-- **Green**: Victory state (all constraints satisfied)
+- **Green**: Victory state (constraints satisfied; hard mode also requires all cells)
 - **Blue**: Solution path (when "Solution" setting enabled)
