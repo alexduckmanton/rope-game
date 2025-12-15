@@ -148,6 +148,7 @@ let hasShownPartialWinFeedback = false;
 let solutionPath = [];
 let hintCells = new Set();
 let borderMode = 'off';
+let lastValidatedStateKey = '';  // Track state to avoid redundant validation
 
 // Cached values for performance (recalculated when puzzle changes)
 let cachedBorderLayers = null;
@@ -192,6 +193,36 @@ function checkWin(playerTurnMap = null) {
 
   // For tutorials without hints, any closed loop wins
   return true;
+}
+
+/**
+ * Compute a unique key representing the current player path state.
+ * Only includes cells with connections - orphaned cells (from taps) are ignored.
+ */
+function computeStateKey() {
+  const { playerDrawnCells, playerConnections } = gameCore.state;
+
+  // Only include cells that have connections (ignore orphaned cells)
+  const connectedCells = [];
+  for (const cellKey of playerDrawnCells) {
+    const connections = playerConnections.get(cellKey);
+    if (connections && connections.size > 0) {
+      connectedCells.push(cellKey);
+    }
+  }
+  const cellsStr = connectedCells.sort().join(',');
+
+  // Create sorted list of connection pairs
+  const connectionPairs = new Set();
+  for (const [cell, connections] of playerConnections) {
+    for (const connectedCell of connections) {
+      const pair = [cell, connectedCell].sort().join('-');
+      connectionPairs.add(pair);
+    }
+  }
+  const connectionsStr = [...connectionPairs].sort().join(',');
+
+  return `${cellsStr}|${connectionsStr}`;
 }
 
 /* ============================================================================
@@ -251,7 +282,14 @@ function render() {
     animationFrameId = requestAnimationFrame(render);
   }
 
-  if (!hasWon && checkStructuralWin()) {
+  // Skip validation if the path hasn't changed since last validation
+  const currentStateKey = computeStateKey();
+  const stateChanged = currentStateKey !== lastValidatedStateKey;
+  if (stateChanged) {
+    lastValidatedStateKey = currentStateKey;
+  }
+
+  if (stateChanged && !hasWon && checkStructuralWin()) {
     // Check if this is a full win or partial win (valid loop but wrong hints)
     // Pass pre-built player turn map to avoid rebuilding
     if (checkWin(playerTurnMap)) {
@@ -322,8 +360,8 @@ function render() {
         dismissLabel: 'Keep trying'
       });
     }
-  } else {
-    // If structural win is no longer valid, reset the feedback flag
+  } else if (stateChanged && !hasWon) {
+    // Only reset flag if state changed and structural win is no longer valid
     if (!checkStructuralWin()) {
       hasShownPartialWinFeedback = false;
     }
@@ -334,6 +372,7 @@ function restartPuzzle() {
   gameCore.restartPuzzle();
   hasWon = false;
   hasShownPartialWinFeedback = false;
+  lastValidatedStateKey = '';
   render();
 }
 
@@ -372,6 +411,7 @@ function initTutorialGame(config) {
   // Reset state
   hasWon = false;
   hasShownPartialWinFeedback = false;
+  lastValidatedStateKey = '';
 
   // Set up hints and border for tutorial 3
   if (config.hasHints) {
