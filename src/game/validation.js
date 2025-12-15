@@ -8,6 +8,16 @@ import { checkStructuralLoop, checkPartialStructuralLoop, buildSolutionTurnMap, 
 import { buildPlayerTurnMap } from '../renderer.js';
 
 /**
+ * Difficulty level constants
+ * Used for difficulty-based win condition checks
+ */
+export const DIFFICULTY = {
+  EASY: 'easy',
+  MEDIUM: 'medium',
+  HARD: 'hard'
+};
+
+/**
  * Check if player has drawn a valid closed loop
  * @param {Set<string>} playerDrawnCells - Set of drawn cell keys
  * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
@@ -81,4 +91,42 @@ export function checkPartialStructuralWin(playerDrawnCells, playerConnections) {
 export function checkAllCellsVisited(playerDrawnCells, gridSize) {
   const totalCells = gridSize * gridSize;
   return playerDrawnCells.size === totalCells;
+}
+
+/**
+ * Compute a unique key representing the current player path state.
+ * Used to detect if the path has actually changed between renders,
+ * preventing redundant validation and error modals from reappearing.
+ *
+ * Only includes cells with connections - orphaned cells (from taps) are ignored
+ * since they don't affect validation and are removed by cleanup.
+ *
+ * @param {Set<string>} playerDrawnCells - Set of drawn cell keys
+ * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
+ * @returns {string} A string uniquely identifying the current path state (format: "cells|connections")
+ */
+export function computeStateKey(playerDrawnCells, playerConnections) {
+  // Only include cells that have connections (ignore orphaned cells)
+  // Orphaned cells don't affect validation and are temporary during taps
+  const connectedCells = [];
+  for (const cellKey of playerDrawnCells) {
+    const connections = playerConnections.get(cellKey);
+    if (connections && connections.size > 0) {
+      connectedCells.push(cellKey);
+    }
+  }
+  const cellsStr = connectedCells.sort().join(',');
+
+  // Create sorted list of connection pairs (each connection represented once)
+  const connectionPairs = new Set();
+  for (const [cell, connections] of playerConnections) {
+    for (const connectedCell of connections) {
+      // Only add pair once (alphabetically sorted)
+      const pair = [cell, connectedCell].sort().join('-');
+      connectionPairs.add(pair);
+    }
+  }
+  const connectionsStr = [...connectionPairs].sort().join(',');
+
+  return `${cellsStr}|${connectionsStr}`;
 }

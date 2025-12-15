@@ -17,7 +17,7 @@ import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
-import { checkStructuralWin as checkStructuralWinUtil, checkFullWin, checkPartialStructuralWin, checkAllCellsVisited, validateHints } from '../game/validation.js';
+import { checkStructuralWin as checkStructuralWinUtil, checkFullWin, checkPartialStructuralWin, checkAllCellsVisited, validateHints, DIFFICULTY, computeStateKey } from '../game/validation.js';
 
 /* ============================================================================
  * CONSTANTS
@@ -199,40 +199,6 @@ function checkWin(playerTurnMap = null) {
   );
 }
 
-/**
- * Compute a unique key representing the current player path state.
- * Used to detect if the path has actually changed between renders.
- * Only includes cells with connections - orphaned cells (from taps) are ignored
- * since they don't affect validation and are removed by cleanup.
- * @returns {string} A string uniquely identifying the current path state
- */
-function computeStateKey() {
-  const { playerDrawnCells, playerConnections } = gameCore.state;
-
-  // Only include cells that have connections (ignore orphaned cells)
-  // Orphaned cells don't affect validation and are temporary during taps
-  const connectedCells = [];
-  for (const cellKey of playerDrawnCells) {
-    const connections = playerConnections.get(cellKey);
-    if (connections && connections.size > 0) {
-      connectedCells.push(cellKey);
-    }
-  }
-  const cellsStr = connectedCells.sort().join(',');
-
-  // Create sorted list of connection pairs (each connection represented once)
-  const connectionPairs = new Set();
-  for (const [cell, connections] of playerConnections) {
-    for (const connectedCell of connections) {
-      // Only add pair once (alphabetically sorted)
-      const pair = [cell, connectedCell].sort().join('-');
-      connectionPairs.add(pair);
-    }
-  }
-  const connectionsStr = [...connectionPairs].sort().join(',');
-
-  return `${cellsStr}|${connectionsStr}`;
-}
 
 /* ============================================================================
  * TIMER FUNCTIONS
@@ -524,7 +490,7 @@ function render(triggerSave = true) {
 
   // Skip validation if the path hasn't changed since last validation
   // This prevents error modals from appearing on taps that don't modify the path
-  const currentStateKey = computeStateKey();
+  const currentStateKey = computeStateKey(playerDrawnCells, playerConnections);
   const stateChanged = currentStateKey !== lastValidatedStateKey;
   if (stateChanged) {
     lastValidatedStateKey = currentStateKey;
@@ -546,7 +512,7 @@ function render(triggerSave = true) {
     const hintsValid = validateHints(solMap, playerMap, hintCells, gridSize);
 
     // Hard mode requires visiting all cells; easy/medium only require satisfying hints
-    const requiresAllCells = currentGameDifficulty === 'hard';
+    const requiresAllCells = currentGameDifficulty === DIFFICULTY.HARD;
     const allCellsVisited = checkAllCellsVisited(playerDrawnCells, gridSize);
 
     if (hintsValid) {

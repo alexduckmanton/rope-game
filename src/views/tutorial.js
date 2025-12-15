@@ -11,7 +11,7 @@ import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { showBottomSheetAsync } from '../bottomSheet.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
-import { checkPartialStructuralWin, validateHints } from '../game/validation.js';
+import { checkPartialStructuralWin, validateHints, computeStateKey } from '../game/validation.js';
 import { markTutorialCompleted } from '../persistence.js';
 
 /* ============================================================================
@@ -195,35 +195,6 @@ function checkWin(playerTurnMap = null) {
   return true;
 }
 
-/**
- * Compute a unique key representing the current player path state.
- * Only includes cells with connections - orphaned cells (from taps) are ignored.
- */
-function computeStateKey() {
-  const { playerDrawnCells, playerConnections } = gameCore.state;
-
-  // Only include cells that have connections (ignore orphaned cells)
-  const connectedCells = [];
-  for (const cellKey of playerDrawnCells) {
-    const connections = playerConnections.get(cellKey);
-    if (connections && connections.size > 0) {
-      connectedCells.push(cellKey);
-    }
-  }
-  const cellsStr = connectedCells.sort().join(',');
-
-  // Create sorted list of connection pairs
-  const connectionPairs = new Set();
-  for (const [cell, connections] of playerConnections) {
-    for (const connectedCell of connections) {
-      const pair = [cell, connectedCell].sort().join('-');
-      connectionPairs.add(pair);
-    }
-  }
-  const connectionsStr = [...connectionPairs].sort().join(',');
-
-  return `${cellsStr}|${connectionsStr}`;
-}
 
 /* ============================================================================
  * GAME LIFECYCLE & RENDERING
@@ -283,7 +254,7 @@ function render() {
   }
 
   // Skip validation if the path hasn't changed since last validation
-  const currentStateKey = computeStateKey();
+  const currentStateKey = computeStateKey(playerDrawnCells, playerConnections);
   const stateChanged = currentStateKey !== lastValidatedStateKey;
   if (stateChanged) {
     lastValidatedStateKey = currentStateKey;
