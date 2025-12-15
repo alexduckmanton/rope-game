@@ -614,12 +614,14 @@ function generateNewPuzzle() {
 
     solutionPath = generateSolutionPath(gridSize, random);
     const maxHints = getMaxHintsForDifficulty(currentGameDifficulty, isDailyMode);
-    hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, random, maxHints);
+    const probability = getHintProbabilityForDifficulty(currentGameDifficulty);
+    hintCells = generateHintCells(gridSize, probability, random, maxHints);
   } else {
     // Unlimited mode - truly random puzzles (no hint limit)
     solutionPath = generateSolutionPath(gridSize);
     const maxHints = getMaxHintsForDifficulty(currentUnlimitedDifficulty, isDailyMode);
-    hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, Math.random, maxHints);
+    const probability = getHintProbabilityForDifficulty(currentUnlimitedDifficulty);
+    hintCells = generateHintCells(gridSize, probability, Math.random, maxHints);
   }
 
   // Cache values that don't change during gameplay for performance
@@ -656,7 +658,8 @@ function restorePuzzleData(savedState) {
     const random = createSeededRandom(seed);
     solutionPath = generateSolutionPath(gridSize, random);
     const maxHints = getMaxHintsForDifficulty(currentGameDifficulty, isDailyMode);
-    hintCells = generateHintCells(gridSize, CONFIG.HINT.PROBABILITY, random, maxHints);
+    const probability = getHintProbabilityForDifficulty(currentGameDifficulty);
+    hintCells = generateHintCells(gridSize, probability, random, maxHints);
   } else if (savedState) {
     // For unlimited mode, restore saved puzzle data (was truly random)
     solutionPath = savedState.solutionPath;
@@ -846,6 +849,24 @@ function getMaxHintsForDifficulty(difficulty, isDailyMode) {
   // Easy puzzles (both daily and unlimited) are capped at 2 hints to make them easier
   // Medium and hard have unlimited hints
   return (difficulty === 'easy') ? 2 : null;
+}
+
+/**
+ * Get hint probability for a difficulty level
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {number} Probability value between 0 and 1
+ *
+ * Easy: 30% (0.3) - higher chance but capped at 2 hints
+ * Medium: 20% (0.2) - lower probability, unlimited hints
+ * Hard: 30% (0.3) - same as easy but unlimited hints on larger grid
+ */
+function getHintProbabilityForDifficulty(difficulty) {
+  const probabilityMap = {
+    'easy': 0.3,
+    'medium': 0.2,
+    'hard': 0.3
+  };
+  return probabilityMap[difficulty] || 0.3; // Default to 30%
 }
 
 /**
