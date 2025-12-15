@@ -11,7 +11,7 @@ import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { showBottomSheetAsync } from '../bottomSheet.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
-import { checkStructuralWin as checkStructuralWinUtil, checkFullWin } from '../game/validation.js';
+import { checkPartialStructuralWin, validateHints } from '../game/validation.js';
 import { markTutorialCompleted } from '../persistence.js';
 
 /* ============================================================================
@@ -28,7 +28,7 @@ const TUTORIAL_CONFIGS = {
     introTitle: 'Draw a circle',
     introContent: `
       <div class="bottom-sheet-message">
-        <p>To win, draw a line in the grid that touches every square, and connects at both ends.</p>
+        <p>To win, draw a line that connects at both ends to form a closed loop.</p>
         <p>Try drawing a circle!</p>
       </div>
     `
@@ -36,14 +36,14 @@ const TUTORIAL_CONFIGS = {
   '2': {
     gridSize: 4,
     heading: 'Tutorial 2/4',
-    instruction: 'Loops must touch every square.\nTap to erase parts of your loop.',
+    instruction: 'Your loop can be any shape.\nTap to erase parts of your loop.',
     nextRoute: '/tutorial?page=3',
     hasHints: false,
-    introTitle: 'Touch every square',
+    introTitle: 'Any shape works',
     introContent: `
       <div class="bottom-sheet-message">
-        <p>Try another with a bigger grid. Remember, you need to draw a single line that touches every square, with the ends connected.</p>
-        <p>Try drawing a connected line in this grid.</p>
+        <p>Your loop can be any shape, as long as it connects back to itself.</p>
+        <p>Try drawing different loop shapes in this grid.</p>
       </div>
     `
   },
@@ -79,7 +79,7 @@ const TUTORIAL_CONFIGS = {
     introContent: `
       <div class="bottom-sheet-message">
         <p>Numbers count down every time your loop bends in the squares they touch. To win, all numbers must be 0.</p>
-        <p>Try drawing a line through every square, with 3 bends in the highlighted squares.</p>
+        <p>Try drawing a loop with 3 bends in the highlighted squares.</p>
       </div>
     `
   },
@@ -174,29 +174,23 @@ const TUTORIAL_EXTRA_HEIGHT = 100; // Extra space for tutorial instruction text
 
 function checkStructuralWin() {
   const { playerDrawnCells, playerConnections } = gameCore.state;
-  return checkStructuralWinUtil(playerDrawnCells, playerConnections, gridSize);
+  return checkPartialStructuralWin(playerDrawnCells, playerConnections);
 }
 
 function checkWin(playerTurnMap = null) {
-  // First check structural validity
+  // First check structural validity (any closed loop)
   if (!checkStructuralWin()) return false;
 
-  // For tutorials with hints, validate hint turn counts (like the main game)
+  // For tutorials with hints, validate hint turn counts
   if (currentConfig && currentConfig.hasHints) {
     const { playerDrawnCells, playerConnections } = gameCore.state;
     const sTurnMap = cachedSolutionTurnMap || buildSolutionTurnMap(solutionPath);
     const pTurnMap = playerTurnMap || buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
-    return checkFullWin(
-      { playerDrawnCells, playerConnections },
-      solutionPath,
-      hintCells,
-      gridSize,
-      sTurnMap,
-      pTurnMap
-    );
+    return validateHints(sTurnMap, pTurnMap, hintCells, gridSize);
   }
 
+  // For tutorials without hints, any closed loop wins
   return true;
 }
 
