@@ -77,6 +77,7 @@ let hasWon = false;
 let hasShownPartialWinFeedback = false;
 let hasShownIncompleteLoopFeedback = false;
 let hasViewedSolution = false;
+let lastValidatedStateKey = '';  // Track state to avoid redundant validation
 
 // Cached values for performance (recalculated when puzzle changes)
 let cachedBorderLayers = null;
@@ -196,6 +197,31 @@ function checkWin(playerTurnMap = null) {
     sTurnMap,
     pTurnMap
   );
+}
+
+/**
+ * Compute a unique key representing the current player path state.
+ * Used to detect if the path has actually changed between renders.
+ * @returns {string} A string uniquely identifying the current path state
+ */
+function computeStateKey() {
+  const { playerDrawnCells, playerConnections } = gameCore.state;
+
+  // Create sorted list of cells
+  const cellsStr = [...playerDrawnCells].sort().join(',');
+
+  // Create sorted list of connection pairs (each connection represented once)
+  const connectionPairs = new Set();
+  for (const [cell, connections] of playerConnections) {
+    for (const connectedCell of connections) {
+      // Only add pair once (alphabetically sorted)
+      const pair = [cell, connectedCell].sort().join('-');
+      connectionPairs.add(pair);
+    }
+  }
+  const connectionsStr = [...connectionPairs].sort().join(',');
+
+  return `${cellsStr}|${connectionsStr}`;
 }
 
 /* ============================================================================
@@ -486,12 +512,20 @@ function render(triggerSave = true) {
 
   renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
-  // Validation flow:
+  // Skip validation if the path hasn't changed since last validation
+  // This prevents error modals from appearing on taps that don't modify the path
+  const currentStateKey = computeStateKey();
+  const stateChanged = currentStateKey !== lastValidatedStateKey;
+  if (stateChanged) {
+    lastValidatedStateKey = currentStateKey;
+  }
+
+  // Validation flow (only runs if state changed):
   // 1. Check if drawn cells form a valid closed loop (not necessarily all cells)
   // 2. If yes, check if all hints are validated
   // 3. For easy/medium: hints valid = win; for hard: also requires all cells visited
   // 4. Show appropriate error/win message based on difficulty and conditions
-  if (!hasWon && checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
+  if (stateChanged && !hasWon && checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
     // Player has drawn a valid closed loop (single connected loop, each cell has 2 connections)
 
     // Build turn maps for validation
@@ -568,9 +602,8 @@ function render(triggerSave = true) {
         });
       }
     }
-  } else if (!hasWon) {
-    // Only check for flag reset if game is not won
-    // (avoids redundant checkPartialStructuralWin call after winning)
+  } else if (stateChanged && !hasWon) {
+    // Only check for flag reset if state changed and game is not won
     if (!checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
       hasShownPartialWinFeedback = false;
       hasShownIncompleteLoopFeedback = false;
@@ -622,6 +655,7 @@ function generateNewPuzzle() {
   hasShownPartialWinFeedback = false;
   hasShownIncompleteLoopFeedback = false;
   hasViewedSolution = false;
+  lastValidatedStateKey = '';
 
   // Update UI state for new puzzle
   setGameUIState(GAME_STATE.NEW);
@@ -761,6 +795,7 @@ function restartPuzzle() {
   hasWon = false;
   hasShownPartialWinFeedback = false;
   hasShownIncompleteLoopFeedback = false;
+  lastValidatedStateKey = '';
 
   // Update UI state for in-progress game
   setGameUIState(GAME_STATE.IN_PROGRESS);
@@ -934,6 +969,7 @@ export function initGame(difficulty) {
   hasShownPartialWinFeedback = false;
   hasShownIncompleteLoopFeedback = false;
   hasViewedSolution = false;
+  lastValidatedStateKey = '';
   eventListeners = [];
 
   // Create game core instance
