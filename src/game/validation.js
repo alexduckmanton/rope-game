@@ -4,7 +4,7 @@
  * Win condition checking for both game and tutorial views.
  */
 
-import { checkStructuralLoop, buildSolutionTurnMap, countTurnsInArea, parseCellKey } from '../utils.js';
+import { checkStructuralLoop, checkPartialStructuralLoop, buildSolutionTurnMap, countTurnsInArea, parseCellKey } from '../utils.js';
 import { buildPlayerTurnMap } from '../renderer.js';
 
 /**
@@ -60,4 +60,25 @@ export function checkFullWin(gameState, solutionPath, hintCells, gridSize, solut
 
   // Validate hints
   return validateHints(solMap, playerMap, hintCells, gridSize);
+}
+
+/**
+ * Check if player has drawn a valid closed loop (without requiring all cells)
+ * @param {Set<string>} playerDrawnCells - Set of drawn cell keys
+ * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
+ * @returns {boolean} True if drawn cells form a valid single closed loop
+ */
+export function checkPartialStructuralWin(playerDrawnCells, playerConnections) {
+  return checkPartialStructuralLoop(playerDrawnCells, playerConnections);
+}
+
+/**
+ * Check if all cells in the grid have been visited
+ * @param {Set<string>} playerDrawnCells - Set of drawn cell keys
+ * @param {number} gridSize - Size of the grid
+ * @returns {boolean} True if all cells are visited
+ */
+export function checkAllCellsVisited(playerDrawnCells, gridSize) {
+  const totalCells = gridSize * gridSize;
+  return playerDrawnCells.size === totalCells;
 }
