@@ -43,7 +43,7 @@ function getAnimationScale(cellKey, currentTime) {
   if (!animation) return 1.0;
 
   const elapsed = currentTime - animation.startTime;
-  const duration = 500; // 500ms total animation time
+  const duration = 1000; // 1000ms (1 second) total animation time
 
   if (elapsed >= duration) {
     // Animation complete - clean up and return normal scale
