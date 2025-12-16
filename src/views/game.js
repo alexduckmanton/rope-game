@@ -5,7 +5,7 @@
  * for use in a multi-view SPA
  */
 
-import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers } from '../renderer.js';
+import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers, resetNumberAnimationState } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
 import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop, parseCellKey } from '../utils.js';
 import { CONFIG } from '../config.js';
@@ -95,6 +95,9 @@ let eventListeners = [];
 // Throttled save function (max 1 save per 5 seconds)
 let throttledSaveObj = createThrottledSave();
 let throttledSave = throttledSaveObj.save;
+
+// Animation frame tracking for number animations
+let animationFrameId = null;
 
 // Cached settings values to avoid re-reading localStorage
 let cachedLastUnlimitedDifficulty = 'easy';
@@ -458,7 +461,7 @@ function resizeCanvas() {
   // This prevents saving empty state before loadOrGeneratePuzzle() runs
 }
 
-function render(triggerSave = true) {
+function render(triggerSave = true, animationMode = 'auto') {
   const { playerDrawnCells, playerConnections } = gameCore.state;
   const totalSize = cellSize * gridSize;
   const dpr = window.devicePixelRatio || 1;
@@ -475,10 +478,10 @@ function render(triggerSave = true) {
   renderGrid(ctx, gridSize, cellSize);
 
   // Pass pre-built maps for performance
-  renderCellNumbers(
+  const renderResult = renderCellNumbers(
     ctx, gridSize, cellSize, solutionPath, hintCells, hintMode,
     playerDrawnCells, playerConnections, borderMode, countdown,
-    cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers
+    cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers, animationMode
   );
 
   // Render solution path if player has viewed it
@@ -590,6 +593,16 @@ function render(triggerSave = true) {
   // Only save if triggered by user interaction, not by restore/display changes
   if (triggerSave) {
     throttledSave(captureGameState());
+  }
+
+  // Schedule next animation frame if there are active number animations
+  if (renderResult && renderResult.hasActiveAnimations) {
+    if (animationFrameId === null) {
+      animationFrameId = requestAnimationFrame(() => {
+        animationFrameId = null;
+        render(false); // Don't trigger save for animation frames
+      });
+    }
   }
 }
 
@@ -741,8 +754,8 @@ function loadOrGeneratePuzzle() {
     // Restore timer state
     restoreTimerState(savedState);
 
-    // Render restored state (don't trigger save)
-    render(false);
+    // Render restored state (don't trigger save, no animation on restore)
+    render(false, 'none');
 
     // Show win celebration if applicable
     if (hasWon && !hasViewedSolution) {
@@ -1127,6 +1140,15 @@ export function cleanupGame() {
     element.removeEventListener(event, handler);
   }
   eventListeners = [];
+
+  // Cancel any pending animation frame
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+
+  // Clear animation state
+  resetNumberAnimationState();
 
   // Reset drag state in core
   if (gameCore) {

@@ -6,6 +6,73 @@ import { CONFIG } from './config.js';
 import { drawSmoothCurve, buildSolutionTurnMap, countTurnsInArea, parseCellKey, createCellKey } from './utils.js';
 
 /**
+ * Animation state for number scaling animations
+ * Tracks active animations and previous state for change detection
+ */
+const numberAnimationState = {
+  activeAnimations: new Map(), // Map<cellKey, { startTime: number }>
+  previousState: new Map(),    // Map<cellKey, { displayValue: number, color: string }>
+};
+
+/**
+ * Bounce easing function (ease out)
+ * Creates a bouncing effect at the end of the animation
+ * @param {number} t - Progress from 0 to 1
+ * @returns {number} Eased value from 0 to 1
+ */
+function easeOutBounce(t) {
+  const n1 = 7.5625;
+  const d1 = 2.75;
+
+  if (t < 1 / d1) {
+    return n1 * t * t;
+  } else if (t < 2 / d1) {
+    return n1 * (t -= 1.5 / d1) * t + 0.75;
+  } else if (t < 2.5 / d1) {
+    return n1 * (t -= 2.25 / d1) * t + 0.9375;
+  } else {
+    return n1 * (t -= 2.625 / d1) * t + 0.984375;
+  }
+}
+
+/**
+ * Calculate the current animation scale for a cell
+ * @param {string} cellKey - The cell key to check
+ * @param {number} currentTime - Current timestamp in milliseconds
+ * @returns {number} Scale factor (1.0 to 1.2)
+ */
+function getAnimationScale(cellKey, currentTime) {
+  const animation = numberAnimationState.activeAnimations.get(cellKey);
+  if (!animation) return 1.0;
+
+  const elapsed = currentTime - animation.startTime;
+  const duration = 300; // 300ms total animation time
+
+  if (elapsed >= duration) {
+    // Animation complete - clean up and return normal scale
+    numberAnimationState.activeAnimations.delete(cellKey);
+    return 1.0;
+  }
+
+  // Calculate scale with bounce easing
+  // Starts at 1.2x (snap), animates to 1.0x (normal) with bounce
+  const progress = elapsed / duration; // 0 to 1
+  const easedProgress = easeOutBounce(progress); // 0 to 1 with bounce
+  const scale = 1.2 - (easedProgress * 0.2); // 1.2 to 1.0
+
+  return scale;
+}
+
+/**
+ * Reset all number animation state
+ * Call this when changing puzzles or cleaning up the game view
+ */
+export function resetNumberAnimationState() {
+  numberAnimationState.activeAnimations.clear();
+  numberAnimationState.previousState.clear();
+}
+
+/**
  * Render the grid lines
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {number} size - Grid size (e.g., 5 for 5x5)
@@ -345,9 +412,15 @@ function getColorByMagnitude(value, isValidated) {
  * @param {Map<string, boolean>} [prebuiltSolutionTurnMap] - Optional pre-built solution turn map for performance
  * @param {Map<string, boolean>} [prebuiltPlayerTurnMap] - Optional pre-built player turn map for performance
  * @param {Map<string, number>} [prebuiltBorderLayers] - Optional pre-built border layers for performance
+ * @param {string} [animationMode] - Animation mode: 'auto' (detect changes and animate) or 'none' (no animation)
+ * @returns {{hasActiveAnimations: boolean}} Object indicating if there are active animations
  */
-export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null) {
-  if (!solutionPath || solutionPath.length === 0) return;
+export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null, animationMode = 'auto') {
+  if (!solutionPath || solutionPath.length === 0) {
+    return { hasActiveAnimations: false };
+  }
+
+  const currentTime = Date.now();
 
   // Use pre-built maps if provided, otherwise build them
   const solutionTurnMap = prebuiltSolutionTurnMap || buildSolutionTurnMap(solutionPath);
@@ -385,9 +458,16 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Determine display value based on countdown mode
       const displayValue = countdown ? remainingTurns : expectedTurnCount;
 
+      // Determine color for this cell
+      let hintColor;
+      if (isInHintSet) {
+        hintColor = getColorByMagnitude(displayValue, isValid);
+      } else {
+        hintColor = CONFIG.COLORS.HINT_EXTRA; // Light grey for extra cells in 'all' mode
+      }
+
       // Collect border drawing information for hint cells (deferred rendering)
       if (isInHintSet && borderMode !== 'off') {
-        const hintColor = getColorByMagnitude(displayValue, isValid);
         const borderWidth = CONFIG.BORDER.WIDTH;
 
         // Calculate the bounding box based on border mode
@@ -421,24 +501,56 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         });
       }
 
-      // Set text color and opacity based on whether cell is in the hint set
+      // Animation handling (only for hint cells)
+      let scale = 1.0;
       if (isInHintSet) {
-        const hintColor = getColorByMagnitude(displayValue, isValid);
-        ctx.fillStyle = hintColor;
-        ctx.globalAlpha = 1.0;  // Always 100% opacity
-      } else {
-        ctx.fillStyle = CONFIG.COLORS.HINT_EXTRA; // Light grey for extra cells in 'all' mode
-        ctx.globalAlpha = 1.0;
+        const currentState = { displayValue, color: hintColor };
+        const previousState = numberAnimationState.previousState.get(cellKey);
+
+        if (animationMode === 'auto') {
+          // Trigger animation if:
+          // 1. First time seeing this cell (no previousState), OR
+          // 2. Value changed, OR
+          // 3. Color changed (validation state changed)
+          if (!previousState ||
+              previousState.displayValue !== displayValue ||
+              previousState.color !== hintColor) {
+            numberAnimationState.activeAnimations.set(cellKey, { startTime: currentTime });
+          }
+        }
+
+        // Always update previousState to track current state
+        numberAnimationState.previousState.set(cellKey, currentState);
+
+        // Get current animation scale
+        scale = getAnimationScale(cellKey, currentTime);
       }
+
+      // Set text color and opacity
+      ctx.fillStyle = hintColor;
+      ctx.globalAlpha = 1.0;
 
       const x = col * cellSize + cellSize / 2;
       const y = row * cellSize + cellSize / 2;
-      ctx.fillText(displayValue.toString(), x, y);
+
+      // Apply scale transform if animating
+      if (scale !== 1.0) {
+        ctx.save();
+        ctx.translate(x, y);        // Move origin to cell center
+        ctx.scale(scale, scale);    // Scale around center
+        ctx.fillText(displayValue.toString(), 0, 0); // Draw at origin (cell center)
+        ctx.restore();
+      } else {
+        ctx.fillText(displayValue.toString(), x, y);
+      }
     }
   }
 
   // Draw all collected borders with proper layering
   drawHintBorders(ctx, bordersToDraw, cellSize, borderMode);
+
+  // Return whether there are active animations
+  return { hasActiveAnimations: numberAnimationState.activeAnimations.size > 0 };
 }
 
 /**
