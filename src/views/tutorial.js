@@ -241,16 +241,21 @@ function render() {
   renderGrid(ctx, gridSize, cellSize);
 
   // Render hints for tutorial 3, otherwise no hints
+  let hasNumberAnimations = false;
   if (currentConfig && currentConfig.hasHints) {
-    renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, 'partial', playerDrawnCells, playerConnections, borderMode, true, cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers);
+    const renderResult = renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, 'partial', playerDrawnCells, playerConnections, borderMode, true, cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers);
+    hasNumberAnimations = renderResult && renderResult.hasActiveAnimations;
   }
 
-  renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
+  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
+  const hasPathAnimations = pathRenderResult && pathRenderResult.hasActiveAnimations;
 
-  // Continue animation loop for tutorials with hints (only if not already pending)
-  if (currentConfig && currentConfig.hasHints && !isAnimationFramePending) {
-    isAnimationFramePending = true;
-    animationFrameId = requestAnimationFrame(render);
+  // Continue animation loop for tutorials with hints or active path animations (only if not already pending)
+  if ((currentConfig && currentConfig.hasHints && hasNumberAnimations) || hasPathAnimations) {
+    if (!isAnimationFramePending) {
+      isAnimationFramePending = true;
+      animationFrameId = requestAnimationFrame(render);
+    }
   }
 
   // Skip validation if the path hasn't changed since last validation
@@ -267,6 +272,7 @@ function render() {
       // Full win - all validation passed
       hasWon = true;
       hasShownPartialWinFeedback = false; // Reset flag
+      // Re-render path with win color
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
 
       // Show win bottom sheet with navigation on close
