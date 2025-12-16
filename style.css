@@ -131,6 +131,11 @@ body {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+  /* Safe area insets for viewport-fit=cover */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* Ensure buttons inherit font-family (needed for Android/WebView where buttons don't inherit by default) */
