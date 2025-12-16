@@ -15,16 +15,37 @@ const numberAnimationState = {
 };
 
 /**
- * Back easing function (ease out)
+ * Animation timing constants (pre-calculated for performance)
+ */
+const ANIMATION_DURATION = 400; // Total animation time in milliseconds
+const SCALE_UP_PHASE = 0.15; // First 15% is scale-up
+const SCALE_UP_DURATION = ANIMATION_DURATION * SCALE_UP_PHASE; // 60ms
+const SCALE_DOWN_PHASE_DIVISOR = 1 / (1 - SCALE_UP_PHASE); // Pre-calc for phase 2
+
+/**
+ * Animation scale constants
+ */
+const MAX_SCALE = 1.4; // Peak scale (40% larger)
+const SCALE_RANGE = MAX_SCALE - 1.0; // 0.4
+
+/**
+ * Back easing constants (pre-calculated for performance)
+ */
+const BACK_C1 = 2.70158;
+const BACK_C3 = BACK_C1 + 1;
+
+/**
+ * Back easing function (ease out) - optimized version
  * Creates a single overshoot and settle motion
- * Scale progression: 1.4x → 1.0x → ~0.92x (undershoot) → 1.0x (settle)
  * @param {number} t - Progress from 0 to 1
  * @returns {number} Eased value from 0 to 1 (with overshoot past 1)
  */
 function easeOutBack(t) {
-  const c1 = 2.70158; // Overshoot constant (20% past 1.0 → reaches ~0.92x scale)
-  const c3 = c1 + 1;
-  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+  // Optimized: manual multiplication instead of Math.pow
+  const t1 = t - 1;
+  const t1Squared = t1 * t1;
+  const t1Cubed = t1Squared * t1;
+  return 1 + BACK_C3 * t1Cubed + BACK_C1 * t1Squared;
 }
 
 /**
@@ -38,34 +59,28 @@ function getAnimationScale(cellKey, currentTime) {
   if (!animation) return 1.0;
 
   const elapsed = currentTime - animation.startTime;
-  const duration = 400; // 400ms total animation time
 
-  if (elapsed >= duration) {
+  if (elapsed >= ANIMATION_DURATION) {
     // Animation complete - clean up and return normal scale
     numberAnimationState.activeAnimations.delete(cellKey);
     return 1.0;
   }
 
-  const progress = elapsed / duration; // 0 to 1
-
-  // Two-phase animation:
-  // Phase 1 (0-15% of time): Quick ease from 1.0x to 1.4x
-  // Phase 2 (15-100% of time): Back ease from 1.4x to 1.0x with overshoot to ~0.92x
-  const scaleUpPhase = 0.15; // First 15% of animation
-
-  if (progress < scaleUpPhase) {
-    // Quick ease-out from 1.0 to 1.4 (cubic ease out for smooth acceleration)
-    const scaleUpProgress = progress / scaleUpPhase; // 0 to 1 within this phase
-    const eased = 1 - Math.pow(1 - scaleUpProgress, 3); // Cubic ease out
-    const scale = 1.0 + (eased * 0.4); // 1.0 to 1.4
-    return scale;
-  } else {
-    // Back ease from 1.4 to 1.0 with overshoot to ~0.92x, then settle at 1.0x
-    const settleProgress = (progress - scaleUpPhase) / (1 - scaleUpPhase); // 0 to 1 within this phase
-    const easedProgress = easeOutBack(settleProgress); // 0 to ~1.2 (with overshoot) back to 1.0
-    const scale = 1.4 - (easedProgress * 0.4); // 1.4 to 1.0 (with undershoot to ~0.92)
-    return scale;
+  // Phase 1: Quick scale up (first 60ms)
+  if (elapsed < SCALE_UP_DURATION) {
+    const scaleUpProgress = elapsed / SCALE_UP_DURATION; // 0 to 1
+    // Cubic ease-out: optimized with manual multiplication
+    const inverse = 1 - scaleUpProgress;
+    const inverseCubed = inverse * inverse * inverse;
+    const eased = 1 - inverseCubed;
+    return 1.0 + (eased * SCALE_RANGE);
   }
+
+  // Phase 2: Back ease with overshoot (remaining 340ms)
+  const settleElapsed = elapsed - SCALE_UP_DURATION;
+  const settleProgress = settleElapsed * SCALE_DOWN_PHASE_DIVISOR; // Optimized division
+  const easedProgress = easeOutBack(settleProgress);
+  return MAX_SCALE - (easedProgress * SCALE_RANGE);
 }
 
 /**
@@ -509,25 +524,23 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Animation handling (only for hint cells)
       let scale = 1.0;
       if (isInHintSet) {
-        const currentState = { displayValue, color: hintColor };
         const previousState = numberAnimationState.previousState.get(cellKey);
 
-        if (animationMode === 'auto') {
-          // Trigger animation if:
-          // 1. First time seeing this cell (no previousState), OR
-          // 2. Value changed, OR
-          // 3. Color changed (validation state changed)
-          if (!previousState ||
-              previousState.displayValue !== displayValue ||
-              previousState.color !== hintColor) {
+        // Check if state changed (avoid creating objects when unchanged)
+        const hasChanged = !previousState ||
+                           previousState.displayValue !== displayValue ||
+                           previousState.color !== hintColor;
+
+        if (hasChanged) {
+          // Trigger animation only in auto mode
+          if (animationMode === 'auto') {
             numberAnimationState.activeAnimations.set(cellKey, { startTime: currentTime });
           }
+          // Only create and store new state object when it actually changed
+          numberAnimationState.previousState.set(cellKey, { displayValue, color: hintColor });
         }
 
-        // Always update previousState to track current state
-        numberAnimationState.previousState.set(cellKey, currentState);
-
-        // Get current animation scale
+        // Get current animation scale (if any animation is active)
         scale = getAnimationScale(cellKey, currentTime);
       }
 
