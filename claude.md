@@ -13,8 +13,8 @@
 | `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCells()`, `calculateBorderLayers()` |
 | `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()` |
 | `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles |
-| `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `parseCellKey()`, `createCellKey()` |
-| `config.js` | Configuration constants | `CONFIG` - Colors, sizes, generation tuning, rendering params |
+| `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `parseCellKey()`, `createCellKey()`, `getCellsAlongLine()` - Bresenham with 4-connected enforcement |
+| `config.js` | Configuration constants | `CONFIG` - Colors, sizes, generation tuning, rendering params, interaction behavior (backtracking threshold) |
 | `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet()`, `showBottomSheetAsync()` - Factory + async helper |
 | `game/timer.js` | Game timer | `createGameTimer({ onUpdate, difficulty })`, `formatTime()` - Encapsulated timer with pause/resume |
 | `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback |
@@ -654,6 +654,26 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 
 **Implementation:** Pointer Events API (handles both mouse and touch). All interactions feel native and responsive.
 
+**Smart Backtracking:**
+
+The backtracking system uses distance-based logic to prevent accidental path erasure while maintaining precise control:
+
+- **1-4 squares back**: Normal backtracking (erases those squares)
+- **5+ squares back**: Touch is ignored to prevent accidental full erasure
+- **Loop closing**: Returning to first cell always works regardless of distance
+- **Threshold**: Configurable via `CONFIG.INTERACTION.BACKTRACK_THRESHOLD` (default: 4)
+
+**Design Rationale:** Long crossing paths frequently triggered accidental full erasure when the pointer briefly touched old cells far back in the path. The threshold provides a forgiving drawing experience for complex loops while maintaining precise backtracking for small corrections. Higher values are more forgiving but make deliberate long-distance backtracking impossible. Lower values require more precision but allow backtracking across longer distances.
+
+**Diagonal Drawing Continuity:**
+
+Drawing diagonally across the grid maintains smooth, uninterrupted flow:
+
+- **Challenge**: Bresenham's algorithm produces 8-connected paths (diagonal jumps) but the game requires 4-connected paths (orthogonal only)
+- **Solution**: Direction-tracking post-processing automatically inserts intermediate cells for diagonal movements
+- **Behavior**: Creates natural alternating patterns (horizontal→vertical→horizontal) that follow the drawing gesture
+- **Result**: Players can draw at any angle without interruption or having to manually trace step-by-step paths
+
 **Mobile Optimizations:**
 - Prevent page scroll while drawing
 - Large touch targets (minimum 48×48px)
@@ -754,6 +774,13 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 2. **Rendering optimization**: Modify render frequency or use canvas layering
 3. **Save frequency**: Tune `SAVE_COOLDOWN_MS` or implement debouncing instead of throttling
 
+**Modify Backtracking Sensitivity:**
+1. **Change threshold**: Update `CONFIG.INTERACTION.BACKTRACK_THRESHOLD` in `config.js` (default: 4 squares)
+2. **Higher values** (5-10): More forgiving, reduces accidental erasure on complex crossing paths, but makes deliberate long-distance backtracking impossible
+3. **Lower values** (1-3): More precise control, allows backtracking across shorter distances only, but easier to accidentally erase when drawing crosses itself
+4. **Special case**: Value of 1 makes backtracking work only for immediately adjacent cells (most precise, least forgiving)
+5. **Affects**: All drawing interactions in both daily and unlimited modes, applies globally
+
 ### Key Development Tips
 
 **Performance:**
@@ -769,7 +796,20 @@ The path drawing system is heavily optimized for the critical hot path (60+ call
 - **Bresenham's algorithm**: Line-to-grid conversion uses integer-only arithmetic, visiting each cell exactly once (10x faster than sampling)
 - **Cached canvas rect**: Bounding rect cached per drag to eliminate layout thrashing (was causing 120 forced reflows/sec)
 - **O(1) connection tracking**: Incoming connections tracked via variables instead of array searches
+- **4-connected path enforcement**: Post-processing layer ensures adjacency by inserting intermediate cells for diagonal jumps
 - **Result**: Drawing remains smooth even on lower-end devices with complex path intersections
+
+**4-Connected Path Continuity:**
+
+The game requires 4-connected paths (Manhattan distance = 1 between cells) but Bresenham's algorithm naturally produces 8-connected paths (allows diagonals). A post-processing layer bridges this gap:
+
+- **Detection**: Scans for diagonal jumps (both row and column change between consecutive cells)
+- **Insertion strategy**: Adds intermediate cells based on previous movement direction
+- **Direction tracking**: Alternates horizontal and vertical insertions to create natural flowing paths
+- **Performance**: O(n) linear scan with minimal overhead, executes in the same frame as Bresenham
+- **Alternative approaches considered**: Modified Bresenham (complex, may skip cells), pathfinding (overkill, slower), both cells insertion (doubles path length unnecessarily)
+
+This approach was chosen for its simplicity, performance, and natural drawing feel. The direction-tracking creates intuitive paths that follow the gesture rather than arbitrary fixed patterns.
 
 When modifying `gameCore.js` or `utils.js`, be mindful that `handlePointerMove`, `getCellsAlongLine`, and `extendDragPath` are in the critical rendering path.
 

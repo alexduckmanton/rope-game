@@ -244,6 +244,69 @@ export function determineConnectionToBreak(targetCell, comingFromCell, existingC
 }
 
 /**
+ * Post-process cells from Bresenham's algorithm to ensure all consecutive cells are adjacent.
+ * Bresenham can produce diagonal jumps (cells with Manhattan distance = 2) which aren't valid
+ * connections in a 4-connected grid. This function inserts intermediate cells to bridge diagonals.
+ *
+ * Strategy: Track the previous movement direction (horizontal or vertical) and continue in that
+ * direction when encountering a diagonal, creating a natural flowing path.
+ *
+ * @param {Array<string>} cells - Array of cell keys from Bresenham's algorithm
+ * @returns {Array<string>} Array with intermediate cells inserted for adjacency
+ */
+function ensureAdjacentCells(cells) {
+  if (cells.length <= 1) return cells;
+
+  const result = [cells[0]];
+  let prevDirection = null; // Tracks 'horizontal' or 'vertical' movement
+
+  for (let i = 1; i < cells.length; i++) {
+    const prev = parseCellKey(result[result.length - 1]);
+    const curr = parseCellKey(cells[i]);
+
+    const rowDiff = curr.row - prev.row;
+    const colDiff = curr.col - prev.col;
+    const absRowDiff = Math.abs(rowDiff);
+    const absColDiff = Math.abs(colDiff);
+
+    // Check if adjacent (Manhattan distance = 1)
+    if (absRowDiff + absColDiff === 1) {
+      // Already adjacent, just add it
+      result.push(cells[i]);
+
+      // Track movement direction for next iteration
+      prevDirection = (rowDiff !== 0) ? 'vertical' : 'horizontal';
+    } else if (absRowDiff === 1 && absColDiff === 1) {
+      // Diagonal jump detected (Manhattan distance = 2)
+      // Insert intermediate cell to maintain 4-connected path continuity
+
+      if (prevDirection === 'horizontal' || prevDirection === null) {
+        // Continue in horizontal direction (or default to horizontal)
+        // Creates path: prev -> (prev.row, curr.col) -> curr
+        const intermediateCell = createCellKey(prev.row, curr.col);
+        result.push(intermediateCell);
+        result.push(cells[i]);
+        prevDirection = 'vertical'; // Last move was vertical
+      } else { // prevDirection === 'vertical'
+        // Continue in vertical direction
+        // Creates path: prev -> (curr.row, prev.col) -> curr
+        const intermediateCell = createCellKey(curr.row, prev.col);
+        result.push(intermediateCell);
+        result.push(cells[i]);
+        prevDirection = 'horizontal'; // Last move was horizontal
+      }
+    } else {
+      // Larger gap (distance > 2) - shouldn't happen with Bresenham,
+      // but include it anyway for robustness
+      result.push(cells[i]);
+      prevDirection = null; // Reset direction tracking on gap
+    }
+  }
+
+  return result;
+}
+
+/**
  * Calculate which grid cells a line segment passes through using Bresenham's algorithm
  * This is significantly faster than sampling and visits each cell exactly once
  *
@@ -305,7 +368,9 @@ export function getCellsAlongLine(x1, y1, x2, y2, cellSize, gridSize) {
     }
   }
 
-  return cells;
+  // Post-process to ensure all consecutive cells are adjacent
+  // This fixes diagonal jumps from Bresenham's 8-connected output
+  return ensureAdjacentCells(cells);
 }
 
 /**

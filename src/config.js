@@ -73,4 +73,9 @@ export const CONFIG = {
     ATTEMPTS_6X6: 50,           // Warnsdorff attempts for 6x6 grid
     ATTEMPTS_8X8: 100,          // Warnsdorff attempts for 8x8 grid
   },
+
+  // Interaction behavior
+  INTERACTION: {
+    BACKTRACK_THRESHOLD: 4,     // Maximum squares back to allow backtracking (1-4 squares = backtrack, 5+ = ignore)
+  },
 };
