@@ -6,6 +6,94 @@ import { CONFIG } from './config.js';
 import { drawSmoothCurve, buildSolutionTurnMap, countTurnsInArea, parseCellKey, createCellKey } from './utils.js';
 
 /**
+ * Animation state for number scaling animations
+ * Tracks active animations and previous state for change detection
+ */
+const numberAnimationState = {
+  activeAnimations: new Map(), // Map<cellKey, { startTime: number }>
+  previousState: new Map(),    // Map<cellKey, { displayValue: number, color: string }>
+};
+
+/**
+ * Animation timing constants (pre-calculated for performance)
+ */
+const ANIMATION_DURATION = 400; // Total animation time in milliseconds
+const SCALE_UP_PHASE = 0.15; // First 15% is scale-up
+const SCALE_UP_DURATION = ANIMATION_DURATION * SCALE_UP_PHASE; // 60ms
+const SCALE_DOWN_DURATION = ANIMATION_DURATION - SCALE_UP_DURATION; // 340ms
+const SCALE_DOWN_PHASE_DIVISOR = 1 / SCALE_DOWN_DURATION; // Pre-calc for phase 2 (1/340 ≈ 0.00294)
+
+/**
+ * Animation scale constants
+ */
+const MAX_SCALE = 1.4; // Peak scale (40% larger)
+const SCALE_RANGE = MAX_SCALE - 1.0; // 0.4
+
+/**
+ * Back easing constants (pre-calculated for performance)
+ */
+const BACK_C1 = 2.70158;
+const BACK_C3 = BACK_C1 + 1;
+
+/**
+ * Back easing function (ease out) - optimized version
+ * Creates a single overshoot and settle motion
+ * @param {number} t - Progress from 0 to 1
+ * @returns {number} Eased value from 0 to 1 (with overshoot past 1)
+ */
+function easeOutBack(t) {
+  // Optimized: manual multiplication instead of Math.pow
+  const t1 = t - 1;
+  const t1Squared = t1 * t1;
+  const t1Cubed = t1Squared * t1;
+  return 1 + BACK_C3 * t1Cubed + BACK_C1 * t1Squared;
+}
+
+/**
+ * Calculate the current animation scale for a cell
+ * @param {string} cellKey - The cell key to check
+ * @param {number} currentTime - Current timestamp in milliseconds
+ * @returns {number} Scale factor (1.0 to 1.4)
+ */
+function getAnimationScale(cellKey, currentTime) {
+  const animation = numberAnimationState.activeAnimations.get(cellKey);
+  if (!animation) return 1.0;
+
+  const elapsed = currentTime - animation.startTime;
+
+  if (elapsed >= ANIMATION_DURATION) {
+    // Animation complete - clean up and return normal scale
+    numberAnimationState.activeAnimations.delete(cellKey);
+    return 1.0;
+  }
+
+  // Phase 1: Quick scale up (first 60ms)
+  if (elapsed < SCALE_UP_DURATION) {
+    const scaleUpProgress = elapsed / SCALE_UP_DURATION; // 0 to 1
+    // Cubic ease-out: optimized with manual multiplication
+    const inverse = 1 - scaleUpProgress;
+    const inverseCubed = inverse * inverse * inverse;
+    const eased = 1 - inverseCubed;
+    return 1.0 + (eased * SCALE_RANGE);
+  }
+
+  // Phase 2: Back ease with overshoot (remaining 340ms)
+  const settleElapsed = elapsed - SCALE_UP_DURATION;
+  const settleProgress = settleElapsed * SCALE_DOWN_PHASE_DIVISOR; // Optimized division
+  const easedProgress = easeOutBack(settleProgress);
+  return MAX_SCALE - (easedProgress * SCALE_RANGE);
+}
+
+/**
+ * Reset all number animation state
+ * Call this when changing puzzles or cleaning up the game view
+ */
+export function resetNumberAnimationState() {
+  numberAnimationState.activeAnimations.clear();
+  numberAnimationState.previousState.clear();
+}
+
+/**
  * Render the grid lines
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {number} size - Grid size (e.g., 5 for 5x5)
@@ -345,9 +433,15 @@ function getColorByMagnitude(value, isValidated) {
  * @param {Map<string, boolean>} [prebuiltSolutionTurnMap] - Optional pre-built solution turn map for performance
  * @param {Map<string, boolean>} [prebuiltPlayerTurnMap] - Optional pre-built player turn map for performance
  * @param {Map<string, number>} [prebuiltBorderLayers] - Optional pre-built border layers for performance
+ * @param {string} [animationMode] - Animation mode: 'auto' (detect changes and animate) or 'none' (no animation)
+ * @returns {{hasActiveAnimations: boolean}} Object indicating if there are active animations
  */
-export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null) {
-  if (!solutionPath || solutionPath.length === 0) return;
+export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null, animationMode = 'auto') {
+  if (!solutionPath || solutionPath.length === 0) {
+    return { hasActiveAnimations: false };
+  }
+
+  const currentTime = Date.now();
 
   // Use pre-built maps if provided, otherwise build them
   const solutionTurnMap = prebuiltSolutionTurnMap || buildSolutionTurnMap(solutionPath);
@@ -385,9 +479,16 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Determine display value based on countdown mode
       const displayValue = countdown ? remainingTurns : expectedTurnCount;
 
+      // Determine color for this cell
+      let hintColor;
+      if (isInHintSet) {
+        hintColor = getColorByMagnitude(displayValue, isValid);
+      } else {
+        hintColor = CONFIG.COLORS.HINT_EXTRA; // Light grey for extra cells in 'all' mode
+      }
+
       // Collect border drawing information for hint cells (deferred rendering)
       if (isInHintSet && borderMode !== 'off') {
-        const hintColor = getColorByMagnitude(displayValue, isValid);
         const borderWidth = CONFIG.BORDER.WIDTH;
 
         // Calculate the bounding box based on border mode
@@ -421,24 +522,54 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         });
       }
 
-      // Set text color and opacity based on whether cell is in the hint set
+      // Animation handling (only for hint cells)
+      let scale = 1.0;
       if (isInHintSet) {
-        const hintColor = getColorByMagnitude(displayValue, isValid);
-        ctx.fillStyle = hintColor;
-        ctx.globalAlpha = 1.0;  // Always 100% opacity
-      } else {
-        ctx.fillStyle = CONFIG.COLORS.HINT_EXTRA; // Light grey for extra cells in 'all' mode
-        ctx.globalAlpha = 1.0;
+        const previousState = numberAnimationState.previousState.get(cellKey);
+
+        // Check if state changed (avoid creating objects when unchanged)
+        const hasChanged = !previousState ||
+                           previousState.displayValue !== displayValue ||
+                           previousState.color !== hintColor;
+
+        if (hasChanged) {
+          // Trigger animation only in auto mode
+          if (animationMode === 'auto') {
+            numberAnimationState.activeAnimations.set(cellKey, { startTime: currentTime });
+          }
+          // Only create and store new state object when it actually changed
+          numberAnimationState.previousState.set(cellKey, { displayValue, color: hintColor });
+        }
+
+        // Get current animation scale (if any animation is active)
+        scale = getAnimationScale(cellKey, currentTime);
       }
+
+      // Set text color and opacity
+      ctx.fillStyle = hintColor;
+      ctx.globalAlpha = 1.0;
 
       const x = col * cellSize + cellSize / 2;
       const y = row * cellSize + cellSize / 2;
-      ctx.fillText(displayValue.toString(), x, y);
+
+      // Apply scale transform if animating
+      if (scale !== 1.0) {
+        ctx.save();
+        ctx.translate(x, y);        // Move origin to cell center
+        ctx.scale(scale, scale);    // Scale around center
+        ctx.fillText(displayValue.toString(), 0, 0); // Draw at origin (cell center)
+        ctx.restore();
+      } else {
+        ctx.fillText(displayValue.toString(), x, y);
+      }
     }
   }
 
   // Draw all collected borders with proper layering
   drawHintBorders(ctx, bordersToDraw, cellSize, borderMode);
+
+  // Return whether there are active animations
+  return { hasActiveAnimations: numberAnimationState.activeAnimations.size > 0 };
 }
 
 /**
