@@ -15,21 +15,16 @@ const numberAnimationState = {
 };
 
 /**
- * Elastic easing function (ease out)
- * Creates a smooth, springy motion with gentle oscillation
+ * Back easing function (ease out)
+ * Creates a single overshoot and settle motion
+ * Scale progression: 1.5x → 1.0x → ~0.95x (undershoot) → 1.0x (settle)
  * @param {number} t - Progress from 0 to 1
- * @returns {number} Eased value from 0 to 1
+ * @returns {number} Eased value from 0 to 1 (with slight overshoot past 1)
  */
-function easeOutElastic(t) {
-  const c4 = (2 * Math.PI) / 3;
-
-  if (t === 0) {
-    return 0;
-  } else if (t === 1) {
-    return 1;
-  } else {
-    return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
-  }
+function easeOutBack(t) {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
 
 /**
@@ -51,11 +46,11 @@ function getAnimationScale(cellKey, currentTime) {
     return 1.0;
   }
 
-  // Calculate scale with elastic easing
-  // Starts at 1.5x (snap), animates to 1.0x (normal) with springy motion
+  // Calculate scale with back easing (single overshoot)
+  // Starts at 1.5x (snap), animates to 1.0x, overshoots below, then settles at 1.0x
   const progress = elapsed / duration; // 0 to 1
-  const easedProgress = easeOutElastic(progress); // 0 to 1 with elastic spring
-  const scale = 1.5 - (easedProgress * 0.5); // 1.5 to 1.0
+  const easedProgress = easeOutBack(progress); // 0 to ~1.1 (with overshoot) back to 1.0
+  const scale = 1.5 - (easedProgress * 0.5); // 1.5 to 1.0 (with undershoot)
 
   return scale;
 }
