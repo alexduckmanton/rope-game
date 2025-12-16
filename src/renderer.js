@@ -17,12 +17,12 @@ const numberAnimationState = {
 /**
  * Back easing function (ease out)
  * Creates a single overshoot and settle motion
- * Scale progression: 1.5x → 1.0x → 0.9x (undershoot) → 1.0x (settle)
+ * Scale progression: 1.4x → 1.0x → ~0.92x (undershoot) → 1.0x (settle)
  * @param {number} t - Progress from 0 to 1
  * @returns {number} Eased value from 0 to 1 (with overshoot past 1)
  */
 function easeOutBack(t) {
-  const c1 = 2.70158; // Increased for stronger overshoot (20% past 1.0 → reaches 0.9x scale)
+  const c1 = 2.70158; // Overshoot constant (20% past 1.0 → reaches ~0.92x scale)
   const c3 = c1 + 1;
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
@@ -31,14 +31,14 @@ function easeOutBack(t) {
  * Calculate the current animation scale for a cell
  * @param {string} cellKey - The cell key to check
  * @param {number} currentTime - Current timestamp in milliseconds
- * @returns {number} Scale factor (1.0 to 1.5)
+ * @returns {number} Scale factor (1.0 to 1.4)
  */
 function getAnimationScale(cellKey, currentTime) {
   const animation = numberAnimationState.activeAnimations.get(cellKey);
   if (!animation) return 1.0;
 
   const elapsed = currentTime - animation.startTime;
-  const duration = 500; // 500ms total animation time
+  const duration = 400; // 400ms total animation time
 
   if (elapsed >= duration) {
     // Animation complete - clean up and return normal scale
@@ -49,21 +49,21 @@ function getAnimationScale(cellKey, currentTime) {
   const progress = elapsed / duration; // 0 to 1
 
   // Two-phase animation:
-  // Phase 1 (0-15% of time): Quick ease from 1.0x to 1.5x
-  // Phase 2 (15-100% of time): Back ease from 1.5x to 1.0x with overshoot to 0.9x
+  // Phase 1 (0-15% of time): Quick ease from 1.0x to 1.4x
+  // Phase 2 (15-100% of time): Back ease from 1.4x to 1.0x with overshoot to ~0.92x
   const scaleUpPhase = 0.15; // First 15% of animation
 
   if (progress < scaleUpPhase) {
-    // Quick ease-out from 1.0 to 1.5 (cubic ease out for smooth acceleration)
+    // Quick ease-out from 1.0 to 1.4 (cubic ease out for smooth acceleration)
     const scaleUpProgress = progress / scaleUpPhase; // 0 to 1 within this phase
     const eased = 1 - Math.pow(1 - scaleUpProgress, 3); // Cubic ease out
-    const scale = 1.0 + (eased * 0.5); // 1.0 to 1.5
+    const scale = 1.0 + (eased * 0.4); // 1.0 to 1.4
     return scale;
   } else {
-    // Back ease from 1.5 to 1.0 with overshoot to 0.9x, then settle at 1.0x
+    // Back ease from 1.4 to 1.0 with overshoot to ~0.92x, then settle at 1.0x
     const settleProgress = (progress - scaleUpPhase) / (1 - scaleUpPhase); // 0 to 1 within this phase
     const easedProgress = easeOutBack(settleProgress); // 0 to ~1.2 (with overshoot) back to 1.0
-    const scale = 1.5 - (easedProgress * 0.5); // 1.5 to 1.0 (with undershoot to 0.9)
+    const scale = 1.4 - (easedProgress * 0.4); // 1.4 to 1.0 (with undershoot to ~0.92)
     return scale;
   }
 }
