@@ -17,12 +17,12 @@ const numberAnimationState = {
 /**
  * Back easing function (ease out)
  * Creates a single overshoot and settle motion
- * Scale progression: 1.5x → 1.0x → ~0.95x (undershoot) → 1.0x (settle)
+ * Scale progression: 1.5x → 1.0x → 0.9x (undershoot) → 1.0x (settle)
  * @param {number} t - Progress from 0 to 1
- * @returns {number} Eased value from 0 to 1 (with slight overshoot past 1)
+ * @returns {number} Eased value from 0 to 1 (with overshoot past 1)
  */
 function easeOutBack(t) {
-  const c1 = 1.70158;
+  const c1 = 2.70158; // Increased for stronger overshoot (20% past 1.0 → reaches 0.9x scale)
   const c3 = c1 + 1;
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
@@ -38,7 +38,7 @@ function getAnimationScale(cellKey, currentTime) {
   if (!animation) return 1.0;
 
   const elapsed = currentTime - animation.startTime;
-  const duration = 1000; // 1000ms (1 second) total animation time
+  const duration = 500; // 500ms total animation time
 
   if (elapsed >= duration) {
     // Animation complete - clean up and return normal scale
@@ -47,10 +47,10 @@ function getAnimationScale(cellKey, currentTime) {
   }
 
   // Calculate scale with back easing (single overshoot)
-  // Starts at 1.5x (snap), animates to 1.0x, overshoots below, then settles at 1.0x
+  // Starts at 1.5x (snap), animates to 1.0x, overshoots to 0.9x, then settles at 1.0x
   const progress = elapsed / duration; // 0 to 1
-  const easedProgress = easeOutBack(progress); // 0 to ~1.1 (with overshoot) back to 1.0
-  const scale = 1.5 - (easedProgress * 0.5); // 1.5 to 1.0 (with undershoot)
+  const easedProgress = easeOutBack(progress); // 0 to ~1.2 (with overshoot) back to 1.0
+  const scale = 1.5 - (easedProgress * 0.5); // 1.5 to 1.0 (with undershoot to 0.9)
 
   return scale;
 }
