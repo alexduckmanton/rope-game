@@ -131,11 +131,6 @@ body {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  /* Safe area insets for viewport-fit=cover */
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
 }
 
 /* Ensure buttons inherit font-family (needed for Android/WebView where buttons don't inherit by default) */
@@ -148,6 +143,12 @@ button {
   flex-direction: column;
   height: 100vh;
   height: 100dvh;
+  box-sizing: border-box;
+  /* Safe area insets for viewport-fit=cover - protect content from notch/status bar */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* Material Design 3 Top App Bar */
@@ -549,13 +550,8 @@ button {
 /* Overlay - captures clicks for dismiss functionality */
 .bottom-sheet-overlay {
   position: fixed;
-  /* Explicitly extend into safe areas (behind status bar, notch, home indicator) */
-  top: calc(-1 * env(safe-area-inset-top));
-  left: calc(-1 * env(safe-area-inset-left));
-  right: calc(-1 * env(safe-area-inset-right));
-  bottom: calc(-1 * env(safe-area-inset-bottom));
-  width: auto;
-  height: auto;
+  /* Use inset to cover entire viewport including safe areas */
+  inset: 0;
   z-index: 1000;
   pointer-events: none;
   display: none;
