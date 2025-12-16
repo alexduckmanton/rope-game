@@ -15,23 +15,20 @@ const numberAnimationState = {
 };
 
 /**
- * Bounce easing function (ease out)
- * Creates a bouncing effect at the end of the animation
+ * Elastic easing function (ease out)
+ * Creates a smooth, springy motion with gentle oscillation
  * @param {number} t - Progress from 0 to 1
  * @returns {number} Eased value from 0 to 1
  */
-function easeOutBounce(t) {
-  const n1 = 7.5625;
-  const d1 = 2.75;
+function easeOutElastic(t) {
+  const c4 = (2 * Math.PI) / 3;
 
-  if (t < 1 / d1) {
-    return n1 * t * t;
-  } else if (t < 2 / d1) {
-    return n1 * (t -= 1.5 / d1) * t + 0.75;
-  } else if (t < 2.5 / d1) {
-    return n1 * (t -= 2.25 / d1) * t + 0.9375;
+  if (t === 0) {
+    return 0;
+  } else if (t === 1) {
+    return 1;
   } else {
-    return n1 * (t -= 2.625 / d1) * t + 0.984375;
+    return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
   }
 }
 
@@ -54,10 +51,10 @@ function getAnimationScale(cellKey, currentTime) {
     return 1.0;
   }
 
-  // Calculate scale with bounce easing
-  // Starts at 1.5x (snap), animates to 1.0x (normal) with bounce
+  // Calculate scale with elastic easing
+  // Starts at 1.5x (snap), animates to 1.0x (normal) with springy motion
   const progress = elapsed / duration; // 0 to 1
-  const easedProgress = easeOutBounce(progress); // 0 to 1 with bounce
+  const easedProgress = easeOutElastic(progress); // 0 to 1 with elastic spring
   const scale = 1.5 - (easedProgress * 0.5); // 1.5 to 1.0
 
   return scale;
