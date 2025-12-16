@@ -549,10 +549,13 @@ button {
 /* Overlay - captures clicks for dismiss functionality */
 .bottom-sheet-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  /* Explicitly extend into safe areas (behind status bar, notch, home indicator) */
+  top: calc(-1 * env(safe-area-inset-top));
+  left: calc(-1 * env(safe-area-inset-left));
+  right: calc(-1 * env(safe-area-inset-right));
+  bottom: calc(-1 * env(safe-area-inset-bottom));
+  width: auto;
+  height: auto;
   z-index: 1000;
   pointer-events: none;
   display: none;
