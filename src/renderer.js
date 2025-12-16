@@ -20,7 +20,8 @@ const numberAnimationState = {
 const ANIMATION_DURATION = 400; // Total animation time in milliseconds
 const SCALE_UP_PHASE = 0.15; // First 15% is scale-up
 const SCALE_UP_DURATION = ANIMATION_DURATION * SCALE_UP_PHASE; // 60ms
-const SCALE_DOWN_PHASE_DIVISOR = 1 / (1 - SCALE_UP_PHASE); // Pre-calc for phase 2
+const SCALE_DOWN_DURATION = ANIMATION_DURATION - SCALE_UP_DURATION; // 340ms
+const SCALE_DOWN_PHASE_DIVISOR = 1 / SCALE_DOWN_DURATION; // Pre-calc for phase 2 (1/340 ≈ 0.00294)
 
 /**
  * Animation scale constants
