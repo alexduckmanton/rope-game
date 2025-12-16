@@ -39,14 +39,14 @@ function easeOutBounce(t) {
  * Calculate the current animation scale for a cell
  * @param {string} cellKey - The cell key to check
  * @param {number} currentTime - Current timestamp in milliseconds
- * @returns {number} Scale factor (1.0 to 1.2)
+ * @returns {number} Scale factor (1.0 to 1.5)
  */
 function getAnimationScale(cellKey, currentTime) {
   const animation = numberAnimationState.activeAnimations.get(cellKey);
   if (!animation) return 1.0;
 
   const elapsed = currentTime - animation.startTime;
-  const duration = 300; // 300ms total animation time
+  const duration = 500; // 500ms total animation time
 
   if (elapsed >= duration) {
     // Animation complete - clean up and return normal scale
@@ -55,10 +55,10 @@ function getAnimationScale(cellKey, currentTime) {
   }
 
   // Calculate scale with bounce easing
-  // Starts at 1.2x (snap), animates to 1.0x (normal) with bounce
+  // Starts at 1.5x (snap), animates to 1.0x (normal) with bounce
   const progress = elapsed / duration; // 0 to 1
   const easedProgress = easeOutBounce(progress); // 0 to 1 with bounce
-  const scale = 1.2 - (easedProgress * 0.2); // 1.2 to 1.0
+  const scale = 1.5 - (easedProgress * 0.5); // 1.5 to 1.0
 
   return scale;
 }
