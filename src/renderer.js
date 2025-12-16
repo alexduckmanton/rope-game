@@ -106,7 +106,7 @@ const pathAnimationState = {
 /**
  * Path animation timing constants
  */
-const PATH_ANIMATION_DURATION = 200; // 200ms for smooth, responsive feel
+const PATH_ANIMATION_DURATION = 100; // 100ms for smooth, responsive feel
 
 /**
  * Cubic ease-out function for path animations
