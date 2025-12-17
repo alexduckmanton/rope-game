@@ -11,7 +11,7 @@ import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { showBottomSheetAsync } from '../bottomSheet.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
-import { checkPartialStructuralWin, validateHints, checkShouldValidate } from '../game/validation.js';
+import { checkPartialStructuralWin, validateHints, computeStateKey } from '../game/validation.js';
 import { markTutorialCompleted } from '../persistence.js';
 
 /* ============================================================================
@@ -260,27 +260,39 @@ function render() {
     animationFrameId = requestAnimationFrame(render);
   }
 
-  // Check if we should run validation based on state changes and drag state
-  const { shouldValidate, currentStateKey } = checkShouldValidate({
-    playerDrawnCells,
-    playerConnections,
-    gameCore,
-    hasWon,
-    lastValidatedStateKey
-  });
+  // Compute current state key for validation
+  const currentStateKey = computeStateKey(playerDrawnCells, playerConnections);
+  const stateChanged = currentStateKey !== lastValidatedStateKey;
 
-  if (shouldValidate && checkStructuralWin()) {
-    // Update last validated state now that we're actually validating
+  // PHASE 1: Visual validation (continuous - runs even while dragging)
+  // This determines if the path should be green, without showing modals
+  let isCurrentlyWinning = false;
+  let hasValidStructure = false;
+
+  if (!hasWon) {
+    hasValidStructure = checkStructuralWin();
+
+    if (hasValidStructure) {
+      // Check if current state is a full win
+      isCurrentlyWinning = checkWin(playerTurnMap);
+    }
+  }
+
+  // Render path with visual win state (green if currently winning OR officially won)
+  renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon);
+
+  // PHASE 2: Modal validation (deferred - only runs when not dragging)
+  // This shows modals and sets the official hasWon state
+  if (stateChanged && !hasWon && !gameCore.state.isDragging) {
+    // Update last validated state now that we're checking for modals
     lastValidatedStateKey = currentStateKey;
 
-    // Check if this is a full win or partial win (valid loop but wrong hints)
-    // Pass pre-built player turn map to avoid rebuilding
-    if (checkWin(playerTurnMap)) {
-      // Full win - all validation passed
+    if (isCurrentlyWinning) {
+      // Full win - set official win state and show modal
       hasWon = true;
       hasShownPartialWinFeedback = false; // Reset flag
-      // Re-render path with win color
-      renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
+      // Re-render path with win color (already green from visual validation, but ensures consistency)
+      renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true);
 
       // Show win bottom sheet with navigation on close
       // Destroy any previous tutorial sheet before showing new one
@@ -301,7 +313,7 @@ function render() {
           }
         }
       });
-    } else if (currentConfig && currentConfig.hasHints && !hasShownPartialWinFeedback) {
+    } else if (hasValidStructure && currentConfig && currentConfig.hasHints && !hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
       // Only show feedback once per structural completion
       hasShownPartialWinFeedback = true;
@@ -343,13 +355,8 @@ function render() {
         colorScheme: 'error',
         dismissLabel: 'Keep trying'
       });
-    }
-  } else if (shouldValidate) {
-    // Update last validated state now that we're actually validating
-    lastValidatedStateKey = currentStateKey;
-
-    // Reset feedback flag if structural win is no longer valid
-    if (!checkStructuralWin()) {
+    } else if (!hasValidStructure) {
+      // No valid structure - reset feedback flag
       hasShownPartialWinFeedback = false;
     }
   }

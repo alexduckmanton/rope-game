@@ -17,7 +17,7 @@ import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
-import { checkStructuralWin as checkStructuralWinUtil, checkFullWin, checkPartialStructuralWin, checkAllCellsVisited, validateHints, DIFFICULTY, checkShouldValidate } from '../game/validation.js';
+import { checkStructuralWin as checkStructuralWinUtil, checkFullWin, checkPartialStructuralWin, checkAllCellsVisited, validateHints, DIFFICULTY, computeStateKey } from '../game/validation.js';
 
 /* ============================================================================
  * CONSTANTS
@@ -489,65 +489,67 @@ function render(triggerSave = true, animationMode = 'auto') {
     renderPath(ctx, solutionPath, cellSize);
   }
 
-  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon, animationMode);
+  // Compute current state key for validation
+  const currentStateKey = computeStateKey(playerDrawnCells, playerConnections);
+  const stateChanged = currentStateKey !== lastValidatedStateKey;
 
-  // Check if we should run validation based on state changes and drag state
-  const { shouldValidate, currentStateKey } = checkShouldValidate({
-    playerDrawnCells,
-    playerConnections,
-    gameCore,
-    hasWon,
-    lastValidatedStateKey
-  });
+  // PHASE 1: Visual validation (continuous - runs even while dragging)
+  // This determines if the path should be green, without showing modals
+  let isCurrentlyWinning = false;
+  let hasValidStructure = false;
+  let hintsValid = false;
+  let allCellsVisited = false;
+  const requiresAllCells = currentGameDifficulty === DIFFICULTY.HARD;
 
-  // Validation flow (only runs when validation should occur):
-  // 1. Check if drawn cells form a valid closed loop (not necessarily all cells)
-  // 2. If yes, check if all hints are validated
-  // 3. For easy/medium: hints valid = win; for hard: also requires all cells visited
-  // 4. Show appropriate error/win message based on difficulty and conditions
-  if (shouldValidate && checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
-    // Update last validated state now that we're actually validating
+  if (!hasWon) {
+    hasValidStructure = checkPartialStructuralWin(playerDrawnCells, playerConnections);
+
+    if (hasValidStructure) {
+      const solMap = cachedSolutionTurnMap;
+      const playerMap = playerTurnMap;
+      hintsValid = validateHints(solMap, playerMap, hintCells, gridSize);
+      allCellsVisited = checkAllCellsVisited(playerDrawnCells, gridSize);
+
+      // Path is green if all win conditions are met
+      isCurrentlyWinning = hintsValid && (!requiresAllCells || allCellsVisited);
+    }
+  }
+
+  // Render path with visual win state (green if currently winning OR officially won)
+  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon, animationMode);
+
+  // PHASE 2: Modal validation (deferred - only runs when not dragging)
+  // This shows modals and sets the official hasWon state
+  if (stateChanged && !hasWon && !gameCore.state.isDragging) {
+    // Update last validated state now that we're checking for modals
     lastValidatedStateKey = currentStateKey;
 
-    // Player has drawn a valid closed loop (single connected loop, each cell has 2 connections)
+    if (isCurrentlyWinning) {
+      // WIN - set official win state and show modal
+      hasWon = true;
+      hasShownPartialWinFeedback = false;
+      hasShownIncompleteLoopFeedback = false;
+      stopTimer();
 
-    // Build turn maps for validation
-    const solMap = cachedSolutionTurnMap;
-    const playerMap = playerTurnMap;
+      // Update UI state for completed game
+      setGameUIState(GAME_STATE.WON);
 
-    // Check if all hints in the grid are validated correctly
-    const hintsValid = validateHints(solMap, playerMap, hintCells, gridSize);
+      // Mark daily puzzle as completed (not for unlimited mode)
+      if (isDailyMode) {
+        markDailyCompleted(currentGameDifficulty);
+      }
 
-    // Hard mode requires visiting all cells; easy/medium only require satisfying hints
-    const requiresAllCells = currentGameDifficulty === DIFFICULTY.HARD;
-    const allCellsVisited = checkAllCellsVisited(playerDrawnCells, gridSize);
+      // Capture time BEFORE any rendering that might cause re-renders
+      const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
 
-    if (hintsValid) {
-      // All hints are correct! Check win condition based on difficulty
-      if (!requiresAllCells || allCellsVisited) {
-        // WIN - either all cells not required (easy/medium), or all cells visited (hard)
-        hasWon = true;
-        hasShownPartialWinFeedback = false;
-        hasShownIncompleteLoopFeedback = false;
-        stopTimer();
+      // Re-render path with win color (already green from visual validation, but ensures consistency)
+      const winPathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true, animationMode);
 
-        // Update UI state for completed game
-        setGameUIState(GAME_STATE.WON);
-
-        // Mark daily puzzle as completed (not for unlimited mode)
-        if (isDailyMode) {
-          markDailyCompleted(currentGameDifficulty);
-        }
-
-        // Capture time BEFORE any rendering that might cause re-renders
-        const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
-
-        // Re-render path with win color (updates pathRenderResult)
-        const winPathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon, animationMode);
-
-        // Show win celebration
-        showWinCelebration(finalTime);
-      } else if (!hasShownIncompleteLoopFeedback) {
+      // Show win celebration
+      showWinCelebration(finalTime);
+    } else if (hasValidStructure) {
+      // Valid structure but not winning - check for error modals
+      if (requiresAllCells && !allCellsVisited && !hasShownIncompleteLoopFeedback) {
         // Hard mode only: Valid loop, all hints correct, but not all cells visited
         hasShownIncompleteLoopFeedback = true;
 
@@ -563,13 +565,10 @@ function render(triggerSave = true, animationMode = 'auto') {
           dismissLabel: 'Keep trying'
         });
       }
-    } else {
-      // Hints are wrong
-      // For easy/medium: show error on any complete loop
-      // For hard: show error only when all cells visited
-      const shouldShowHintsError = requiresAllCells ? allCellsVisited : true;
 
-      if (shouldShowHintsError && !hasShownPartialWinFeedback) {
+      // Check for wrong hints error
+      const shouldShowHintsError = requiresAllCells ? allCellsVisited : true;
+      if (!hintsValid && shouldShowHintsError && !hasShownPartialWinFeedback) {
         // "Almost there!" error - hints don't match
         hasShownPartialWinFeedback = true;
 
@@ -585,13 +584,8 @@ function render(triggerSave = true, animationMode = 'auto') {
           dismissLabel: 'Keep trying'
         });
       }
-    }
-  } else if (shouldValidate) {
-    // Update last validated state now that we're actually validating
-    lastValidatedStateKey = currentStateKey;
-
-    // Reset feedback flags if structural win is no longer valid
-    if (!checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
+    } else {
+      // No valid structure - reset feedback flags
       hasShownPartialWinFeedback = false;
       hasShownIncompleteLoopFeedback = false;
     }
