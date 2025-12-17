@@ -121,7 +121,7 @@
 
   /* Semantic States */
   --color-success: var(--color-green-400);
-  --color-success-bg: var(--color-green-100);
+  --color-success-bg: var(--color-amber-100);
   --color-success-icon: var(--color-amber-500);      /* Success notification icon */
 
   --color-error: var(--color-red-500);

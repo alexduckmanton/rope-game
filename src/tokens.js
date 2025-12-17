@@ -127,7 +127,7 @@ export const semantic = {
 
   // Semantic states
   success: colors.green[400],
-  successBg: colors.green[100],
+  successBg: colors.amber[100],
   successIcon: colors.amber[500],
 
   error: colors.red[500],
