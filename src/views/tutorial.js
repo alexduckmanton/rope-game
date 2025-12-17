@@ -510,6 +510,10 @@ export function initTutorial(params) {
         element.removeEventListener(event, handler);
       }
       eventListeners = [];
+
+      // Clear animation state
+      resetNumberAnimationState();
+      resetPathAnimationState();
     };
   }
 
