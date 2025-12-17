@@ -3,6 +3,8 @@
  * Centralizes magic numbers for easier tuning and maintenance
  */
 
+import { semantic, colors } from './tokens.js';
+
 export const CONFIG = {
   // Cell sizing
   CELL_SIZE_MIN: 50,           // Minimum cell size in pixels
@@ -37,33 +39,34 @@ export const CONFIG = {
     LAYER_OFFSET: 6,             // Additional inset per layer for concentric borders
   },
 
-  // Colors
+  // Colors - imported from design tokens
+  // See src/tokens.js for full color system
   COLORS: {
     // Grid and background
-    BACKGROUND: '#F5F5F5',
-    GRID_LINE: '#E0E0E0',
+    BACKGROUND: semantic.canvasBg,
+    GRID_LINE: semantic.gridLine,
 
     // Paths
-    SOLUTION_PATH: '#4A90E2',
-    PLAYER_PATH: '#000000',
-    PLAYER_PATH_WIN: '#ACF39D',
+    SOLUTION_PATH: semantic.solutionPath,
+    PLAYER_PATH: semantic.playerPath,
+    PLAYER_PATH_WIN: semantic.playerPathWin,
 
     // UI elements
-    UI_TEXT: '#34495E',
+    UI_TEXT: semantic.textPrimary,
 
     // Hints
-    HINT_EXTRA: '#C0C0C0',       // Color for non-hint cells in 'all' mode
-    HINT_VALIDATED: '#ACF39D',   // Color when hint is satisfied
-    HINT_COLORS: [               // Magnitude-based color palette (bright yellow-orange → dark magenta)
-      '#FFB04A',  // Magnitude 1 - Bright orange-yellow (lightest)
-      '#FF8C42',  // Magnitude 2 - Bright orange
-      '#FF6347',  // Magnitude 3 - Tomato red
-      '#FF4169',  // Magnitude 4 - Red-pink
-      '#F03A7C',  // Magnitude 5 - Hot pink
-      '#D4357F',  // Magnitude 6 - Pink-magenta
-      '#B02D8A',  // Magnitude 7 - Magenta
-      '#8C1F7D',  // Magnitude 8 - Dark magenta
-      '#661565',  // Magnitude 9 - Very dark magenta (darkest)
+    HINT_EXTRA: semantic.hintExtra,         // Color for non-hint cells in 'all' mode
+    HINT_VALIDATED: semantic.hintValidated, // Color when hint is satisfied
+    HINT_COLORS: [                          // Magnitude-based color palette (bright yellow-orange → dark magenta)
+      colors.hint[1],  // Magnitude 1 - Bright orange-yellow (lightest)
+      colors.hint[2],  // Magnitude 2 - Bright orange
+      colors.hint[3],  // Magnitude 3 - Tomato red
+      colors.hint[4],  // Magnitude 4 - Red-pink
+      colors.hint[5],  // Magnitude 5 - Hot pink
+      colors.hint[6],  // Magnitude 6 - Pink-magenta
+      colors.hint[7],  // Magnitude 7 - Magenta
+      colors.hint[8],  // Magnitude 8 - Dark magenta
+      colors.hint[9],  // Magnitude 9 - Very dark magenta (darkest)
     ],
   },
 

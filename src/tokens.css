@@ -1,0 +1,165 @@
+/**
+ * Design Tokens - Color System
+ *
+ * Two-tier token system:
+ * 1. Base color scales (primitive tokens) - the actual color values
+ * 2. Semantic tokens (purpose-based) - references to base colors
+ *
+ * Usage:
+ * - In CSS: Use semantic tokens (e.g., var(--color-primary))
+ * - Only use base scales when semantic tokens don't fit
+ * - For canvas/JS: Import from tokens.js
+ *
+ * Future: Override these tokens for dark mode
+ */
+
+:root {
+  /* ============================================
+     BASE COLOR SCALES (Primitive Tokens)
+     ============================================ */
+
+  /* Neutral/Grey Scale
+     Used for: backgrounds, text, borders, UI elements
+     Consolidates 10+ similar greys into 10-step scale */
+  --color-neutral-50: #F8F8F8;   /* Lightest bg */
+  --color-neutral-100: #F3F4F6;  /* Light bg (was also #F5F5F5) */
+  --color-neutral-200: #E8E8E8;  /* Medium bg (was also #F0F0F0) */
+  --color-neutral-300: #E0E0E0;  /* Borders, dividers (was also #E5E7EB) */
+  --color-neutral-400: #C0C0C0;  /* Muted/disabled elements */
+  --color-neutral-500: #7F8C8D;  /* Secondary text, descriptions */
+  --color-neutral-600: #6B7280;  /* Icons, muted text (was also #6B7D8A) */
+  --color-neutral-700: #34495E;  /* Primary text, headings */
+  --color-neutral-800: #1F2937;  /* Emphasis text, dark text */
+  --color-neutral-900: #000000;  /* Pure black */
+
+  /* Blue Scale
+     Used for: primary actions, solution paths, info states
+     Consolidates #4A90E2 and #3B82F6 (very similar) */
+  --color-blue-50: #EFF6FF;      /* Very light blue bg */
+  --color-blue-100: #DBEAFE;     /* Light blue bg (info backgrounds) */
+  --color-blue-400: #4A90E2;     /* Primary blue (was also #3B82F6) */
+  --color-blue-500: #357ABD;     /* Darker blue (hover states) */
+  --color-blue-600: #2563EB;     /* Even darker (future use) */
+  --color-blue-700: #1D4ED8;     /* Dark blue (future use) */
+
+  /* Green Scale
+     Used for: success states, win conditions, validation */
+  --color-green-50: #F0FDF4;     /* Very light green bg */
+  --color-green-100: #D1FAE5;    /* Light green bg */
+  --color-green-400: #ACF39D;    /* Success/win color (main) */
+  --color-green-500: #10B981;    /* Richer green (future use) */
+  --color-green-600: #059669;    /* Dark green (future use) */
+
+  /* Red Scale
+     Used for: errors, destructive actions */
+  --color-red-50: #FEF2F2;       /* Very light red bg */
+  --color-red-100: #FEE2E2;      /* Light red bg (error backgrounds) */
+  --color-red-500: #EF4444;      /* Error red (main) */
+  --color-red-600: #DC2626;      /* Darker red (future use) */
+  --color-red-700: #B91C1C;      /* Dark red (future use) */
+
+  /* Amber Scale
+     Used for: warnings, success notifications */
+  --color-amber-50: #FFFBEB;     /* Very light amber bg */
+  --color-amber-100: #FEF3C7;    /* Light amber bg (warning backgrounds) */
+  --color-amber-500: #F59E0B;    /* Amber (warnings, success icons) */
+  --color-amber-600: #D97706;    /* Darker amber (future use) */
+
+  /* Hint Magnitude Gradient (Special Case)
+     Used exclusively for hint cell coloring based on magnitude (1-9)
+     Orange → Magenta gradient representing increasing complexity
+     Do NOT consolidate - each value is intentionally distinct */
+  --color-hint-1: #FFB04A;       /* Magnitude 1 - Bright orange-yellow */
+  --color-hint-2: #FF8C42;       /* Magnitude 2 - Bright orange */
+  --color-hint-3: #FF6347;       /* Magnitude 3 - Tomato red */
+  --color-hint-4: #FF4169;       /* Magnitude 4 - Red-pink */
+  --color-hint-5: #F03A7C;       /* Magnitude 5 - Hot pink */
+  --color-hint-6: #D4357F;       /* Magnitude 6 - Pink-magenta */
+  --color-hint-7: #B02D8A;       /* Magnitude 7 - Magenta */
+  --color-hint-8: #8C1F7D;       /* Magnitude 8 - Dark magenta */
+  --color-hint-9: #661565;       /* Magnitude 9 - Very dark magenta */
+
+
+  /* ============================================
+     SEMANTIC TOKENS (Purpose-Based)
+     ============================================ */
+
+  /* Primary Actions & Interactive Elements */
+  --color-primary: var(--color-blue-400);
+  --color-primary-hover: var(--color-blue-500);
+  --color-primary-active: var(--color-blue-600);
+
+  /* Backgrounds */
+  --color-bg-base: var(--color-neutral-100);         /* Main app background (was #F5F5F5) */
+  --color-bg-surface: var(--color-neutral-50);       /* Elevated surfaces */
+  --color-bg-elevated: #FFFFFF;                      /* Cards, modals */
+  --color-bg-secondary: var(--color-neutral-100);    /* Secondary button bg */
+  --color-bg-hover: var(--color-neutral-200);        /* Hover state bg */
+  --color-bg-active: var(--color-neutral-200);       /* Active state bg */
+
+  /* Text Colors */
+  --color-text-primary: var(--color-neutral-700);    /* Main text, headings */
+  --color-text-secondary: var(--color-neutral-500);  /* Descriptions, taglines */
+  --color-text-muted: var(--color-neutral-600);      /* Less important text */
+  --color-text-disabled: var(--color-neutral-400);   /* Disabled text */
+  --color-text-on-primary: #FFFFFF;                  /* Text on primary color */
+  --color-text-emphasis: var(--color-neutral-800);   /* Strong emphasis */
+
+  /* Borders & Dividers */
+  --color-border: var(--color-neutral-300);          /* Standard borders */
+  --color-border-light: var(--color-neutral-200);    /* Light borders */
+  --color-border-strong: var(--color-neutral-400);   /* Emphasized borders */
+
+  /* Game-Specific Elements */
+  --color-canvas-bg: var(--color-neutral-100);       /* Canvas background */
+  --color-grid-line: var(--color-neutral-300);       /* Grid lines */
+  --color-solution-path: var(--color-blue-400);      /* Solution display */
+  --color-player-path: var(--color-neutral-900);     /* Player drawing (black) */
+  --color-player-path-win: var(--color-green-400);   /* Player path on win */
+  --color-hint-validated: var(--color-green-400);    /* Validated hint cells */
+  --color-hint-extra: var(--color-neutral-400);      /* Non-hint cells in 'all' mode */
+
+  /* Semantic States */
+  --color-success: var(--color-green-400);
+  --color-success-bg: var(--color-green-100);
+  --color-success-icon: var(--color-amber-500);      /* Success notification icon */
+
+  --color-error: var(--color-red-500);
+  --color-error-bg: var(--color-red-100);
+
+  --color-warning: var(--color-amber-500);
+  --color-warning-bg: var(--color-amber-100);
+
+  --color-info: var(--color-blue-400);
+  --color-info-bg: var(--color-blue-100);
+
+  --color-neutral: var(--color-neutral-600);
+  --color-neutral-bg: var(--color-neutral-100);
+
+
+  /* ============================================
+     OPACITY-BASED COLORS
+     For hover, active, and overlay states
+     ============================================ */
+
+  /* Interactive State Overlays */
+  --color-overlay-hover: rgba(52, 73, 94, 0.08);     /* Light hover overlay */
+  --color-overlay-active: rgba(52, 73, 94, 0.12);    /* Active state overlay */
+  --color-overlay-subtle: rgba(0, 0, 0, 0.04);       /* Very subtle hover */
+
+  /* Shadows */
+  --color-shadow-sm: rgba(0, 0, 0, 0.1);             /* Light shadow */
+  --color-shadow-md: rgba(0, 0, 0, 0.15);            /* Medium shadow */
+  --color-shadow-lg: rgba(0, 0, 0, 0.2);             /* Large shadow */
+
+  /* Modal & Overlay Backgrounds */
+  --color-backdrop: rgba(0, 0, 0, 0.5);              /* Modal backdrop */
+
+
+  /* ============================================
+     SPECIAL PURPOSE
+     ============================================ */
+
+  /* Browser chrome */
+  --color-theme: var(--color-neutral-100);           /* Browser theme color (mobile) */
+}

@@ -178,7 +178,7 @@ export function resetPathAnimationState() {
  * @param {number} cellSize - Size of each cell in pixels
  */
 export function renderGrid(ctx, size, cellSize) {
-  ctx.strokeStyle = '#E0E0E0';
+  ctx.strokeStyle = CONFIG.COLORS.GRID_LINE;
   ctx.lineWidth = 1;
 
   // Draw grid lines
