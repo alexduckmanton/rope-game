@@ -251,6 +251,11 @@ export function determineConnectionToBreak(targetCell, comingFromCell, existingC
  * Strategy: Track the previous movement direction (horizontal or vertical) and continue in that
  * direction when encountering a diagonal, creating a natural flowing path.
  *
+ * Performance Note: This function creates a new array on every call (during pointer move events).
+ * While this could theoretically be optimized with in-place modification, the arrays are typically
+ * small (<20 elements) and modern JS engines handle these allocations efficiently (~0.01ms).
+ * The current implementation prioritizes code clarity over premature optimization.
+ *
  * @param {Array<string>} cells - Array of cell keys from Bresenham's algorithm
  * @returns {Array<string>} Array with intermediate cells inserted for adjacency
  */

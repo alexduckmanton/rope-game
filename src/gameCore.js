@@ -266,19 +266,20 @@ export function createGameCore({ gridSize, canvas, onRender }) {
 
     const backtrackIndex = state.dragPath.indexOf(cell.key);
     if (backtrackIndex !== -1 && backtrackIndex < state.dragPath.length - 1) {
-      // Special case: going back to the first cell (loop closing)
+      // Always update pointer position when handling backtrack scenarios
+      // This keeps pointer position in sync with actual touch/mouse position
+      state.lastPointerX = x;
+      state.lastPointerY = y;
+
       if (backtrackIndex === 0) {
+        // Special case: going back to the first cell (loop closing)
         // Always try to close loop, regardless of distance
         if (tryCloseLoop(state.dragPath)) {
-          state.lastPointerX = x;
-          state.lastPointerY = y;
           return;
         }
         // If loop closing fails, always backtrack (regardless of distance)
         // This ensures intentional attempts to close the loop work predictably
         handleBacktrack(backtrackIndex);
-        state.lastPointerX = x;
-        state.lastPointerY = y;
         return;
       }
 
@@ -289,14 +290,12 @@ export function createGameCore({ gridSize, canvas, onRender }) {
       if (backtrackDistance <= CONFIG.INTERACTION.BACKTRACK_THRESHOLD) {
         // Within threshold - backtrack normally (1-4 squares back)
         handleBacktrack(backtrackIndex);
-        state.lastPointerX = x;
-        state.lastPointerY = y;
-        return;
-      } else {
-        // Beyond threshold - ignore this touch to prevent accidental erasure
-        // Don't update pointer position to avoid creating weird jumps in the path
         return;
       }
+
+      // Beyond threshold - ignore backtrack to prevent accidental erasure
+      // Pointer position already updated above
+      return;
     }
 
     // Calculate cells along the actual pointer path
