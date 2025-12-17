@@ -4,7 +4,7 @@
  * Teaches players the game mechanics through simple empty grid puzzles
  */
 
-import { renderGrid, clearCanvas, renderPlayerPath, renderCellNumbers, buildPlayerTurnMap, renderHintPulse, calculateBorderLayers } from '../renderer.js';
+import { renderGrid, clearCanvas, renderPlayerPath, renderCellNumbers, buildPlayerTurnMap, renderHintPulse, calculateBorderLayers, resetNumberAnimationState, resetPathAnimationState } from '../renderer.js';
 import { buildSolutionTurnMap, countTurnsInArea, parseCellKey } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
@@ -611,6 +611,11 @@ export function initTutorial(params) {
       element.removeEventListener(event, handler);
     }
     eventListeners = [];
+
+    // Clear animation state
+    resetNumberAnimationState();
+    resetPathAnimationState();
+
     if (gameCore) {
       gameCore.resetDragState();
     }
