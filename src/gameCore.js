@@ -7,6 +7,7 @@
  */
 
 import { isAdjacent, determineConnectionToBreak, getCellsAlongLine, parseCellKey, createCellKey } from './utils.js';
+import { CONFIG } from './config.js';
 
 /**
  * Creates a game core instance with encapsulated state and methods
@@ -265,17 +266,37 @@ export function createGameCore({ gridSize, canvas, onRender }) {
 
     const backtrackIndex = state.dragPath.indexOf(cell.key);
     if (backtrackIndex !== -1 && backtrackIndex < state.dragPath.length - 1) {
+      // Special case: going back to the first cell (loop closing)
       if (backtrackIndex === 0) {
+        // Always try to close loop, regardless of distance
         if (tryCloseLoop(state.dragPath)) {
           state.lastPointerX = x;
           state.lastPointerY = y;
           return;
         }
+        // If loop closing fails, always backtrack (regardless of distance)
+        // This ensures intentional attempts to close the loop work predictably
+        handleBacktrack(backtrackIndex);
+        state.lastPointerX = x;
+        state.lastPointerY = y;
+        return;
       }
-      handleBacktrack(backtrackIndex);
-      state.lastPointerX = x;
-      state.lastPointerY = y;
-      return;
+
+      // For other cells, check if within backtrack threshold
+      // This prevents accidental erasure when drawing long paths that cross themselves
+      const backtrackDistance = state.dragPath.length - 1 - backtrackIndex;
+
+      if (backtrackDistance <= CONFIG.INTERACTION.BACKTRACK_THRESHOLD) {
+        // Within threshold - backtrack normally (1-4 squares back)
+        handleBacktrack(backtrackIndex);
+        state.lastPointerX = x;
+        state.lastPointerY = y;
+        return;
+      } else {
+        // Beyond threshold - ignore this touch to prevent accidental erasure
+        // Don't update pointer position to avoid creating weird jumps in the path
+        return;
+      }
     }
 
     // Calculate cells along the actual pointer path
