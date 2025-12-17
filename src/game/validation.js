@@ -130,3 +130,39 @@ export function computeStateKey(playerDrawnCells, playerConnections) {
 
   return `${cellsStr}|${connectionsStr}`;
 }
+
+/**
+ * Determines if validation should run based on state changes and interaction state.
+ * Validation only runs when:
+ * - State has changed since last validation
+ * - Game is not already won
+ * - User is not currently dragging (deferred validation prevents modal interruptions)
+ *
+ * This helper encapsulates the "when to validate" logic shared between game and tutorial views,
+ * while leaving the "what to validate" and "what to do when validated" logic in each view.
+ *
+ * @param {Object} params
+ * @param {Set<string>} params.playerDrawnCells - Current drawn cells
+ * @param {Map<string, Set<string>>} params.playerConnections - Current connections
+ * @param {Object} params.gameCore - Game core instance (for isDragging state)
+ * @param {boolean} params.hasWon - Whether game is already won
+ * @param {string} params.lastValidatedStateKey - Last state that was validated
+ * @returns {Object} { shouldValidate: boolean, currentStateKey: string, stateChanged: boolean }
+ */
+export function checkShouldValidate({
+  playerDrawnCells,
+  playerConnections,
+  gameCore,
+  hasWon,
+  lastValidatedStateKey
+}) {
+  const currentStateKey = computeStateKey(playerDrawnCells, playerConnections);
+  const stateChanged = currentStateKey !== lastValidatedStateKey;
+  const isDragging = gameCore.state.isDragging;
+
+  return {
+    shouldValidate: stateChanged && !hasWon && !isDragging,
+    currentStateKey,
+    stateChanged
+  };
+}
