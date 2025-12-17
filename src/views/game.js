@@ -17,7 +17,7 @@ import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
-import { checkStructuralWin as checkStructuralWinUtil, checkFullWin, checkPartialStructuralWin, checkAllCellsVisited, validateHints, DIFFICULTY, computeStateKey } from '../game/validation.js';
+import { checkStructuralWin as checkStructuralWinUtil, checkFullWin, checkPartialStructuralWin, checkAllCellsVisited, validateHints, DIFFICULTY, checkShouldValidate } from '../game/validation.js';
 
 /* ============================================================================
  * CONSTANTS
@@ -491,19 +491,21 @@ function render(triggerSave = true, animationMode = 'auto') {
 
   const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon, animationMode);
 
-  // Skip validation if the path hasn't changed since last validation
-  // This prevents error modals from appearing on taps that don't modify the path
-  const currentStateKey = computeStateKey(playerDrawnCells, playerConnections);
-  const stateChanged = currentStateKey !== lastValidatedStateKey;
+  // Check if we should run validation based on state changes and drag state
+  const { shouldValidate, currentStateKey } = checkShouldValidate({
+    playerDrawnCells,
+    playerConnections,
+    gameCore,
+    hasWon,
+    lastValidatedStateKey
+  });
 
-  // Validation flow (only runs if state changed AND not currently dragging):
+  // Validation flow (only runs when validation should occur):
   // 1. Check if drawn cells form a valid closed loop (not necessarily all cells)
   // 2. If yes, check if all hints are validated
   // 3. For easy/medium: hints valid = win; for hard: also requires all cells visited
   // 4. Show appropriate error/win message based on difficulty and conditions
-  // By deferring validation until after dragging finishes, we prevent modals from
-  // interrupting the user mid-draw when they might be drawing through these states
-  if (stateChanged && !hasWon && !gameCore.state.isDragging && checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
+  if (shouldValidate && checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
     // Update last validated state now that we're actually validating
     lastValidatedStateKey = currentStateKey;
 
@@ -584,11 +586,11 @@ function render(triggerSave = true, animationMode = 'auto') {
         });
       }
     }
-  } else if (stateChanged && !hasWon && !gameCore.state.isDragging) {
+  } else if (shouldValidate) {
     // Update last validated state now that we're actually validating
     lastValidatedStateKey = currentStateKey;
 
-    // Only check for flag reset if state changed and game is not won
+    // Reset feedback flags if structural win is no longer valid
     if (!checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
       hasShownPartialWinFeedback = false;
       hasShownIncompleteLoopFeedback = false;

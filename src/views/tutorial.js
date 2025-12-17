@@ -11,7 +11,7 @@ import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { showBottomSheetAsync } from '../bottomSheet.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
-import { checkPartialStructuralWin, validateHints, computeStateKey } from '../game/validation.js';
+import { checkPartialStructuralWin, validateHints, checkShouldValidate } from '../game/validation.js';
 import { markTutorialCompleted } from '../persistence.js';
 
 /* ============================================================================
@@ -260,14 +260,19 @@ function render() {
     animationFrameId = requestAnimationFrame(render);
   }
 
-  // Skip validation if the path hasn't changed since last validation
-  const currentStateKey = computeStateKey(playerDrawnCells, playerConnections);
-  const stateChanged = currentStateKey !== lastValidatedStateKey;
-  if (stateChanged) {
-    lastValidatedStateKey = currentStateKey;
-  }
+  // Check if we should run validation based on state changes and drag state
+  const { shouldValidate, currentStateKey } = checkShouldValidate({
+    playerDrawnCells,
+    playerConnections,
+    gameCore,
+    hasWon,
+    lastValidatedStateKey
+  });
 
-  if (stateChanged && !hasWon && checkStructuralWin()) {
+  if (shouldValidate && checkStructuralWin()) {
+    // Update last validated state now that we're actually validating
+    lastValidatedStateKey = currentStateKey;
+
     // Check if this is a full win or partial win (valid loop but wrong hints)
     // Pass pre-built player turn map to avoid rebuilding
     if (checkWin(playerTurnMap)) {
@@ -339,8 +344,11 @@ function render() {
         dismissLabel: 'Keep trying'
       });
     }
-  } else if (stateChanged && !hasWon) {
-    // Only reset flag if state changed and structural win is no longer valid
+  } else if (shouldValidate) {
+    // Update last validated state now that we're actually validating
+    lastValidatedStateKey = currentStateKey;
+
+    // Reset feedback flag if structural win is no longer valid
     if (!checkStructuralWin()) {
       hasShownPartialWinFeedback = false;
     }
