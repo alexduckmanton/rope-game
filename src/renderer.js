@@ -829,32 +829,49 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
 
   // Detect changes and manage animations
   if (animationMode === 'auto') {
-    // Detect new cells and start animations
+    // Collect all new cells added this frame
+    const newCells = new Set();
     for (const cellKey of drawnCells) {
       if (!pathAnimationState.previousDrawnCells.has(cellKey)) {
-        // New cell added - find its predecessor for animation
+        newCells.add(cellKey);
+      }
+    }
+
+    // Multi-pass animation detection: keep trying to add cells until no more can be added
+    // This handles chains where cell B depends on cell A which is also new this frame
+    // (e.g., diagonal drags that add multiple intermediate cells at once)
+    let addedAny;
+    do {
+      addedAny = false;
+
+      for (const cellKey of newCells) {
+        // Skip if already animating
+        if (pathAnimationState.animatingCells.has(cellKey)) continue;
+
+        // Find predecessor in EITHER previous cells OR currently animating cells
         const connectedCells = connections.get(cellKey);
         let predecessorKey = null;
 
         if (connectedCells) {
-          // Look for a connected cell that existed in the previous frame
           for (const connKey of connectedCells) {
-            if (pathAnimationState.previousDrawnCells.has(connKey)) {
+            if (pathAnimationState.previousDrawnCells.has(connKey) ||
+                pathAnimationState.animatingCells.has(connKey)) {
               predecessorKey = connKey;
               break;
             }
           }
         }
 
-        // Start animation only if there's a predecessor to animate from
+        // Only add if we found a predecessor
         if (predecessorKey) {
           pathAnimationState.animatingCells.set(cellKey, {
             startTime: currentTime,
             predecessorKey,
           });
+          addedAny = true;
         }
       }
-    }
+    } while (addedAny);
 
     // Detect removed cells (backtracking) - cancel animations immediately
     for (const cellKey of pathAnimationState.previousDrawnCells) {

@@ -76,6 +76,19 @@ export const CONFIG = {
 
   // Interaction behavior
   INTERACTION: {
-    BACKTRACK_THRESHOLD: 4,     // Maximum squares back to allow backtracking (1-4 squares = backtrack, 5+ = ignore)
+    // Backtracking distance threshold (prevents accidental long-path erasure)
+    //
+    // When user drags backwards over their existing path, backtracking only occurs
+    // if they're within this many cells from the end. Beyond this distance, the
+    // touch is ignored to prevent accidentally destroying long paths.
+    //
+    // Example with path A→B→C→D→E→F (threshold = 4):
+    //   - Drag to C (3 cells back): Erases D→E→F ✓ (within threshold)
+    //   - Drag to B (4 cells back): Erases C→D→E→F ✓ (within threshold)
+    //   - Drag to A (5 cells back): Ignored ✗ (beyond threshold)
+    //
+    // This allows users to easily correct recent mistakes while protecting against
+    // accidental destruction when their hand crosses over earlier parts of the path.
+    BACKTRACK_THRESHOLD: 4,
   },
 };
