@@ -495,16 +495,18 @@ function render(triggerSave = true, animationMode = 'auto') {
   // This prevents error modals from appearing on taps that don't modify the path
   const currentStateKey = computeStateKey(playerDrawnCells, playerConnections);
   const stateChanged = currentStateKey !== lastValidatedStateKey;
-  if (stateChanged) {
-    lastValidatedStateKey = currentStateKey;
-  }
 
-  // Validation flow (only runs if state changed):
+  // Validation flow (only runs if state changed AND not currently dragging):
   // 1. Check if drawn cells form a valid closed loop (not necessarily all cells)
   // 2. If yes, check if all hints are validated
   // 3. For easy/medium: hints valid = win; for hard: also requires all cells visited
   // 4. Show appropriate error/win message based on difficulty and conditions
-  if (stateChanged && !hasWon && checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
+  // By deferring validation until after dragging finishes, we prevent modals from
+  // interrupting the user mid-draw when they might be drawing through these states
+  if (stateChanged && !hasWon && !gameCore.state.isDragging && checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
+    // Update last validated state now that we're actually validating
+    lastValidatedStateKey = currentStateKey;
+
     // Player has drawn a valid closed loop (single connected loop, each cell has 2 connections)
 
     // Build turn maps for validation
@@ -582,7 +584,10 @@ function render(triggerSave = true, animationMode = 'auto') {
         });
       }
     }
-  } else if (stateChanged && !hasWon) {
+  } else if (stateChanged && !hasWon && !gameCore.state.isDragging) {
+    // Update last validated state now that we're actually validating
+    lastValidatedStateKey = currentStateKey;
+
     // Only check for flag reset if state changed and game is not won
     if (!checkPartialStructuralWin(playerDrawnCells, playerConnections)) {
       hasShownPartialWinFeedback = false;
