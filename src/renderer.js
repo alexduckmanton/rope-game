@@ -100,7 +100,6 @@ export function resetNumberAnimationState() {
 const pathAnimationState = {
   animatingCells: new Map(),     // Map<cellKey, { startTime: number, predecessorKey: string }>
   previousDrawnCells: new Set(), // Set<cellKey> from previous render
-  previousConnections: new Map(), // Map<cellKey, Set<cellKey>> from previous render
 };
 
 /**
@@ -170,7 +169,6 @@ function getAnimatedCellPosition(cellKey, cellSize, currentTime) {
 export function resetPathAnimationState() {
   pathAnimationState.animatingCells.clear();
   pathAnimationState.previousDrawnCells.clear();
-  pathAnimationState.previousConnections.clear();
 }
 
 /**
@@ -826,7 +824,6 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
   if (!drawnCells || drawnCells.size === 0) {
     pathAnimationState.animatingCells.clear();
     pathAnimationState.previousDrawnCells.clear();
-    pathAnimationState.previousConnections.clear();
     return { hasActiveAnimations: false };
   }
 
@@ -849,11 +846,13 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
           }
         }
 
-        // Start animation for this cell
-        pathAnimationState.animatingCells.set(cellKey, {
-          startTime: currentTime,
-          predecessorKey,
-        });
+        // Start animation only if there's a predecessor to animate from
+        if (predecessorKey) {
+          pathAnimationState.animatingCells.set(cellKey, {
+            startTime: currentTime,
+            predecessorKey,
+          });
+        }
       }
     }
 
@@ -864,11 +863,10 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
       }
     }
 
-    // Store current state for next frame
-    pathAnimationState.previousDrawnCells = new Set(drawnCells);
-    pathAnimationState.previousConnections = new Map();
-    for (const [key, value] of connections) {
-      pathAnimationState.previousConnections.set(key, new Set(value));
+    // Update previous state for next frame (reuse Set to avoid allocations)
+    pathAnimationState.previousDrawnCells.clear();
+    for (const cellKey of drawnCells) {
+      pathAnimationState.previousDrawnCells.add(cellKey);
     }
   }
 

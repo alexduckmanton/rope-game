@@ -250,12 +250,14 @@ function render() {
   const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
   const hasPathAnimations = pathRenderResult && pathRenderResult.hasActiveAnimations;
 
-  // Continue animation loop for tutorials with hints or active path animations (only if not already pending)
-  if ((currentConfig && currentConfig.hasHints && hasNumberAnimations) || hasPathAnimations) {
-    if (!isAnimationFramePending) {
-      isAnimationFramePending = true;
-      animationFrameId = requestAnimationFrame(render);
-    }
+  // Continue animation loop for tutorials with hints (for pulse animation) or active path animations
+  const needsAnimationLoop =
+    (currentConfig && currentConfig.hasHints) ||  // Pulse animation is always active when hints shown
+    hasPathAnimations;                             // Path grow animations
+
+  if (needsAnimationLoop && !isAnimationFramePending) {
+    isAnimationFramePending = true;
+    animationFrameId = requestAnimationFrame(render);
   }
 
   // Skip validation if the path hasn't changed since last validation
