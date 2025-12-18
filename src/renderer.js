@@ -879,12 +879,14 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
         pathAnimationState.animatingCells.delete(cellKey);
       }
     }
+  }
 
-    // Update previous state for next frame (reuse Set to avoid allocations)
-    pathAnimationState.previousDrawnCells.clear();
-    for (const cellKey of drawnCells) {
-      pathAnimationState.previousDrawnCells.add(cellKey);
-    }
+  // ALWAYS update previous state for next frame (even in 'none' mode)
+  // This ensures previousDrawnCells stays in sync with actual state
+  // Critical for saved game restoration and view transitions
+  pathAnimationState.previousDrawnCells.clear();
+  for (const cellKey of drawnCells) {
+    pathAnimationState.previousDrawnCells.add(cellKey);
   }
 
   const PLAYER_COLOR = hasWon ? CONFIG.COLORS.PLAYER_PATH_WIN : CONFIG.COLORS.PLAYER_PATH;
