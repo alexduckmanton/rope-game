@@ -898,6 +898,11 @@ export function initGame(difficulty) {
   // Daily mode is any non-unlimited difficulty (easy, medium, hard)
   isDailyMode = !isUnlimitedMode;
 
+  // Reset animation state from any previous view (e.g., tutorial)
+  // This ensures clean slate when initializing game
+  resetNumberAnimationState();
+  resetPathAnimationState();
+
   // Load saved settings (applies to all modes)
   const settings = loadSettings();
 
