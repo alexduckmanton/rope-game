@@ -89,6 +89,6 @@ export const CONFIG = {
     //
     // This allows users to easily correct recent mistakes while protecting against
     // accidental destruction when their hand crosses over earlier parts of the path.
-    BACKTRACK_THRESHOLD: 4,
+    BACKTRACK_THRESHOLD: 2,
   },
 };
