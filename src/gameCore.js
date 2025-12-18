@@ -266,20 +266,22 @@ export function createGameCore({ gridSize, canvas, onRender }) {
 
     const backtrackIndex = state.dragPath.indexOf(cell.key);
     if (backtrackIndex !== -1 && backtrackIndex < state.dragPath.length - 1) {
-      // Always update pointer position when handling backtrack scenarios
-      // This keeps pointer position in sync with actual touch/mouse position
-      state.lastPointerX = x;
-      state.lastPointerY = y;
+      // Don't update pointer position yet - we need the old value for getCellsAlongLine
+      // if we fall through to normal path extension
 
       if (backtrackIndex === 0) {
         // Special case: going back to the first cell (loop closing)
         // Always try to close loop, regardless of distance
         if (tryCloseLoop(state.dragPath)) {
+          state.lastPointerX = x;
+          state.lastPointerY = y;
           return;
         }
         // If loop closing fails, always backtrack (regardless of distance)
         // This ensures intentional attempts to close the loop work predictably
         handleBacktrack(backtrackIndex);
+        state.lastPointerX = x;
+        state.lastPointerY = y;
         return;
       }
 
@@ -288,14 +290,16 @@ export function createGameCore({ gridSize, canvas, onRender }) {
       const backtrackDistance = state.dragPath.length - 1 - backtrackIndex;
 
       if (backtrackDistance <= CONFIG.INTERACTION.BACKTRACK_THRESHOLD) {
-        // Within threshold - backtrack normally (1-4 squares back)
+        // Within threshold - backtrack normally (1 cell back with threshold=1)
         handleBacktrack(backtrackIndex);
+        state.lastPointerX = x;
+        state.lastPointerY = y;
         return;
       }
 
-      // Beyond threshold - ignore backtrack to prevent accidental erasure
-      // Pointer position already updated above
-      return;
+      // Beyond threshold - treat as normal intersection and fall through
+      // This allows drawing through self-intersections just like intersecting old paths
+      // Pointer position will be updated at end of function after path extension
     }
 
     // Calculate cells along the actual pointer path
