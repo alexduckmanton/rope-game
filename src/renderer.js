@@ -881,6 +881,10 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
         pathAnimationState.animatingCells.delete(cellKey);
       }
     }
+  } else {
+    // When animations are disabled, ensure animatingCells is empty
+    // This is defensive - prevents any stale animation data from affecting rendering
+    pathAnimationState.animatingCells.clear();
   }
 
   // ALWAYS update previous state for next frame (even in 'none' mode)
