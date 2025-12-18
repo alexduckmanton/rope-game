@@ -831,6 +831,14 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
 
   // Detect changes and manage animations
   if (animationMode === 'auto') {
+    // DEFENSIVE: Remove any animating cells that are no longer in drawnCells
+    // This protects against stale animation data from previous views or race conditions
+    for (const cellKey of pathAnimationState.animatingCells.keys()) {
+      if (!drawnCells.has(cellKey)) {
+        pathAnimationState.animatingCells.delete(cellKey);
+      }
+    }
+
     // Collect all new cells added this frame
     const newCells = new Set();
     for (const cellKey of drawnCells) {
