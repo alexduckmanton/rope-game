@@ -264,38 +264,35 @@ export function createGameCore({ gridSize, canvas, onRender }) {
 
     state.hasDragMoved = true;
 
+    // Check if moving to a cell that's already in the current drag path
     const backtrackIndex = state.dragPath.indexOf(cell.key);
     if (backtrackIndex !== -1 && backtrackIndex < state.dragPath.length - 1) {
-      // Always update pointer position when handling backtrack scenarios
-      // This keeps pointer position in sync with actual touch/mouse position
+      // Update pointer position
       state.lastPointerX = x;
       state.lastPointerY = y;
 
+      // Special case: going back to the first cell (loop closing)
       if (backtrackIndex === 0) {
-        // Special case: going back to the first cell (loop closing)
-        // Always try to close loop, regardless of distance
         if (tryCloseLoop(state.dragPath)) {
           return;
         }
-        // If loop closing fails, always backtrack (regardless of distance)
-        // This ensures intentional attempts to close the loop work predictably
+        // If loop closing fails, backtrack to first cell
         handleBacktrack(backtrackIndex);
         return;
       }
 
-      // For other cells, check if within backtrack threshold
-      // This prevents accidental erasure when drawing long paths that cross themselves
-      const backtrackDistance = state.dragPath.length - 1 - backtrackIndex;
+      // Only backtrack if this is an ADJACENT step backward (intentional correction)
+      // This allows drawing through the path from different directions (crossovers)
+      const isAdjacentBacktrack = backtrackIndex === state.dragPath.length - 2;
 
-      if (backtrackDistance <= CONFIG.INTERACTION.BACKTRACK_THRESHOLD) {
-        // Within threshold - backtrack normally (1-4 squares back)
+      if (isAdjacentBacktrack) {
+        // This is an intentional single step backward - allow backtracking
         handleBacktrack(backtrackIndex);
         return;
       }
 
-      // Beyond threshold - don't backtrack, but continue to path extension
-      // This allows drawing through cells that happen to be in the drag path
-      // The cell itself won't be added (already in path), but we can extend beyond it
+      // Not adjacent - this is a crossing/intersection, not backtracking
+      // Continue to path extension logic below
     }
 
     // Calculate cells along the actual pointer path
@@ -313,27 +310,9 @@ export function createGameCore({ gridSize, canvas, onRender }) {
       cellsAlongPath.shift();
     }
 
-    // Filter out cells that would trigger backtracking beyond threshold
-    // This allows the path to extend "through" cells that happen to be in
-    // the current drag path, reaching cells on the other side
-    const filteredPath = cellsAlongPath.filter(cellKey => {
-      const indexInDragPath = state.dragPath.indexOf(cellKey);
-      if (indexInDragPath === -1) {
-        // Not in drag path - include it
-        return true;
-      }
-
-      // Cell is in drag path - check backtrack distance
-      const backtrackDistance = state.dragPath.length - 1 - indexInDragPath;
-
-      // Include cells within backtrack threshold (will handle via backtrack logic)
-      // Exclude cells beyond threshold (would have been blocked anyway)
-      return backtrackDistance <= CONFIG.INTERACTION.BACKTRACK_THRESHOLD;
-    });
-
-    // Extend the drag path with the filtered cells
-    if (filteredPath.length > 0) {
-      extendDragPath(filteredPath, currentCell);
+    // Extend the drag path with the actual drawn cells
+    if (cellsAlongPath.length > 0) {
+      extendDragPath(cellsAlongPath, currentCell);
     }
 
     // Update last pointer position for next move
