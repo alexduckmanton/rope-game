@@ -817,7 +817,9 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color, currentTi
  * @returns {{hasActiveAnimations: boolean}} Animation status for requestAnimationFrame
  */
 export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false, animationMode = 'auto') {
-  const currentTime = Date.now();
+  // Only use currentTime for animation calculations when animations are enabled
+  // In 'none' mode, pass null to force static positions even if stale animation data exists
+  const currentTime = animationMode === 'auto' ? Date.now() : null;
   let hasActiveAnimations = false;
 
   // Handle empty path - reset animation state
