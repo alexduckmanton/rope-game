@@ -293,9 +293,9 @@ export function createGameCore({ gridSize, canvas, onRender }) {
         return;
       }
 
-      // Beyond threshold - ignore backtrack to prevent accidental erasure
-      // Pointer position already updated above
-      return;
+      // Beyond threshold - don't backtrack, but continue to path extension
+      // This allows drawing through cells that happen to be in the drag path
+      // The cell itself won't be added (already in path), but we can extend beyond it
     }
 
     // Calculate cells along the actual pointer path
@@ -313,9 +313,27 @@ export function createGameCore({ gridSize, canvas, onRender }) {
       cellsAlongPath.shift();
     }
 
-    // Extend the drag path with the actual drawn cells
-    if (cellsAlongPath.length > 0) {
-      extendDragPath(cellsAlongPath, currentCell);
+    // Filter out cells that would trigger backtracking beyond threshold
+    // This allows the path to extend "through" cells that happen to be in
+    // the current drag path, reaching cells on the other side
+    const filteredPath = cellsAlongPath.filter(cellKey => {
+      const indexInDragPath = state.dragPath.indexOf(cellKey);
+      if (indexInDragPath === -1) {
+        // Not in drag path - include it
+        return true;
+      }
+
+      // Cell is in drag path - check backtrack distance
+      const backtrackDistance = state.dragPath.length - 1 - indexInDragPath;
+
+      // Include cells within backtrack threshold (will handle via backtrack logic)
+      // Exclude cells beyond threshold (would have been blocked anyway)
+      return backtrackDistance <= CONFIG.INTERACTION.BACKTRACK_THRESHOLD;
+    });
+
+    // Extend the drag path with the filtered cells
+    if (filteredPath.length > 0) {
+      extendDragPath(filteredPath, currentCell);
     }
 
     // Update last pointer position for next move
