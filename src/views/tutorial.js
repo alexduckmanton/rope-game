@@ -514,6 +514,10 @@ export function initTutorial(params) {
       // Clear animation state
       resetNumberAnimationState();
       resetPathAnimationState();
+
+      if (gameCore) {
+        gameCore.resetDragState();
+      }
     };
   }
 
