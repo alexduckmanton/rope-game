@@ -817,7 +817,9 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color, currentTi
  * @returns {{hasActiveAnimations: boolean}} Animation status for requestAnimationFrame
  */
 export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false, animationMode = 'auto') {
-  const currentTime = Date.now();
+  // Only use currentTime for animation calculations when animations are enabled
+  // In 'none' mode, pass null to force static positions even if stale animation data exists
+  const currentTime = animationMode === 'auto' ? Date.now() : null;
   let hasActiveAnimations = false;
 
   // Handle empty path - reset animation state
@@ -829,6 +831,14 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
 
   // Detect changes and manage animations
   if (animationMode === 'auto') {
+    // DEFENSIVE: Remove any animating cells that are no longer in drawnCells
+    // This protects against stale animation data from previous views or race conditions
+    for (const cellKey of pathAnimationState.animatingCells.keys()) {
+      if (!drawnCells.has(cellKey)) {
+        pathAnimationState.animatingCells.delete(cellKey);
+      }
+    }
+
     // Collect all new cells added this frame
     const newCells = new Set();
     for (const cellKey of drawnCells) {
@@ -879,12 +889,18 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
         pathAnimationState.animatingCells.delete(cellKey);
       }
     }
+  } else {
+    // When animations are disabled, ensure animatingCells is empty
+    // This is defensive - prevents any stale animation data from affecting rendering
+    pathAnimationState.animatingCells.clear();
+  }
 
-    // Update previous state for next frame (reuse Set to avoid allocations)
-    pathAnimationState.previousDrawnCells.clear();
-    for (const cellKey of drawnCells) {
-      pathAnimationState.previousDrawnCells.add(cellKey);
-    }
+  // ALWAYS update previous state for next frame (even in 'none' mode)
+  // This ensures previousDrawnCells stays in sync with actual state
+  // Critical for saved game restoration and view transitions
+  pathAnimationState.previousDrawnCells.clear();
+  for (const cellKey of drawnCells) {
+    pathAnimationState.previousDrawnCells.add(cellKey);
   }
 
   const PLAYER_COLOR = hasWon ? CONFIG.COLORS.PLAYER_PATH_WIN : CONFIG.COLORS.PLAYER_PATH;
