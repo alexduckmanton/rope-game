@@ -94,84 +94,6 @@ export function resetNumberAnimationState() {
 }
 
 /**
- * Path animation state for smooth path drawing animations
- * Tracks cells that are currently animating as they're added to the path
- */
-const pathAnimationState = {
-  animatingCells: new Map(),     // Map<cellKey, { startTime: number, predecessorKey: string }>
-  previousDrawnCells: new Set(), // Set<cellKey> from previous render
-};
-
-/**
- * Path animation timing constants
- */
-const PATH_ANIMATION_DURATION = 100; // 100ms for smooth, responsive feel
-
-/**
- * Cubic ease-out function for path animations
- * Creates smooth deceleration without overshoot
- * @param {number} t - Progress from 0 to 1
- * @returns {number} Eased value from 0 to 1
- */
-function easeOutCubic(t) {
-  const t1 = t - 1;
-  return t1 * t1 * t1 + 1;
-}
-
-/**
- * Get the animated position for a cell if it's currently animating
- * @param {string} cellKey - The cell key to check
- * @param {number} cellSize - Size of each cell in pixels
- * @param {number} currentTime - Current timestamp in milliseconds
- * @returns {{x: number, y: number} | null} Interpolated position or null if not animating
- */
-function getAnimatedCellPosition(cellKey, cellSize, currentTime) {
-  const animation = pathAnimationState.animatingCells.get(cellKey);
-  if (!animation) return null;
-
-  const elapsed = currentTime - animation.startTime;
-
-  if (elapsed >= PATH_ANIMATION_DURATION) {
-    // Animation complete - clean up and return null
-    pathAnimationState.animatingCells.delete(cellKey);
-    return null;
-  }
-
-  // Calculate eased progress
-  const progress = easeOutCubic(elapsed / PATH_ANIMATION_DURATION);
-
-  // Get target position (final position)
-  const { row, col } = parseCellKey(cellKey);
-  const targetX = col * cellSize + cellSize / 2;
-  const targetY = row * cellSize + cellSize / 2;
-
-  // If no predecessor, cell appears at its final position (shouldn't happen often)
-  if (!animation.predecessorKey) {
-    return { x: targetX, y: targetY };
-  }
-
-  // Get start position (predecessor's position)
-  const { row: predRow, col: predCol } = parseCellKey(animation.predecessorKey);
-  const startX = predCol * cellSize + cellSize / 2;
-  const startY = predRow * cellSize + cellSize / 2;
-
-  // Interpolate from predecessor to target
-  return {
-    x: startX + (targetX - startX) * progress,
-    y: startY + (targetY - startY) * progress,
-  };
-}
-
-/**
- * Reset all path animation state
- * Call this when changing puzzles or cleaning up the game view
- */
-export function resetPathAnimationState() {
-  pathAnimationState.animatingCells.clear();
-  pathAnimationState.previousDrawnCells.clear();
-}
-
-/**
  * Render the grid lines
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {number} size - Grid size (e.g., 5 for 5x5)
@@ -700,7 +622,7 @@ function tracePathSegments(connections) {
  * @param {number} cellSize - Size of each cell in pixels
  * @param {string} color - Stroke color
  */
-function drawSmoothSegment(ctx, segment, connections, cellSize, color, currentTime = null) {
+function drawSmoothSegment(ctx, segment, connections, cellSize, color) {
   if (segment.length === 0) return;
 
   // Convert segment to ordered path by following connections
@@ -735,40 +657,22 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color, currentTi
 
   // Draw smooth path
   if (orderedPath.length === 1) {
-    // Single isolated cell - draw a dot (with animation if applicable)
-    const animatedPos = currentTime !== null
-      ? getAnimatedCellPosition(orderedPath[0], cellSize, currentTime)
-      : null;
-
-    if (animatedPos) {
-      ctx.beginPath();
-      ctx.arc(animatedPos.x, animatedPos.y, CONFIG.RENDERING.DOT_RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-    } else {
-      const { row, col } = parseCellKey(orderedPath[0]);
-      const x = col * cellSize + cellSize / 2;
-      const y = row * cellSize + cellSize / 2;
-      ctx.beginPath();
-      ctx.arc(x, y, CONFIG.RENDERING.DOT_RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-    }
+    // Single isolated cell - draw a dot
+    const { row, col } = parseCellKey(orderedPath[0]);
+    const x = col * cellSize + cellSize / 2;
+    const y = row * cellSize + cellSize / 2;
+    ctx.beginPath();
+    ctx.arc(x, y, CONFIG.RENDERING.DOT_RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
   } else if (orderedPath.length === 2) {
-    // Two cells - draw a simple line (with animation if applicable)
-    const animatedPos1 = currentTime !== null
-      ? getAnimatedCellPosition(orderedPath[0], cellSize, currentTime)
-      : null;
-    const animatedPos2 = currentTime !== null
-      ? getAnimatedCellPosition(orderedPath[1], cellSize, currentTime)
-      : null;
-
+    // Two cells - draw a simple line
     const { row: row1, col: col1 } = parseCellKey(orderedPath[0]);
     const { row: row2, col: col2 } = parseCellKey(orderedPath[1]);
-    const x1 = animatedPos1?.x ?? (col1 * cellSize + cellSize / 2);
-    const y1 = animatedPos1?.y ?? (row1 * cellSize + cellSize / 2);
-    const x2 = animatedPos2?.x ?? (col2 * cellSize + cellSize / 2);
-    const y2 = animatedPos2?.y ?? (row2 * cellSize + cellSize / 2);
+    const x1 = col1 * cellSize + cellSize / 2;
+    const y1 = row1 * cellSize + cellSize / 2;
+    const x2 = col2 * cellSize + cellSize / 2;
+    const y2 = row2 * cellSize + cellSize / 2;
 
     ctx.beginPath();
     ctx.moveTo(x1, y1);
@@ -778,16 +682,11 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color, currentTi
     ctx.lineCap = 'round';
     ctx.stroke();
   } else {
-    // Three or more cells - use smooth curves (with animation if applicable)
+    // Three or more cells - use smooth curves
     const radius = cellSize * CONFIG.RENDERING.CORNER_RADIUS_FACTOR;
 
-    // Convert to pixel coordinates, using animated positions when available
+    // Convert to pixel coordinates
     const points = orderedPath.map(cellKey => {
-      if (currentTime !== null) {
-        const animatedPos = getAnimatedCellPosition(cellKey, cellSize, currentTime);
-        if (animatedPos) return animatedPos;
-      }
-
       const { row, col } = parseCellKey(cellKey);
       return {
         x: col * cellSize + cellSize / 2,
@@ -807,84 +706,17 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color, currentTi
 }
 
 /**
- * Render the player's drawn path with smooth drawing animations
+ * Render the player's drawn path
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {Set<string>} drawnCells - Set of "row,col" strings for drawn cells
  * @param {Map<string, Set<string>>} connections - Map of cell connections
  * @param {number} cellSize - Size of each cell in pixels
  * @param {boolean} hasWon - Whether the player has won (uses green color)
- * @param {string} animationMode - 'auto' to enable animations, 'none' to disable
- * @returns {{hasActiveAnimations: boolean}} Animation status for requestAnimationFrame
  */
-export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false, animationMode = 'auto') {
-  const currentTime = Date.now();
-  let hasActiveAnimations = false;
-
-  // Handle empty path - reset animation state
+export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false) {
+  // Handle empty path
   if (!drawnCells || drawnCells.size === 0) {
-    pathAnimationState.animatingCells.clear();
-    pathAnimationState.previousDrawnCells.clear();
-    return { hasActiveAnimations: false };
-  }
-
-  // Detect changes and manage animations
-  if (animationMode === 'auto') {
-    // Collect all new cells added this frame
-    const newCells = new Set();
-    for (const cellKey of drawnCells) {
-      if (!pathAnimationState.previousDrawnCells.has(cellKey)) {
-        newCells.add(cellKey);
-      }
-    }
-
-    // Multi-pass animation detection: keep trying to add cells until no more can be added
-    // This handles chains where cell B depends on cell A which is also new this frame
-    // (e.g., diagonal drags that add multiple intermediate cells at once)
-    let addedAny;
-    do {
-      addedAny = false;
-
-      for (const cellKey of newCells) {
-        // Skip if already animating
-        if (pathAnimationState.animatingCells.has(cellKey)) continue;
-
-        // Find predecessor in EITHER previous cells OR currently animating cells
-        const connectedCells = connections.get(cellKey);
-        let predecessorKey = null;
-
-        if (connectedCells) {
-          for (const connKey of connectedCells) {
-            if (pathAnimationState.previousDrawnCells.has(connKey) ||
-                pathAnimationState.animatingCells.has(connKey)) {
-              predecessorKey = connKey;
-              break;
-            }
-          }
-        }
-
-        // Only add if we found a predecessor
-        if (predecessorKey) {
-          pathAnimationState.animatingCells.set(cellKey, {
-            startTime: currentTime,
-            predecessorKey,
-          });
-          addedAny = true;
-        }
-      }
-    } while (addedAny);
-
-    // Detect removed cells (backtracking) - cancel animations immediately
-    for (const cellKey of pathAnimationState.previousDrawnCells) {
-      if (!drawnCells.has(cellKey)) {
-        pathAnimationState.animatingCells.delete(cellKey);
-      }
-    }
-
-    // Update previous state for next frame (reuse Set to avoid allocations)
-    pathAnimationState.previousDrawnCells.clear();
-    for (const cellKey of drawnCells) {
-      pathAnimationState.previousDrawnCells.add(cellKey);
-    }
+    return;
   }
 
   const PLAYER_COLOR = hasWon ? CONFIG.COLORS.PLAYER_PATH_WIN : CONFIG.COLORS.PLAYER_PATH;
@@ -892,38 +724,23 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
   // Trace all continuous path segments
   const segments = tracePathSegments(connections);
 
-  // Draw each segment with smooth curves and animations
+  // Draw each segment with smooth curves
   for (const segment of segments) {
-    drawSmoothSegment(ctx, segment, connections, cellSize, PLAYER_COLOR, currentTime);
+    drawSmoothSegment(ctx, segment, connections, cellSize, PLAYER_COLOR);
   }
 
   // Draw dots for cells with 0 connections (isolated cells)
   for (const cellKey of drawnCells) {
     const connectionCount = connections.get(cellKey)?.size || 0;
     if (connectionCount === 0) {
-      const animatedPos = getAnimatedCellPosition(cellKey, cellSize, currentTime);
+      const { row, col } = parseCellKey(cellKey);
+      const x = col * cellSize + cellSize / 2;
+      const y = row * cellSize + cellSize / 2;
 
-      if (animatedPos) {
-        hasActiveAnimations = true;
-        ctx.beginPath();
-        ctx.arc(animatedPos.x, animatedPos.y, CONFIG.RENDERING.DOT_RADIUS, 0, Math.PI * 2);
-        ctx.fillStyle = PLAYER_COLOR;
-        ctx.fill();
-      } else {
-        const { row, col } = parseCellKey(cellKey);
-        const x = col * cellSize + cellSize / 2;
-        const y = row * cellSize + cellSize / 2;
-
-        ctx.beginPath();
-        ctx.arc(x, y, CONFIG.RENDERING.DOT_RADIUS, 0, Math.PI * 2);
-        ctx.fillStyle = PLAYER_COLOR;
-        ctx.fill();
-      }
+      ctx.beginPath();
+      ctx.arc(x, y, CONFIG.RENDERING.DOT_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = PLAYER_COLOR;
+      ctx.fill();
     }
   }
-
-  // Check if there are any active animations
-  hasActiveAnimations = hasActiveAnimations || pathAnimationState.animatingCells.size > 0;
-
-  return { hasActiveAnimations };
 }

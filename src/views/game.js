@@ -5,7 +5,7 @@
  * for use in a multi-view SPA
  */
 
-import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers, resetNumberAnimationState, resetPathAnimationState } from '../renderer.js';
+import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers, resetNumberAnimationState } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
 import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop, parseCellKey } from '../utils.js';
 import { CONFIG } from '../config.js';
@@ -516,7 +516,7 @@ function render(triggerSave = true, animationMode = 'auto') {
   }
 
   // Render path with visual win state (green if currently winning OR officially won)
-  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon, animationMode);
+  renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon);
 
   // PHASE 2: Modal validation (deferred - only runs when not dragging)
   // This shows modals and sets the official hasWon state
@@ -543,7 +543,7 @@ function render(triggerSave = true, animationMode = 'auto') {
       const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
 
       // Re-render path with win color (already green from visual validation, but ensures consistency)
-      const winPathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true, animationMode);
+      renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true);
 
       // Show win celebration
       showWinCelebration(finalTime);
@@ -597,11 +597,10 @@ function render(triggerSave = true, animationMode = 'auto') {
     throttledSave(captureGameState());
   }
 
-  // Schedule next animation frame if there are active animations (numbers or path)
+  // Schedule next animation frame if there are active number animations
   const hasNumberAnimations = renderResult && renderResult.hasActiveAnimations;
-  const hasPathAnimations = pathRenderResult && pathRenderResult.hasActiveAnimations;
 
-  if (hasNumberAnimations || hasPathAnimations) {
+  if (hasNumberAnimations) {
     if (animationFrameId === null) {
       animationFrameId = requestAnimationFrame(() => {
         animationFrameId = null;
@@ -1154,7 +1153,6 @@ export function cleanupGame() {
 
   // Clear animation state
   resetNumberAnimationState();
-  resetPathAnimationState();
 
   // Reset drag state in core
   if (gameCore) {
