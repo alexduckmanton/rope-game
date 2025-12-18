@@ -472,6 +472,11 @@ export function initTutorial(params) {
     tutorialTitle.textContent = 'Tutorial';
     showCompletScreen();
 
+    // IMPORTANT: Clear any gameCore reference from previous tutorial page
+    // The complete screen doesn't need gameCore, and keeping the reference
+    // could cause issues if any closures or event handlers still reference it
+    gameCore = null;
+
     // Setup complete home button
     const handleCompleteHome = () => {
       markTutorialCompleted();
