@@ -221,7 +221,7 @@ button {
   font-size: 16px;
   font-weight: 500;
   color: var(--color-text-primary);
-  background-color: white;
+  background-color: var(--color-bg-elevated);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -246,7 +246,7 @@ button {
   font-size: 16px;
   font-weight: 500;
   color: var(--color-text-primary);
-  background-color: white;
+  background-color: var(--color-bg-elevated);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -280,7 +280,7 @@ button {
   font-size: 16px;
   font-weight: 500;
   color: var(--color-text-primary);
-  background-color: white;
+  background-color: var(--color-bg-elevated);
   border-radius: 8px;
   cursor: pointer;
   box-shadow: 0 2px 4px var(--color-shadow-sm);
@@ -308,7 +308,7 @@ button {
 }
 
 .game-container canvas {
-  background-color: white;
+  background-color: var(--color-bg-elevated);
   border-radius: 8px;
   box-shadow: 0 4px 12px var(--color-shadow-sm);
   touch-action: none;
@@ -557,13 +557,13 @@ button {
   pointer-events: auto;
 }
 
-/* Bottom sheet - white background, rounded top corners, slides up/down */
+/* Bottom sheet - elevated background, rounded top corners, slides up/down */
 .bottom-sheet {
   position: fixed;
   bottom: -40px;
   left: 0;
   right: 0;
-  background-color: white;
+  background-color: var(--color-bg-elevated);
   border-radius: 16px 16px 0 0;
   transform: translateY(100%);
   padding-bottom: 40px;
@@ -672,10 +672,10 @@ button {
   flex-shrink: 0;
 }
 
-/* Primary button - blue background, white text */
+/* Primary button - blue background, light text */
 /* Contrast ratio: 3.25:1 (passes WCAG AA for large text) */
 .bottom-sheet-btn-primary {
-  color: white;
+  color: var(--color-text-on-primary);
   background-color: var(--color-primary);
 }
 
@@ -815,7 +815,7 @@ button {
   cursor: pointer;
   user-select: none;
   width: 100%;
-  background-color: white;
+  background-color: var(--color-bg-elevated);
   transition: background-color 100ms ease;
 }
 
@@ -876,13 +876,13 @@ button {
 }
 
 .segment-btn.active {
-  background-color: white;
+  background-color: var(--color-bg-elevated);
   color: var(--color-text-primary);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .segment-btn.active:hover {
-  background-color: white;
+  background-color: var(--color-bg-elevated);
 }
 
 /* Hide difficulty setting by default (only show in unlimited mode) */

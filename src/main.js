@@ -44,6 +44,21 @@ function preloadFonts() {
 }
 
 /**
+ * Update the theme-color meta tag based on current color scheme
+ * This changes the browser chrome color on mobile devices
+ */
+function updateThemeColor() {
+  const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+  if (metaThemeColor) {
+    // Read the current --color-theme value from CSS (automatically switches with dark mode)
+    const themeColor = getComputedStyle(document.documentElement)
+      .getPropertyValue('--color-theme')
+      .trim();
+    metaThemeColor.setAttribute('content', themeColor);
+  }
+}
+
+/**
  * Initialize the application
  */
 function init() {
@@ -52,6 +67,12 @@ function init() {
 
   // Clean up old saved games from previous days
   cleanupOldSaves();
+
+  // Set initial theme-color meta tag
+  updateThemeColor();
+
+  // Listen for theme changes and update meta tag
+  window.addEventListener('themeChanged', updateThemeColor);
 
   // Prevent all forms of zooming on mobile devices
 

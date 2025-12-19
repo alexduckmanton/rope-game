@@ -1061,8 +1061,13 @@ export function initGame(difficulty) {
   const pointerCancelHandler = (e) => {
     if (!hasWon && !hasViewedSolution) gameCore.handlePointerCancel(e);
   };
+  const themeChangeHandler = () => {
+    // Re-render canvas with updated colors when theme changes
+    render(false); // Don't trigger save on theme change
+  };
 
   window.addEventListener('resize', resizeHandler);
+  window.addEventListener('themeChanged', themeChangeHandler);
   newBtn.addEventListener('click', newBtnHandler);
   restartBtn.addEventListener('click', restartBtnHandler);
   hintsCheckbox.addEventListener('click', hintsHandler);
@@ -1079,6 +1084,7 @@ export function initGame(difficulty) {
   // Store event listener references for cleanup
   eventListeners = [
     { element: window, event: 'resize', handler: resizeHandler },
+    { element: window, event: 'themeChanged', handler: themeChangeHandler },
     { element: newBtn, event: 'click', handler: newBtnHandler },
     { element: restartBtn, event: 'click', handler: restartBtnHandler },
     { element: hintsCheckbox, event: 'click', handler: hintsHandler },
