@@ -274,6 +274,12 @@ async function animateCountdown(fromValue, hintKey) {
 function render() {
   const { playerDrawnCells, playerConnections } = gameCore.state;
   const totalSize = cellSize * GRID_SIZE;
+  const dpr = window.devicePixelRatio || 1;
+
+  // Ensure transform is correct before rendering
+  // (Setting canvas.width/height resets the context, so we must reapply the transform)
+  ctx.setTransform(1, 0, 0, 1, 0, 0);  // Reset to identity
+  ctx.scale(dpr, dpr);  // Apply device pixel ratio scaling
 
   clearCanvas(ctx, totalSize, totalSize);
 
