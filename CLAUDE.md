@@ -6,15 +6,17 @@
 
 | Module | Purpose | Key Functions & Exports |
 |--------|---------|-------------------------|
-| `main.js` | App entry point | Initializes router, icons, font preloading |
+| `main.js` | App entry point | Initializes router, icons, font preloading, theme-color meta tag updater |
 | `router.js` | Client-side routing | `initRouter()` - History API navigation |
+| `tokens.css` | Color definitions | CSS custom properties for all colors, dark mode overrides via media query |
+| `tokens.js` | Color token exports | `colors`, `semantic` - Reads CSS variables, dispatches `themeChanged` event |
+| `config.js` | Configuration constants | `CONFIG` - Colors (from tokens.js), sizes, generation tuning, rendering params, interaction behavior |
 | `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
 | `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle |
 | `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCells()`, `calculateBorderLayers()` |
 | `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()` |
 | `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles |
 | `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `parseCellKey()`, `createCellKey()`, `getCellsAlongLine()` - Bresenham with 4-connected enforcement |
-| `config.js` | Configuration constants | `CONFIG` - Colors, sizes, generation tuning, rendering params, interaction behavior (backtracking threshold) |
 | `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet()`, `showBottomSheetAsync()` - Factory + async helper |
 | `game/timer.js` | Game timer | `createGameTimer({ onUpdate, difficulty })`, `formatTime()` - Encapsulated timer with pause/resume |
 | `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback |
@@ -445,6 +447,82 @@ Auto-saves game state to localStorage (client-side, no backend).
 - The `trackPageView()` function safely checks if `gtag` exists before calling it (graceful degradation if blocked)
 - Initial page load is tracked by the script in `index.html`; subsequent SPA navigations are tracked by the router
 
+### Color Token System
+
+**Purpose:** Centralized color management system providing automatic dark mode support and consistent theming across UI and canvas rendering.
+
+**Architecture:** Two-tier token system with CSS as single source of truth.
+
+**Design Token Hierarchy:**
+
+1. **Base Color Scales** (Primitive Tokens)
+   - **Neutral scale**: 10 shades from lightest to darkest, inverted in dark mode
+   - **Blue scale**: Primary action colors, navigation, solution paths
+   - **Green scale**: Success states, validated hints, win conditions
+   - **Red scale**: Error states, destructive actions
+   - **Amber scale**: Success backgrounds, celebration colors
+   - **Hint gradient**: 9 magnitude-based colors for hint number display
+
+2. **Semantic Tokens** (Purpose-Based)
+   - Reference base scales with meaningful names describing intent
+   - Examples: primary, bgBase, textPrimary, canvasBg, playerPath, hintValidated
+   - Automatically inherit dark mode values from base scales they reference
+
+**CSS-as-Source-of-Truth Pattern:**
+
+The system maintains a single definition point for all colors while supporting both CSS and JavaScript usage:
+
+- **tokens.css**: Defines all color values as CSS custom properties, includes dark mode overrides via media query
+- **tokens.js**: Reads CSS values using getComputedStyle, exports JavaScript-friendly color objects
+- **style.css**: Uses CSS variables for all UI styling, automatically adapts to theme
+- **config.js**: Imports colors from tokens.js for canvas rendering
+- **Synchronization**: Media query listener detects theme changes, reloads JavaScript colors, dispatches custom event
+
+**Dark Mode Implementation:**
+
+The app automatically follows the user's system-wide dark mode preference without requiring manual configuration:
+
+- **Detection**: CSS media query `prefers-color-scheme: dark` automatically applies dark color overrides
+- **Theme switching**: JavaScript media query listener detects changes and triggers re-render
+- **Canvas updates**: Game and tutorial views listen for `themeChanged` event and redraw with new colors
+- **Browser chrome**: Theme-color meta tag updates dynamically to match current theme
+- **Zero configuration**: No user-facing toggle needed, respects system preferences
+
+**Dark Mode Color Philosophy:**
+
+- **True Dark approach**: Near-black backgrounds (#1A1A1A) instead of pure black for reduced eye strain and better OLED performance
+- **Inverted neutral scale**: Light mode's lightest becomes dark mode's darkest, maintaining semantic meaning
+- **Brightened accents**: Primary colors become more vibrant and saturated for visibility on dark backgrounds
+- **Elevation through lightness**: Elevated surfaces (buttons, sheets, canvas) are lighter than base background, creating depth
+- **Preserved gradients**: Hint magnitude colors maintain their warm-to-cool progression with brightness adjustments
+
+**Key Files:**
+
+| File | Purpose | Dark Mode Role |
+|------|---------|----------------|
+| `src/tokens.css` | Color definitions | Contains base scales and dark mode overrides |
+| `src/tokens.js` | JavaScript exports | Reads CSS values, listens for theme changes |
+| `style.css` | UI styling | Uses CSS variables, automatically adapts |
+| `src/config.js` | Game configuration | Imports semantic tokens for canvas colors |
+| `src/main.js` | App initialization | Updates theme-color meta tag on theme change |
+| `src/views/game.js` | Game view | Re-renders canvas on theme change |
+| `src/views/tutorial.js` | Tutorial view | Re-renders canvas on theme change |
+
+**Performance Characteristics:**
+
+- **Initial load**: CSS variables loaded instantly with stylesheet, JavaScript reads once during module initialization
+- **Theme change**: ~1ms to read new CSS values, single requestAnimationFrame for canvas re-render
+- **No duplication**: CSS is single source of truth, eliminates maintenance burden of parallel color systems
+- **Automatic cascade**: CSS variable changes flow through all components without manual updates
+
+**Benefits:**
+
+- **Maintainability**: Single location to modify colors affects entire app (CSS and JS)
+- **Consistency**: Canvas rendering always matches UI styling via shared color source
+- **Accessibility**: Automatic dark mode reduces eye strain in low-light environments
+- **User experience**: Respects system preferences without forcing users to configure app-level settings
+- **Future-proof**: Easy to add theme variations, high-contrast modes, or custom color schemes
+
 ### Bottom Sheet Component System
 
 **Purpose:** Unified modal overlay system replacing browser alerts throughout the application. Provides consistent animations, dismissal methods, visual design with icons and color schemes for all transient notifications and persistent settings panels.
@@ -562,19 +640,30 @@ Component could be extended to support multiple simultaneous sheets with z-index
 
 ### Design System
 
-**Color Palette:**
+**Color System:**
 
-| Element | Color | Usage |
-|---------|-------|-------|
-| Background | `#F5F5F5` | Light gray canvas background |
-| Grid lines | `#E0E0E0` | Subtle gray grid |
-| Player path | `#000000` | Black drawing color |
-| Player path (win) | `#ACF39D` | Soft green when puzzle solved |
-| Solution path | `#4A90E2` | Calm blue (when "Solution" enabled) |
-| Hint validated | `#ACF39D` | Green when constraint satisfied |
-| Hint pulsing background | `#4A90E2` | Blue for unvalidated tutorials hints (matches primary buttons) |
-| Hint number colors | 9-color palette | Bright yellow-orange → dark magenta, magnitude-based gradient (see Magnitude-Based Color System) |
-| UI text | `#34495E` | Dark gray for buttons/labels |
+The app uses a comprehensive design token system with automatic dark mode support. All colors are defined in CSS custom properties and automatically adapt based on the user's system preference.
+
+**Key Features:**
+- **Automatic dark mode**: Follows device settings via CSS media queries, no manual toggle
+- **Two-tier token system**: Base color scales (neutral, blue, green, red, amber) + semantic tokens (primary, bgBase, textPrimary, etc.)
+- **CSS as source of truth**: JavaScript reads colors from CSS for canvas rendering, ensuring consistency
+- **Theme-aware re-rendering**: Canvas automatically updates when system theme changes
+- **Magnitude-based hint gradient**: Nine distinct colors (bright yellow-orange → dark magenta) convey constraint difficulty through color intensity
+
+**Light Mode Characteristics:**
+- Light gray backgrounds with dark text for comfortable reading
+- Vibrant accent colors (blue, green, amber) for clear visual hierarchy
+- White elevated surfaces (buttons, sheets, canvas) with subtle shadows
+
+**Dark Mode Characteristics:**
+- True dark backgrounds (near-black #1A1A1A) for OLED-friendly display
+- Light text on dark backgrounds with proper contrast ratios
+- Brightened accent colors for visibility on dark backgrounds
+- Elevated surfaces lighter than base for proper depth perception
+- Adjusted hint gradient maintaining visual hierarchy in low-light conditions
+
+For implementation details, see Color Token System in Key Systems section.
 
 **Typography:**
 - **Body Copy**: Inter (400, 500, 600, 700) - Clean sans-serif for UI text, buttons, labels
@@ -609,7 +698,7 @@ Component could be extended to support multiple simultaneous sheets with z-index
 
 Built using the bottom sheet component system (see Bottom Sheet Component System in Key Systems). The settings panel is a persistent sheet that reuses the same HTMLElement instance across multiple show/hide cycles.
 
-- **Visual Design**: Slides up with bounce animation (300ms, cubic-bezier(0.34, 1.3, 0.64, 1)), white background, rounded top corners (16px), soft shadow (80px blur, 10% opacity)
+- **Visual Design**: Slides up with bounce animation (300ms, cubic-bezier(0.34, 1.3, 0.64, 1)), elevated background (adapts to theme), rounded top corners (16px), soft shadow (80px blur, 10% opacity)
 - **Layout**: Settings displayed as list items with grey dividers
 - **Available Settings:**
   - **Difficulty** (Unlimited mode only): iOS-style segmented control for switching grid sizes
@@ -697,6 +786,8 @@ Drawing diagonally across the grid maintains smooth, uninterrupted flow:
 - Responsive mobile-first UI with smooth animations
 - Settings bottom sheet with context-aware controls
 - Intelligent drag interactions and path smoothing
+- Automatic dark mode following system preferences
+- Design token system with CSS-as-source-of-truth architecture
 
 **🚧 Planned Enhancements**
 - Interactive tutorial with guided puzzle examples
@@ -706,7 +797,6 @@ Drawing diagonally across the grid maintains smooth, uninterrupted flow:
 - Streak counter (consecutive days completed)
 - Leaderboards and social sharing for daily puzzles (requires backend)
 - Achievement system
-- Dark mode
 - Sound effects (optional, subtle)
 - Share puzzle results with times
 - Archive mode to replay previous daily puzzles
@@ -730,7 +820,7 @@ Drawing diagonally across the grid maintains smooth, uninterrupted flow:
 3. **Saved unlimited puzzles**: Will retain their original hint count when restored (no automatic migration)
 
 **Modify Hint Display:**
-1. **Hint number colors**: Update `CONFIG.COLORS.HINT_COLORS` array in `config.js` (affects number text and borders)
+1. **Hint number colors**: Modify hint gradient colors in `tokens.css` (both light and dark mode blocks). The 9-color gradient is defined as `--color-hint-1` through `--color-hint-9` and automatically flows to `CONFIG.COLORS.HINT_COLORS`
 2. **Hint pulsing background color**: Modify color assignment in `renderHintPulse()` function in `renderer.js` (currently uses blue for unvalidated, green for validated)
 3. **Hint probability per difficulty**: Modify `getHintProbabilityForDifficulty()` function in `game.js` to change probability values for each difficulty level. Changes apply to both daily and unlimited modes automatically since both use the same difficulty-based function. Note: Easy caps at 2 hints regardless of probability, while medium and hard have unlimited hints.
 4. **Border rendering**: Modify `drawHintBorders()` in `renderer.js` (width, inset, layer offset)
@@ -766,8 +856,28 @@ Drawing diagonally across the grid maintains smooth, uninterrupted flow:
 
 **Add New Visual Features:**
 1. **Path styling**: Update `CONFIG.RENDERING.*` constants in `config.js`
-2. **Colors**: Modify `CONFIG.COLORS.*` in `config.js`
+2. **Colors**: See "Modify Colors" section below for proper color token workflow
 3. **Animations**: Adjust `renderPlayerPath()`, `renderPath()`, or `renderHintPulse()` in `renderer.js`
+
+**Modify Colors:**
+1. **Edit color values**: Update CSS custom properties in `src/tokens.css`
+   - Modify base color scales (neutral, blue, green, red, amber) in the `:root` block
+   - For dark mode: Update corresponding colors in the `@media (prefers-color-scheme: dark)` block
+   - Changes automatically flow to both UI (CSS) and canvas (JavaScript)
+2. **Add new semantic tokens**: Define new purpose-based color references
+   - Add to `:root` block in tokens.css using `var()` to reference base scales
+   - Import in tokens.js by adding to `loadSemanticFromCSS()` function
+   - Use in config.js by referencing semantic token
+3. **Add new color scales**: For new color families beyond existing scales
+   - Define scale shades in tokens.css `:root` block
+   - Add dark mode overrides in media query block
+   - Add to `loadColorsFromCSS()` function in tokens.js
+   - Reference in config.js or create semantic tokens
+4. **Testing color changes**:
+   - Check both light and dark modes by toggling system appearance settings
+   - Verify canvas rendering matches UI styling
+   - Ensure contrast ratios meet accessibility standards
+   - Test hint gradient maintains visual hierarchy in both themes
 
 **Performance Tuning:**
 1. **Canvas sizing**: Adjust `CONFIG.CELL_SIZE_MIN/MAX` in `config.js`
