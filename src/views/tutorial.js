@@ -150,6 +150,11 @@ function resizeCanvas() {
   canvas.style.width = totalSize + 'px';
   canvas.style.height = totalSize + 'px';
 
+  // DEFENSIVE: Clear animation state when cell size changes
+  // Any animation data with old cellSize is now invalid
+  resetNumberAnimationState();
+  resetPathAnimationState();
+
   ctx.scale(dpr, dpr);
   render();
 }

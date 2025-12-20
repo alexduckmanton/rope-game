@@ -455,6 +455,11 @@ function resizeCanvas() {
   canvas.style.width = totalSize + 'px';
   canvas.style.height = totalSize + 'px';
 
+  // DEFENSIVE: Clear animation state when cell size changes
+  // Any animation data with old cellSize is now invalid
+  resetNumberAnimationState();
+  resetPathAnimationState();
+
   // Note: Setting canvas.width/height resets the context (including transform)
   // Transform will be set at the start of each render() call
   // Don't render here - let caller decide if render is needed
