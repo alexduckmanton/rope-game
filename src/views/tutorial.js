@@ -50,16 +50,13 @@ const TUTORIAL_CONFIG = {
   // Multi-section lesson content
   lessonSections: [
     {
-      title: 'Draw a loop',
-      body: 'To win loopy, you drag to draw a single, connected loop'
+      body: 'To win, drag to draw a single continuous loop'
     },
     {
-      title: 'Numbers count bends',
-      body: 'Numbers count your loop\'s bends in the squares they touch.'
+      body: 'Numbers count the bends of your loop in the squares they touch'
     },
     {
-      title: 'Zero the numbers',
-      body: 'To win, draw a loop so that all numbers are zero.'
+      body: 'To win, draw a loop that makes all numbers zero'
     }
   ]
 };
@@ -305,12 +302,6 @@ function updateLessonContent(messageEl, nextBtn) {
   // Update message content
   messageEl.innerHTML = `<p>${section.body}</p>`;
 
-  // Update title in the sheet
-  const titleEl = document.querySelector('.bottom-sheet-header h2');
-  if (titleEl) {
-    titleEl.textContent = section.title;
-  }
-
   // Update next button text
   nextBtn.textContent = isLastSection ? 'Try it' : 'Next';
 }
@@ -365,7 +356,7 @@ function showLessonSheet() {
 
   // Create and show the bottom sheet without a default dismiss button
   const sheetInstance = showBottomSheetAsync({
-    title: section.title,
+    title: ' ', // Empty title - content speaks for itself
     content: content,
     icon: 'graduation-cap',
     colorScheme: 'info',
