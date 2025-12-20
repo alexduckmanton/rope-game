@@ -893,3 +893,55 @@ button {
 #difficulty-settings-item.visible {
   display: block;
 }
+
+/* ============================================================================
+ * TUTORIAL 2 VIEW (Progressive Tutorial)
+ * ========================================================================= */
+
+#tutorial2-view .game-container {
+  flex-direction: column;
+  gap: 24px;
+  padding: 20px;
+}
+
+#tutorial2-view .game-container p {
+  font-size: 16px;
+  line-height: 1.5em;
+  color: var(--color-text-secondary);
+  margin: 0;
+  max-width: 500px;
+  white-space: pre-line;
+  text-align: center;
+}
+
+.tutorial2-next-btn {
+  padding: 14px 48px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text-on-primary);
+  background-color: var(--color-primary);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 100ms ease, opacity 200ms ease;
+  min-width: 160px;
+}
+
+.tutorial2-next-btn:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.tutorial2-next-btn:active {
+  transform: scale(0.98);
+}
+
+.tutorial2-next-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.tutorial2-next-btn.hidden {
+  opacity: 0;
+  pointer-events: none;
+}

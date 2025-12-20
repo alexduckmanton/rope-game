@@ -17,6 +17,7 @@ let currentUrl = null;
 const routes = [
   { path: '/', viewId: 'home-view' },
   { path: '/tutorial', viewId: 'tutorial-view' },
+  { path: '/tutorial2', viewId: 'tutorial2-view' },
   { path: '/play', viewId: 'play-view' }
 ];
 
@@ -112,6 +113,10 @@ async function initView(viewId, params) {
     case 'tutorial-view':
       const { initTutorial } = await import('./views/tutorial.js');
       return initTutorial(params);
+
+    case 'tutorial2-view':
+      const { initTutorial2 } = await import('./views/tutorial2.js');
+      return initTutorial2(params);
 
     case 'play-view':
       const { initGame, cleanupGame } = await import('./views/game.js');
