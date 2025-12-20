@@ -10,6 +10,7 @@ import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { showBottomSheetAsync } from '../bottomSheet.js';
+import { initIcons } from '../icons.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
 import { checkPartialStructuralWin, validateHints, computeStateKey } from '../game/validation.js';
 import { markTutorialCompleted } from '../persistence.js';
@@ -46,13 +47,21 @@ const TUTORIAL_CONFIG = {
   ],
   hintCells: new Set(['2,1']),
   borderMode: 'off',
-  introTitle: 'Crunch the numbers',
-  introContent: `
-    <div class="bottom-sheet-message">
-      <p>Numbers count down every time your loop bends in the squares they touch. To win, all numbers must be 0.</p>
-      <p>Try drawing a loop with 3 bends in the highlighted squares.</p>
-    </div>
-  `
+  // Multi-section lesson content
+  lessonSections: [
+    {
+      title: 'Draw a loop',
+      body: 'To win loopy, you drag to draw a single, connected loop'
+    },
+    {
+      title: 'Numbers count bends',
+      body: 'Numbers count your loop\'s bends in the squares they touch. To win, all numbers must be zero.'
+    },
+    {
+      title: 'Draw any way',
+      body: 'Watch out for multiple numbers. You can draw in sections, and tap to erase.'
+    }
+  ]
 };
 
 /* ============================================================================
@@ -89,6 +98,9 @@ let gameCore;
 
 // Bottom sheet instance for cleanup
 let activeTutorialSheet;
+
+// Lesson section tracking
+let currentLessonSection = 0;
 
 // Animation tracking
 let animationFrameId = null;
@@ -279,6 +291,97 @@ function restartPuzzle() {
 }
 
 /* ============================================================================
+ * LESSON SHEET MANAGEMENT
+ * ========================================================================= */
+
+/**
+ * Show the multi-section lesson sheet
+ */
+function showLessonSheet() {
+  const sections = TUTORIAL_CONFIG.lessonSections;
+  const section = sections[currentLessonSection];
+  const isLastSection = currentLessonSection === sections.length - 1;
+
+  // Build the content with navigation buttons
+  const content = document.createElement('div');
+  content.style.display = 'flex';
+  content.style.flexDirection = 'column';
+  content.style.gap = '0';
+
+  // Message content
+  const message = document.createElement('div');
+  message.className = 'bottom-sheet-message';
+  message.style.paddingBottom = '16px';
+  message.innerHTML = `<p>${section.body}</p>`;
+  content.appendChild(message);
+
+  // Navigation buttons container
+  const navButtons = document.createElement('div');
+  navButtons.style.display = 'flex';
+  navButtons.style.gap = '12px';
+  navButtons.style.alignItems = 'center';
+  navButtons.style.width = 'calc(100% - 40px)';
+  navButtons.style.margin = '24px 20px 20px 20px';
+
+  // Previous button (only show if not on first section)
+  if (currentLessonSection > 0) {
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'icon-btn';
+    prevBtn.setAttribute('aria-label', 'Previous');
+    prevBtn.innerHTML = '<i data-lucide="arrow-left" width="20" height="20"></i>';
+    prevBtn.onclick = () => {
+      currentLessonSection--;
+      activeTutorialSheet.destroy();
+      showLessonSheet();
+    };
+    navButtons.appendChild(prevBtn);
+  }
+
+  // Next button (fills remaining space)
+  const nextBtn = document.createElement('button');
+  nextBtn.className = 'btn btn-primary';
+  nextBtn.style.flex = '1';
+  nextBtn.textContent = isLastSection ? 'Try it' : 'Next';
+  nextBtn.onclick = () => {
+    if (isLastSection) {
+      // Dismiss the sheet on last section
+      activeTutorialSheet.destroy();
+    } else {
+      // Go to next section
+      currentLessonSection++;
+      activeTutorialSheet.destroy();
+      showLessonSheet();
+    }
+  };
+  navButtons.appendChild(nextBtn);
+
+  content.appendChild(navButtons);
+
+  // Create and show the bottom sheet
+  // We'll hide the default dismiss button by setting an empty label and hiding it via callback
+  const sheetInstance = showBottomSheetAsync({
+    title: section.title,
+    content: content,
+    icon: 'graduation-cap',
+    colorScheme: 'info',
+    dismissLabel: ' ' // Empty label (space to avoid validation issues)
+  });
+
+  // Hide the default dismiss button and initialize icons after the sheet is created
+  // Wait for next tick to ensure DOM is ready
+  setTimeout(() => {
+    const defaultDismissBtn = document.querySelector('.bottom-sheet .bottom-sheet-btn');
+    if (defaultDismissBtn && defaultDismissBtn.textContent.trim() === '') {
+      defaultDismissBtn.style.display = 'none';
+    }
+    // Initialize icons for the navigation buttons
+    initIcons();
+  }, 0);
+
+  activeTutorialSheet = sheetInstance;
+}
+
+/* ============================================================================
  * TUTORIAL PAGE MANAGEMENT
  * ========================================================================= */
 
@@ -343,29 +446,17 @@ export function initTutorial() {
   // Initialize tutorial game
   initTutorialGame();
 
-  // Show intro bottom sheet
-  activeTutorialSheet = showBottomSheetAsync({
-    title: TUTORIAL_CONFIG.introTitle,
-    content: TUTORIAL_CONFIG.introContent,
-    icon: 'graduation-cap',
-    colorScheme: 'info',
-    dismissLabel: 'Try it',
-    dismissVariant: 'primary'
-  });
+  // Reset lesson section and show lesson sheet
+  currentLessonSection = 0;
+  showLessonSheet();
 
   // Setup event handlers
   const resizeHandler = () => resizeCanvas();
   const restartBtnHandler = () => restartPuzzle();
   const helpBtnHandler = () => {
-    // Re-open the tutorial lesson sheet
-    activeTutorialSheet = showBottomSheetAsync({
-      title: TUTORIAL_CONFIG.introTitle,
-      content: TUTORIAL_CONFIG.introContent,
-      icon: 'graduation-cap',
-      colorScheme: 'info',
-      dismissLabel: 'Try it',
-      dismissVariant: 'primary'
-    });
+    // Re-open the tutorial lesson sheet from the beginning
+    currentLessonSection = 0;
+    showLessonSheet();
   };
   const backBtnHandler = () => {
     if (history.state?.fromHome) {
