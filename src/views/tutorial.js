@@ -295,6 +295,33 @@ function restartPuzzle() {
  * ========================================================================= */
 
 /**
+ * Update the lesson sheet content for the current section
+ */
+function updateLessonContent(messageEl, prevBtn, nextBtn) {
+  const sections = TUTORIAL_CONFIG.lessonSections;
+  const section = sections[currentLessonSection];
+  const isLastSection = currentLessonSection === sections.length - 1;
+  const isFirstSection = currentLessonSection === 0;
+
+  // Update message content
+  messageEl.innerHTML = `<p>${section.body}</p>`;
+
+  // Update title in the sheet
+  const titleEl = document.querySelector('.bottom-sheet-header h2');
+  if (titleEl) {
+    titleEl.textContent = section.title;
+  }
+
+  // Show/hide previous button based on section
+  if (prevBtn) {
+    prevBtn.style.display = isFirstSection ? 'none' : '';
+  }
+
+  // Update next button text
+  nextBtn.textContent = isLastSection ? 'Try it' : 'Next';
+}
+
+/**
  * Show the multi-section lesson sheet
  */
 function showLessonSheet() {
@@ -323,19 +350,18 @@ function showLessonSheet() {
   navButtons.style.width = 'calc(100% - 40px)';
   navButtons.style.margin = '24px 20px 20px 20px';
 
-  // Previous button (only show if not on first section)
-  if (currentLessonSection > 0) {
-    const prevBtn = document.createElement('button');
-    prevBtn.className = 'icon-btn';
-    prevBtn.setAttribute('aria-label', 'Previous');
-    prevBtn.innerHTML = '<i data-lucide="arrow-left" width="20" height="20"></i>';
-    prevBtn.onclick = () => {
-      currentLessonSection--;
-      activeTutorialSheet.destroy();
-      showLessonSheet();
-    };
-    navButtons.appendChild(prevBtn);
-  }
+  // Previous button (hidden on first section)
+  const prevBtn = document.createElement('button');
+  prevBtn.className = 'icon-btn';
+  prevBtn.setAttribute('aria-label', 'Previous');
+  prevBtn.innerHTML = '<i data-lucide="arrow-left" width="20" height="20"></i>';
+  prevBtn.style.display = 'none'; // Hidden initially
+  prevBtn.onclick = () => {
+    currentLessonSection--;
+    updateLessonContent(message, prevBtn, nextBtn);
+    initIcons(); // Re-initialize icons after content update
+  };
+  navButtons.appendChild(prevBtn);
 
   // Next button (fills remaining space)
   const nextBtn = document.createElement('button');
@@ -343,14 +369,13 @@ function showLessonSheet() {
   nextBtn.style.flex = '1';
   nextBtn.textContent = isLastSection ? 'Try it' : 'Next';
   nextBtn.onclick = () => {
-    if (isLastSection) {
+    if (currentLessonSection === sections.length - 1) {
       // Dismiss the sheet on last section
       activeTutorialSheet.destroy();
     } else {
       // Go to next section
       currentLessonSection++;
-      activeTutorialSheet.destroy();
-      showLessonSheet();
+      updateLessonContent(message, prevBtn, nextBtn);
     }
   };
   navButtons.appendChild(nextBtn);
