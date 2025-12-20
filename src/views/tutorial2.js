@@ -103,7 +103,7 @@ const STEP_CONFIGS = {
     hintCells: new Set(),
     showSolution: true,
     requiresDrawing: true,
-    completionType: 'line',
+    completionType: 'matchLine',
     targetCells: new Set(['4,1', '4,2', '4,3', '4,4'])
   },
   2: {
@@ -112,7 +112,8 @@ const STEP_CONFIGS = {
     hintCells: new Set(),
     showSolution: true,
     requiresDrawing: true,
-    completionType: 'match'
+    completionType: 'match',
+    preservePlayerPath: true // Keep the path from step 1
   },
   3: {
     instruction: 'Numbers count bends in the highlighted area.\nThis "3" means 3 bends in the glowing squares.',
@@ -209,6 +210,10 @@ function checkStepCompletion() {
       // Player must draw through all target cells
       return checkLineCoverage(playerDrawnCells, config.targetCells);
 
+    case 'matchLine':
+      // Player must match the solution line exactly (not a loop)
+      return checkLineMatch(playerDrawnCells, config.targetCells);
+
     case 'match':
       // Player must match the solution path exactly
       return checkPathMatch(playerDrawnCells, playerConnections, config.solutionPath);
@@ -235,6 +240,25 @@ function checkLineCoverage(playerDrawnCells, targetCells) {
       return false;
     }
   }
+  return true;
+}
+
+/**
+ * Check if player's path matches the target cells exactly (for line, not loop)
+ */
+function checkLineMatch(playerDrawnCells, targetCells) {
+  // Must have same number of cells
+  if (playerDrawnCells.size !== targetCells.size) {
+    return false;
+  }
+
+  // All player cells must be in target set
+  for (const cellKey of playerDrawnCells) {
+    if (!targetCells.has(cellKey)) {
+      return false;
+    }
+  }
+
   return true;
 }
 
