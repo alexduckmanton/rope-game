@@ -160,6 +160,12 @@ function render() {
 
   const { playerDrawnCells, playerConnections } = gameCore.state;
   const totalSize = cellSize * gridSize;
+  const dpr = window.devicePixelRatio || 1;
+
+  // DEFENSIVE: Ensure transform is correct before rendering
+  // (Setting canvas.width/height resets the context, so we must reapply the transform)
+  ctx.setTransform(1, 0, 0, 1, 0, 0);  // Reset to identity
+  ctx.scale(dpr, dpr);  // Apply device pixel ratio scaling
 
   // Build player turn map ONCE per render for reuse
   const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
@@ -387,6 +393,11 @@ function showLessonSheet() {
  * ========================================================================= */
 
 function initTutorialGame() {
+  // DEFENSIVE: Clear any lingering animation state from previous views
+  // This ensures a clean slate when initializing tutorial
+  resetNumberAnimationState();
+  resetPathAnimationState();
+
   gridSize = TUTORIAL_CONFIG.gridSize;
 
   // Set tutorial info
