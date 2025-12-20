@@ -249,7 +249,9 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
     hide(true);
 
     // Clean up event listeners
-    dismissBtn.removeEventListener('click', handleClose);
+    if (dismissBtn) {
+      dismissBtn.removeEventListener('click', handleClose);
+    }
     overlay.removeEventListener('click', handleOverlayClick);
     if (primaryBtn && handlePrimaryClick) {
       primaryBtn.removeEventListener('click', handlePrimaryClick);
