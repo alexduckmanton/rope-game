@@ -211,41 +211,34 @@ function render() {
   // PHASE 2: Modal validation (deferred - only runs when not dragging)
   // This shows modals and sets the official hasWon state
   if (!hasWon && !gameCore.state.isDragging) {
-    // Only show modals if state has changed OR if we're currently winning
-    // (to catch cases where the user completes the loop while dragging and then releases)
-    const shouldValidate = stateChanged || isCurrentlyWinning;
-
-    if (shouldValidate && currentStateKey !== lastValidatedStateKey) {
-      // Update last validated state now that we're checking for modals
+    if (isCurrentlyWinning) {
+      // Full win - set official win state and show modal
+      hasWon = true;
+      hasShownPartialWinFeedback = false; // Reset flag
       lastValidatedStateKey = currentStateKey;
 
-      if (isCurrentlyWinning) {
-        // Full win - set official win state and show modal
-        hasWon = true;
-        hasShownPartialWinFeedback = false; // Reset flag
-        // Re-render path with win color (already green from visual validation, but ensures consistency)
-        renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true);
+      // Mark tutorial as completed
+      markTutorialCompleted();
 
-        // Mark tutorial as completed
-        markTutorialCompleted();
-
-        // Show win bottom sheet
-        // Destroy any previous tutorial sheet before showing new one
-        if (activeTutorialSheet) {
-          activeTutorialSheet.destroy();
-        }
-        activeTutorialSheet = showBottomSheetAsync({
-          title: 'You made a loop!',
-          content: '<div class="bottom-sheet-message">Great job! You\'ve completed the tutorial.</div>',
-          icon: 'party-popper',
-          colorScheme: 'success',
-          dismissLabel: 'Yay!',
-          dismissVariant: 'primary'
-        });
-      } else if (hasValidStructure && !hasShownPartialWinFeedback) {
-        // Partial win - valid loop but hints don't match
-        // Only show feedback once per structural completion
+      // Show win bottom sheet
+      // Destroy any previous tutorial sheet before showing new one
+      if (activeTutorialSheet) {
+        activeTutorialSheet.destroy();
+      }
+      activeTutorialSheet = showBottomSheetAsync({
+        title: 'You made a loop!',
+        content: '<div class="bottom-sheet-message">Great job! You\'ve completed the tutorial.</div>',
+        icon: 'party-popper',
+        colorScheme: 'success',
+        dismissLabel: 'Yay!',
+        dismissVariant: 'primary'
+      });
+    } else if (hasValidStructure && stateChanged) {
+      // Partial win - valid loop but hints don't match
+      // Only show feedback when state changes to avoid spam
+      if (!hasShownPartialWinFeedback) {
         hasShownPartialWinFeedback = true;
+        lastValidatedStateKey = currentStateKey;
 
         // Calculate turn counts for feedback
         const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
@@ -277,9 +270,12 @@ function render() {
           colorScheme: 'error',
           dismissLabel: 'Keep trying'
         });
-      } else if (!hasValidStructure) {
-        // No valid structure - reset feedback flag
-        hasShownPartialWinFeedback = false;
+      }
+    } else if (!hasValidStructure) {
+      // No valid structure - reset feedback flag
+      hasShownPartialWinFeedback = false;
+      if (stateChanged) {
+        lastValidatedStateKey = currentStateKey;
       }
     }
   }
