@@ -172,6 +172,21 @@ export function resetPathAnimationState() {
 }
 
 /**
+ * NUCLEAR RESET: Recreate animation state objects entirely
+ * This guarantees fresh object allocation with no hidden state
+ * Call at the START of view initialization to ensure complete isolation
+ */
+export function recreateAnimationState() {
+  // Recreate path animation state objects
+  pathAnimationState.animatingCells = new Map();
+  pathAnimationState.previousDrawnCells = new Set();
+
+  // Recreate number animation state objects
+  numberAnimationState.activeAnimations = new Map();
+  numberAnimationState.previousState = new Map();
+}
+
+/**
  * Render the grid lines
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {number} size - Grid size (e.g., 5 for 5x5)

@@ -5,7 +5,7 @@
  * for use in a multi-view SPA
  */
 
-import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers, resetNumberAnimationState, resetPathAnimationState } from '../renderer.js';
+import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers, resetNumberAnimationState, resetPathAnimationState, recreateAnimationState } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
 import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop, parseCellKey } from '../utils.js';
 import { CONFIG } from '../config.js';
@@ -897,16 +897,15 @@ function getHintProbabilityForDifficulty(difficulty) {
  * @param {string} difficulty - 'easy', 'medium', 'hard', or 'unlimited'
  */
 export function initGame(difficulty) {
+  // NUCLEAR RESET: Recreate animation state objects entirely
+  // This MUST be the first thing we do to guarantee fresh state
+  recreateAnimationState();
+
   // Detect unlimited mode
   isUnlimitedMode = (difficulty === 'unlimited');
 
   // Daily mode is any non-unlimited difficulty (easy, medium, hard)
   isDailyMode = !isUnlimitedMode;
-
-  // Reset animation state from any previous view (e.g., tutorial)
-  // This ensures clean slate when initializing game
-  resetNumberAnimationState();
-  resetPathAnimationState();
 
   // Load saved settings (applies to all modes)
   const settings = loadSettings();

@@ -4,7 +4,7 @@
  * Teaches players the game mechanics with a single guided puzzle
  */
 
-import { renderGrid, clearCanvas, renderPlayerPath, renderCellNumbers, buildPlayerTurnMap, renderHintPulse, calculateBorderLayers, resetNumberAnimationState, resetPathAnimationState } from '../renderer.js';
+import { renderGrid, clearCanvas, renderPlayerPath, renderCellNumbers, buildPlayerTurnMap, renderHintPulse, calculateBorderLayers, resetNumberAnimationState, resetPathAnimationState, recreateAnimationState } from '../renderer.js';
 import { buildSolutionTurnMap, countTurnsInArea, parseCellKey } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
@@ -398,10 +398,9 @@ function showLessonSheet() {
  * ========================================================================= */
 
 function initTutorialGame() {
-  // DEFENSIVE: Clear any lingering animation state from previous views
-  // This ensures a clean slate when initializing tutorial
-  resetNumberAnimationState();
-  resetPathAnimationState();
+  // NUCLEAR RESET: Recreate animation state objects entirely
+  // This MUST be the first thing we do to guarantee fresh state
+  recreateAnimationState();
 
   gridSize = TUTORIAL_CONFIG.gridSize;
 
