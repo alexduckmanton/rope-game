@@ -55,11 +55,11 @@ const TUTORIAL_CONFIG = {
     },
     {
       title: 'Numbers count bends',
-      body: 'Numbers count your loop\'s bends in the squares they touch. To win, all numbers must be zero.'
+      body: 'Numbers count your loop\'s bends in the squares they touch.'
     },
     {
-      title: 'Draw any way',
-      body: 'Watch out for multiple numbers. You can draw in sections, and tap to erase.'
+      title: 'Zero the numbers',
+      body: 'To win, draw a loop so that all numbers are zero.'
     }
   ]
 };
@@ -297,11 +297,10 @@ function restartPuzzle() {
 /**
  * Update the lesson sheet content for the current section
  */
-function updateLessonContent(messageEl, prevBtn, nextBtn) {
+function updateLessonContent(messageEl, nextBtn) {
   const sections = TUTORIAL_CONFIG.lessonSections;
   const section = sections[currentLessonSection];
   const isLastSection = currentLessonSection === sections.length - 1;
-  const isFirstSection = currentLessonSection === 0;
 
   // Update message content
   messageEl.innerHTML = `<p>${section.body}</p>`;
@@ -310,11 +309,6 @@ function updateLessonContent(messageEl, prevBtn, nextBtn) {
   const titleEl = document.querySelector('.bottom-sheet-header h2');
   if (titleEl) {
     titleEl.textContent = section.title;
-  }
-
-  // Show/hide previous button based on section
-  if (prevBtn) {
-    prevBtn.style.display = isFirstSection ? 'none' : '';
   }
 
   // Update next button text
@@ -350,20 +344,7 @@ function showLessonSheet() {
   navButtons.style.width = 'calc(100% - 40px)';
   navButtons.style.margin = '24px 20px 20px 20px';
 
-  // Previous button (hidden on first section)
-  const prevBtn = document.createElement('button');
-  prevBtn.className = 'icon-btn';
-  prevBtn.setAttribute('aria-label', 'Previous');
-  prevBtn.innerHTML = '<i data-lucide="arrow-left" width="20" height="20"></i>';
-  prevBtn.style.display = 'none'; // Hidden initially
-  prevBtn.onclick = () => {
-    currentLessonSection--;
-    updateLessonContent(message, prevBtn, nextBtn);
-    initIcons(); // Re-initialize icons after content update
-  };
-  navButtons.appendChild(prevBtn);
-
-  // Next button (fills remaining space)
+  // Next button (full width)
   const nextBtn = document.createElement('button');
   nextBtn.className = 'bottom-sheet-btn bottom-sheet-btn-primary';
   nextBtn.style.flex = '1';
@@ -375,7 +356,7 @@ function showLessonSheet() {
     } else {
       // Go to next section
       currentLessonSection++;
-      updateLessonContent(message, prevBtn, nextBtn);
+      updateLessonContent(message, nextBtn);
     }
   };
   navButtons.appendChild(nextBtn);
