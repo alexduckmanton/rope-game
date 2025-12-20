@@ -471,6 +471,9 @@ function render(triggerSave = true, animationMode = 'auto') {
   const totalSize = cellSize * gridSize;
   const dpr = window.devicePixelRatio || 1;
 
+  // TEMPORARY: Force disable animations to test if they're causing the bug
+  animationMode = 'none';
+
   // Ensure transform is correct before rendering
   // (Setting canvas.width/height resets the context, so we must reapply the transform)
   ctx.setTransform(1, 0, 0, 1, 0, 0);  // Reset to identity
