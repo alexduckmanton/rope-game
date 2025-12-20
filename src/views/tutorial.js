@@ -1,7 +1,7 @@
 /**
- * Tutorial View - Interactive tutorial with progressive puzzles
+ * Tutorial View - Interactive tutorial
  *
- * Teaches players the game mechanics through simple empty grid puzzles
+ * Teaches players the game mechanics with a single guided puzzle
  */
 
 import { renderGrid, clearCanvas, renderPlayerPath, renderCellNumbers, buildPlayerTurnMap, renderHintPulse, calculateBorderLayers, resetNumberAnimationState, resetPathAnimationState } from '../renderer.js';
@@ -15,110 +15,44 @@ import { checkPartialStructuralWin, validateHints, computeStateKey } from '../ga
 import { markTutorialCompleted } from '../persistence.js';
 
 /* ============================================================================
- * TUTORIAL CONFIGURATIONS
+ * TUTORIAL CONFIGURATION
  * ========================================================================= */
 
-const TUTORIAL_CONFIGS = {
-  '1': {
-    gridSize: 2,
-    heading: 'Tutorial 1/4',
-    instruction: 'Drag to make a loop',
-    nextRoute: '/tutorial?page=2',
-    hasHints: false,
-    introTitle: 'Draw a circle',
-    introContent: `
-      <div class="bottom-sheet-message">
-        <p>To win, draw a line that connects at both ends to form a closed loop.</p>
-        <p>Try drawing a circle!</p>
-      </div>
-    `
-  },
-  '2': {
-    gridSize: 4,
-    heading: 'Tutorial 2/4',
-    instruction: 'Your loop can be any shape.\nTap to erase parts of your loop.',
-    nextRoute: '/tutorial?page=3',
-    hasHints: false,
-    introTitle: 'Draw any shape',
-    introContent: `
-      <div class="bottom-sheet-message">
-        <p>Try another with a bigger grid. Your loop can be any shape, so long as it connects at both ends.</p>
-        <p>Try drawing a bigger loop.</p>
-      </div>
-    `
-  },
-  '3': {
-    gridSize: 4,
-    heading: 'Tutorial 3/4',
-    instruction: 'Numbers count nearby bends in your loop.\nThis loop has 3 bends in the glowing squares.',
-    nextRoute: '/tutorial?page=4',
-    hasHints: true,
-    // Snake pattern solution path for 4x4 grid
-    // This creates 3 turns in the 3x3 area around [2,1]
-    solutionPath: [
-      {row: 0, col: 0},
-      {row: 0, col: 1},
-      {row: 0, col: 2},
-      {row: 0, col: 3},
-      {row: 1, col: 3},
-      {row: 1, col: 2},
-      {row: 1, col: 1},
-      {row: 1, col: 0},
-      {row: 2, col: 0},
-      {row: 2, col: 1},
-      {row: 2, col: 2},
-      {row: 2, col: 3},
-      {row: 3, col: 3},
-      {row: 3, col: 2},
-      {row: 3, col: 1},
-      {row: 3, col: 0}
-    ],
-    hintCells: new Set(['2,1']),
-    borderMode: 'off',
-    introTitle: 'Crunch the numbers',
-    introContent: `
-      <div class="bottom-sheet-message">
-        <p>Numbers count down every time your loop bends in the squares they touch. To win, all numbers must be 0.</p>
-        <p>Try drawing a loop with 3 bends in the highlighted squares.</p>
-      </div>
-    `
-  },
-  '4': {
-    gridSize: 4,
-    heading: 'Tutorial 4/4',
-    instruction: 'Try another with two numbers.',
-    nextRoute: '/tutorial?page=complete',
-    hasHints: true,
-    // Vertical snake pattern solution path for 4x4 grid
-    // This creates 2 turns in the 3x3 area around [3,0] and 2 turns around [1,2]
-    solutionPath: [
-      {row: 0, col: 0},
-      {row: 1, col: 0},
-      {row: 2, col: 0},
-      {row: 3, col: 0},
-      {row: 3, col: 1},
-      {row: 2, col: 1},
-      {row: 1, col: 1},
-      {row: 0, col: 1},
-      {row: 0, col: 2},
-      {row: 1, col: 2},
-      {row: 2, col: 2},
-      {row: 3, col: 2},
-      {row: 3, col: 3},
-      {row: 2, col: 3},
-      {row: 1, col: 3},
-      {row: 0, col: 3}
-    ],
-    hintCells: new Set(['3,0', '1,2']),
-    borderMode: 'off',
-    introTitle: 'Multiple numbers',
-    introContent: `
-      <div class="bottom-sheet-message">
-        <p>Things get trickier when there are multiple numbers. They can even overlap!</p>
-        <p>Try drawing a loop that satisfies both numbers in the grid.</p>
-      </div>
-    `
-  }
+// Single tutorial configuration
+const TUTORIAL_CONFIG = {
+  gridSize: 4,
+  heading: 'Tutorial',
+  instruction: 'Numbers count nearby bends in your loop.\nThis loop has 3 bends in the glowing squares.',
+  hasHints: true,
+  // Snake pattern solution path for 4x4 grid
+  // This creates 3 turns in the 3x3 area around [2,1]
+  solutionPath: [
+    {row: 0, col: 0},
+    {row: 0, col: 1},
+    {row: 0, col: 2},
+    {row: 0, col: 3},
+    {row: 1, col: 3},
+    {row: 1, col: 2},
+    {row: 1, col: 1},
+    {row: 1, col: 0},
+    {row: 2, col: 0},
+    {row: 2, col: 1},
+    {row: 2, col: 2},
+    {row: 2, col: 3},
+    {row: 3, col: 3},
+    {row: 3, col: 2},
+    {row: 3, col: 1},
+    {row: 3, col: 0}
+  ],
+  hintCells: new Set(['2,1']),
+  borderMode: 'off',
+  introTitle: 'Crunch the numbers',
+  introContent: `
+    <div class="bottom-sheet-message">
+      <p>Numbers count down every time your loop bends in the squares they touch. To win, all numbers must be 0.</p>
+      <p>Try drawing a loop with 3 bends in the highlighted squares.</p>
+    </div>
+  `
 };
 
 /* ============================================================================
@@ -126,7 +60,6 @@ const TUTORIAL_CONFIGS = {
  * ========================================================================= */
 
 // Tutorial configuration
-let currentConfig = null;
 let gridSize = 4;
 let cellSize = 0;
 
@@ -137,10 +70,7 @@ let tutorialTitle;
 let restartBtn;
 let helpBtn;
 let backBtn;
-let headingEl;
 let instructionEl;
-let completeScreen;
-let completeHomeBtn;
 
 // Game state
 let hasWon = false;
@@ -182,17 +112,12 @@ function checkWin(playerTurnMap = null) {
   // First check structural validity (any closed loop)
   if (!checkStructuralWin()) return false;
 
-  // For tutorials with hints, validate hint turn counts
-  if (currentConfig && currentConfig.hasHints) {
-    const { playerDrawnCells, playerConnections } = gameCore.state;
-    const sTurnMap = cachedSolutionTurnMap || buildSolutionTurnMap(solutionPath);
-    const pTurnMap = playerTurnMap || buildPlayerTurnMap(playerDrawnCells, playerConnections);
+  // Validate hint turn counts
+  const { playerDrawnCells, playerConnections } = gameCore.state;
+  const sTurnMap = cachedSolutionTurnMap || buildSolutionTurnMap(solutionPath);
+  const pTurnMap = playerTurnMap || buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
-    return validateHints(sTurnMap, pTurnMap, hintCells, gridSize);
-  }
-
-  // For tutorials without hints, any closed loop wins
-  return true;
+  return validateHints(sTurnMap, pTurnMap, hintCells, gridSize);
 }
 
 
@@ -233,27 +158,20 @@ function render() {
   clearCanvas(ctx, totalSize, totalSize);
 
   // Render pulsing hint backgrounds (before grid for proper layering)
-  if (currentConfig && currentConfig.hasHints) {
-    const animationTime = Date.now();
-    renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells, playerConnections, true, cachedSolutionTurnMap, playerTurnMap);
-  }
+  const animationTime = Date.now();
+  renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells, playerConnections, true, cachedSolutionTurnMap, playerTurnMap);
 
   renderGrid(ctx, gridSize, cellSize);
 
-  // Render hints for tutorial 3, otherwise no hints
-  let hasNumberAnimations = false;
-  if (currentConfig && currentConfig.hasHints) {
-    const renderResult = renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, 'partial', playerDrawnCells, playerConnections, borderMode, true, cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers);
-    hasNumberAnimations = renderResult && renderResult.hasActiveAnimations;
-  }
+  // Render hints
+  const renderResult = renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, 'partial', playerDrawnCells, playerConnections, borderMode, true, cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers);
+  const hasNumberAnimations = renderResult && renderResult.hasActiveAnimations;
 
   const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
   const hasPathAnimations = pathRenderResult && pathRenderResult.hasActiveAnimations;
 
-  // Continue animation loop for tutorials with hints (for pulse animation) or active path animations
-  const needsAnimationLoop =
-    (currentConfig && currentConfig.hasHints) ||  // Pulse animation is always active when hints shown
-    hasPathAnimations;                             // Path grow animations
+  // Continue animation loop for pulse animation and path animations
+  const needsAnimationLoop = true;  // Pulse animation is always active
 
   if (needsAnimationLoop && !isAnimationFramePending) {
     isAnimationFramePending = true;
@@ -294,26 +212,23 @@ function render() {
       // Re-render path with win color (already green from visual validation, but ensures consistency)
       renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true);
 
-      // Show win bottom sheet with navigation on close
+      // Mark tutorial as completed
+      markTutorialCompleted();
+
+      // Show win bottom sheet
       // Destroy any previous tutorial sheet before showing new one
       if (activeTutorialSheet) {
         activeTutorialSheet.destroy();
       }
       activeTutorialSheet = showBottomSheetAsync({
         title: 'You made a loop!',
-        content: '<div class="bottom-sheet-message">Great job! Let\'s continue.</div>',
+        content: '<div class="bottom-sheet-message">Great job! You\'ve completed the tutorial.</div>',
         icon: 'party-popper',
         colorScheme: 'success',
-        dismissLabel: 'Next',
-        dismissVariant: 'primary',
-        onClose: () => {
-          // Navigate to next tutorial or complete screen
-          if (currentConfig && currentConfig.nextRoute) {
-            navigate(currentConfig.nextRoute);
-          }
-        }
+        dismissLabel: 'Yay!',
+        dismissVariant: 'primary'
       });
-    } else if (hasValidStructure && currentConfig && currentConfig.hasHints && !hasShownPartialWinFeedback) {
+    } else if (hasValidStructure && !hasShownPartialWinFeedback) {
       // Partial win - valid loop but hints don't match
       // Only show feedback once per structural completion
       hasShownPartialWinFeedback = true;
@@ -334,15 +249,8 @@ function render() {
       }
 
       // Show feedback bottom sheet
-      let feedbackContent;
-      if (mismatches.length === 1) {
-        // Single hint feedback (tutorial 3)
-        const { expected, actual } = mismatches[0];
-        feedbackContent = `<div class="bottom-sheet-message">This loop has ${actual} bends in the squares touching the ${expected}. Try a different loop shape to complete this tutorial.</div>`;
-      } else {
-        // Multiple hints feedback (tutorial 4+)
-        feedbackContent = `<div class="bottom-sheet-message">This loop doesn't have the right number of bends for the numbers. Try a different loop shape to complete this tutorial.</div>`;
-      }
+      const { expected, actual } = mismatches[0];
+      const feedbackContent = `<div class="bottom-sheet-message">This loop has ${actual} bends in the squares touching the ${expected}. Try a different loop shape to complete this tutorial.</div>`;
 
       // Destroy any previous tutorial sheet before showing new one
       if (activeTutorialSheet) {
@@ -374,55 +282,26 @@ function restartPuzzle() {
  * TUTORIAL PAGE MANAGEMENT
  * ========================================================================= */
 
-function showCompletScreen() {
-  // Hide game elements
-  canvas.style.display = 'none';
-  instructionEl.style.display = 'none';
-  restartBtn.style.display = 'none';
-
-  // Show complete screen
-  completeScreen.classList.add('active');
-}
-
-function hideCompleteScreen() {
-  // Show game elements
-  canvas.style.display = 'block';
-  instructionEl.style.display = 'block';
-  restartBtn.style.display = 'block';
-
-  // Hide complete screen
-  completeScreen.classList.remove('active');
-}
-
-function initTutorialGame(config) {
-  currentConfig = config;
-  gridSize = config.gridSize;
+function initTutorialGame() {
+  gridSize = TUTORIAL_CONFIG.gridSize;
 
   // Set tutorial info
-  tutorialTitle.textContent = config.heading;
-  instructionEl.textContent = config.instruction;
+  tutorialTitle.textContent = TUTORIAL_CONFIG.heading;
+  instructionEl.textContent = TUTORIAL_CONFIG.instruction;
 
   // Reset state
   hasWon = false;
   hasShownPartialWinFeedback = false;
   lastValidatedStateKey = '';
 
-  // Set up hints and border for tutorial 3
-  if (config.hasHints) {
-    solutionPath = config.solutionPath;
-    hintCells = config.hintCells;
-    borderMode = config.borderMode;
+  // Set up hints and border
+  solutionPath = TUTORIAL_CONFIG.solutionPath;
+  hintCells = TUTORIAL_CONFIG.hintCells;
+  borderMode = TUTORIAL_CONFIG.borderMode;
 
-    // Cache values that don't change during gameplay for performance
-    cachedSolutionTurnMap = buildSolutionTurnMap(solutionPath);
-    cachedBorderLayers = calculateBorderLayers(hintCells, gridSize);
-  } else {
-    solutionPath = [];
-    hintCells = new Set();
-    borderMode = 'off';
-    cachedSolutionTurnMap = null;
-    cachedBorderLayers = null;
-  }
+  // Cache values that don't change during gameplay for performance
+  cachedSolutionTurnMap = buildSolutionTurnMap(solutionPath);
+  cachedBorderLayers = calculateBorderLayers(hintCells, gridSize);
 
   // Create game core instance
   gameCore = createGameCore({
@@ -446,12 +325,9 @@ function initTutorialGame(config) {
 
 /**
  * Initialize the tutorial view
- * @param {URLSearchParams} params - URL parameters (page=1, page=2, or page=complete)
  * @returns {Function} Cleanup function
  */
-export function initTutorial(params) {
-  const page = params.get('page') || '1';
-
+export function initTutorial() {
   // Get DOM elements
   canvas = document.getElementById('tutorial-canvas');
   ctx = canvas.getContext('2d');
@@ -459,113 +335,37 @@ export function initTutorial(params) {
   restartBtn = document.getElementById('tutorial-restart-btn');
   helpBtn = document.getElementById('tutorial-help-btn');
   backBtn = document.getElementById('tutorial-back-btn');
-  headingEl = document.getElementById('tutorial-heading');
   instructionEl = document.getElementById('tutorial-instruction');
-  completeScreen = document.getElementById('tutorial-complete-screen');
-  completeHomeBtn = document.getElementById('tutorial-complete-home-btn');
 
   // Reset event listeners array
   eventListeners = [];
 
-  // Handle complete screen
-  if (page === 'complete') {
-    tutorialTitle.textContent = 'Tutorial';
-    showCompletScreen();
-
-    // IMPORTANT: Clear any gameCore reference from previous tutorial page
-    // The complete screen doesn't need gameCore, and keeping the reference
-    // could cause issues if any closures or event handlers still reference it
-    gameCore = null;
-
-    // Setup complete home button
-    const handleCompleteHome = () => {
-      markTutorialCompleted();
-      navigate('/');
-    };
-    completeHomeBtn.addEventListener('click', handleCompleteHome);
-    eventListeners.push({ element: completeHomeBtn, event: 'click', handler: handleCompleteHome });
-
-    // Setup back button for complete screen
-    const handleBack = () => {
-      if (history.state?.fromHome) {
-        history.back();
-      } else {
-        navigate('/', true);
-      }
-    };
-    backBtn.addEventListener('click', handleBack);
-    eventListeners.push({ element: backBtn, event: 'click', handler: handleBack });
-
-    // Return cleanup function
-    return () => {
-      // Cancel animation frame if running
-      if (animationFrameId !== null) {
-        cancelAnimationFrame(animationFrameId);
-        animationFrameId = null;
-        isAnimationFramePending = false;
-      }
-
-      // Clean up any active bottom sheet
-      if (activeTutorialSheet) {
-        activeTutorialSheet.destroy();
-        activeTutorialSheet = null;
-      }
-
-      for (const { element, event, handler } of eventListeners) {
-        element.removeEventListener(event, handler);
-      }
-      eventListeners = [];
-
-      // Clear animation state
-      resetNumberAnimationState();
-      resetPathAnimationState();
-
-      if (gameCore) {
-        gameCore.resetDragState();
-      }
-    };
-  }
-
-  // Regular tutorial page (1 or 2)
-  hideCompleteScreen();
-
-  const config = TUTORIAL_CONFIGS[page];
-  if (!config) {
-    // Invalid page, redirect to tutorial 1
-    navigate('/tutorial?page=1', true);
-    return null;
-  }
-
   // Initialize tutorial game
-  initTutorialGame(config);
+  initTutorialGame();
 
-  // Show intro bottom sheet for this lesson (if configured)
-  if (config.introContent) {
-    activeTutorialSheet = showBottomSheetAsync({
-      title: config.introTitle,
-      content: config.introContent,
-      icon: 'graduation-cap',
-      colorScheme: 'info',
-      dismissLabel: 'Try it',
-      dismissVariant: 'primary'
-    });
-  }
+  // Show intro bottom sheet
+  activeTutorialSheet = showBottomSheetAsync({
+    title: TUTORIAL_CONFIG.introTitle,
+    content: TUTORIAL_CONFIG.introContent,
+    icon: 'graduation-cap',
+    colorScheme: 'info',
+    dismissLabel: 'Try it',
+    dismissVariant: 'primary'
+  });
 
   // Setup event handlers
   const resizeHandler = () => resizeCanvas();
   const restartBtnHandler = () => restartPuzzle();
   const helpBtnHandler = () => {
     // Re-open the tutorial lesson sheet
-    if (config.introContent) {
-      activeTutorialSheet = showBottomSheetAsync({
-        title: config.introTitle,
-        content: config.introContent,
-        icon: 'graduation-cap',
-        colorScheme: 'info',
-        dismissLabel: 'Try it',
-        dismissVariant: 'primary'
-      });
-    }
+    activeTutorialSheet = showBottomSheetAsync({
+      title: TUTORIAL_CONFIG.introTitle,
+      content: TUTORIAL_CONFIG.introContent,
+      icon: 'graduation-cap',
+      colorScheme: 'info',
+      dismissLabel: 'Try it',
+      dismissVariant: 'primary'
+    });
   };
   const backBtnHandler = () => {
     if (history.state?.fromHome) {

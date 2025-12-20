@@ -438,14 +438,6 @@ button {
  * TUTORIAL VIEW
  * ========================================================================= */
 
-.tutorial-info {
-  display: none;
-}
-
-.tutorial-info h2 {
-  display: none;
-}
-
 #tutorial-view .game-container {
   flex-direction: column;
   gap: 24px;
@@ -485,56 +477,6 @@ button {
 /* Timer-specific styling: use tabular numerals to prevent layout shift */
 #game-timer {
   font-variant-numeric: tabular-nums;
-}
-
-.tutorial-complete-screen {
-  display: none;
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: var(--color-bg-base);
-  z-index: 10;
-}
-
-.tutorial-complete-screen.active {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.complete-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  text-align: center;
-  padding: 32px;
-}
-
-.complete-content h2 {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin: 0;
-}
-
-.complete-content p {
-  font-size: 20px;
-  color: var(--color-text-secondary);
-  margin: 0;
-}
-
-/* Mobile adjustments for tutorial complete */
-@media (max-width: 400px) {
-  .complete-content h2 {
-    font-size: 28px;
-  }
-
-  .complete-content p {
-    font-size: 18px;
-  }
 }
 
 /* ============================================================================
