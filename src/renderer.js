@@ -888,12 +888,13 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
         if (pathAnimationState.animatingCells.has(cellKey)) continue;
 
         // Find predecessor in EITHER previous cells OR currently animating cells
+        // Use safePreviousDrawnCells since we cleared the shared state
         const connectedCells = connections.get(cellKey);
         let predecessorKey = null;
 
         if (connectedCells) {
           for (const connKey of connectedCells) {
-            if (pathAnimationState.previousDrawnCells.has(connKey) ||
+            if (safePreviousDrawnCells.has(connKey) ||
                 pathAnimationState.animatingCells.has(connKey)) {
               predecessorKey = connKey;
               break;
