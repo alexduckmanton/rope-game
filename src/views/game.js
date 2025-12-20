@@ -764,6 +764,10 @@ function loadOrGeneratePuzzle() {
     // Restore timer state
     restoreTimerState(savedState);
 
+    // NUCLEAR: Force clear animation state RIGHT before first render
+    // This ensures absolutely no stale animation data can affect the restored path
+    recreateAnimationState();
+
     // Render restored state (don't trigger save, no animation on restore)
     render(false, 'none');
 
