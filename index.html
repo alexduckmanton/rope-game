@@ -51,6 +51,9 @@
             <i class="btn-complete-icon" data-lucide="check" width="20" height="20"></i>
             <span>Tutorial</span>
           </button>
+          <button id="tutorial2-btn" class="btn btn-large">
+            <span>Tutorial 2</span>
+          </button>
           <button id="easy-btn" class="btn btn-large">
             <i class="btn-complete-icon" data-lucide="trophy" width="20" height="20"></i>
             <span>Easy</span>
@@ -98,6 +101,21 @@
           <button id="tutorial-complete-home-btn" class="btn btn-large">Yay!</button>
         </div>
       </div>
+    </div>
+
+    <!-- Tutorial 2 View -->
+    <div id="tutorial2-view" class="view">
+      <header class="top-bar">
+        <button id="tutorial2-back-btn" class="icon-btn" aria-label="Back">
+          <i data-lucide="arrow-left" width="24" height="24"></i>
+        </button>
+        <h1 class="top-bar-title">Tutorial 2</h1>
+      </header>
+      <main class="game-container">
+        <p id="tutorial2-instruction"></p>
+        <canvas id="tutorial2-canvas"></canvas>
+        <button id="tutorial2-next-btn" class="btn btn-large" style="display: none; margin-top: 1em;">Next</button>
+      </main>
     </div>
 
     <!-- Play View (Game) -->

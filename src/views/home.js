@@ -67,6 +67,7 @@ export function initHome() {
 
   // Get button elements
   const tutorialBtn = document.getElementById('tutorial-btn');
+  const tutorial2Btn = document.getElementById('tutorial2-btn');
   const easyBtn = document.getElementById('easy-btn');
   const mediumBtn = document.getElementById('medium-btn');
   const hardBtn = document.getElementById('hard-btn');
@@ -86,6 +87,7 @@ export function initHome() {
 
   // Event handlers - pass fromHome state to track navigation origin
   const handleTutorial = () => navigate('/tutorial?page=1', false, { fromHome: true });
+  const handleTutorial2 = () => navigate('/tutorial2', false, { fromHome: true });
   const handleEasy = () => navigate('/play?difficulty=easy', false, { fromHome: true });
   const handleMedium = () => navigate('/play?difficulty=medium', false, { fromHome: true });
   const handleHard = () => navigate('/play?difficulty=hard', false, { fromHome: true });
@@ -94,6 +96,7 @@ export function initHome() {
 
   // Attach listeners
   tutorialBtn.addEventListener('click', handleTutorial);
+  tutorial2Btn.addEventListener('click', handleTutorial2);
   easyBtn.addEventListener('click', handleEasy);
   mediumBtn.addEventListener('click', handleMedium);
   hardBtn.addEventListener('click', handleHard);
@@ -103,6 +106,7 @@ export function initHome() {
   // Return cleanup function
   return () => {
     tutorialBtn.removeEventListener('click', handleTutorial);
+    tutorial2Btn.removeEventListener('click', handleTutorial2);
     easyBtn.removeEventListener('click', handleEasy);
     mediumBtn.removeEventListener('click', handleMedium);
     hardBtn.removeEventListener('click', handleHard);
