@@ -232,7 +232,15 @@ function render() {
         colorScheme: 'success',
         dismissLabel: 'Yay!',
         dismissVariant: 'primary',
-        onClose: () => navigate('/')
+        onClose: () => {
+          // Clear animation state before navigating to prevent state leakage
+          resetNumberAnimationState();
+          resetPathAnimationState();
+          if (gameCore) {
+            gameCore.resetDragState();
+          }
+          navigate('/');
+        }
       });
     } else if (hasValidStructure && stateChanged) {
       // Partial win - valid loop but hints don't match
