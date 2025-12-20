@@ -227,11 +227,12 @@ function render() {
       }
       activeTutorialSheet = showBottomSheetAsync({
         title: 'You made a loop!',
-        content: '<div class="bottom-sheet-message">Great job! You\'ve completed the tutorial.</div>',
+        content: '<div class="bottom-sheet-message">You\'re ready to play</div>',
         icon: 'party-popper',
         colorScheme: 'success',
         dismissLabel: 'Yay!',
-        dismissVariant: 'primary'
+        dismissVariant: 'primary',
+        onClose: () => navigate('/')
       });
     } else if (hasValidStructure && stateChanged) {
       // Partial win - valid loop but hints don't match
