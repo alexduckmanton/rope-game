@@ -582,9 +582,14 @@ export function initTutorial(params) {
   const pointerMoveHandler = (e) => gameCore.handlePointerMove(e);
   const pointerUpHandler = (e) => gameCore.handlePointerUp(e);
   const pointerCancelHandler = (e) => gameCore.handlePointerCancel(e);
+  const themeChangeHandler = () => {
+    // Re-render canvas with updated colors when theme changes
+    render();
+  };
 
   // Attach event listeners
   window.addEventListener('resize', resizeHandler);
+  window.addEventListener('themeChanged', themeChangeHandler);
   restartBtn.addEventListener('click', restartBtnHandler);
   helpBtn.addEventListener('click', helpBtnHandler);
   backBtn.addEventListener('click', backBtnHandler);
@@ -596,6 +601,7 @@ export function initTutorial(params) {
   // Store event listener references for cleanup
   eventListeners = [
     { element: window, event: 'resize', handler: resizeHandler },
+    { element: window, event: 'themeChanged', handler: themeChangeHandler },
     { element: restartBtn, event: 'click', handler: restartBtnHandler },
     { element: helpBtn, event: 'click', handler: helpBtnHandler },
     { element: backBtn, event: 'click', handler: backBtnHandler },

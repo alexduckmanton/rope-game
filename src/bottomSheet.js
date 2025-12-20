@@ -6,6 +6,7 @@
  */
 
 import { initIcons } from './icons.js';
+import { semantic } from './tokens.js';
 
 /**
  * Animation duration for show/hide transitions (must match CSS transition duration)
@@ -15,27 +16,28 @@ const ANIMATION_DURATION_MS = 300;
 
 /**
  * Predefined color schemes for icon and background
+ * Colors are imported from design tokens (see tokens.js)
  */
 const COLOR_SCHEMES = {
   neutral: {
-    iconColor: '#6B7280',      // Medium grey
-    backgroundColor: '#F3F4F6' // Light grey
+    iconColor: semantic.neutral,        // Medium grey
+    backgroundColor: semantic.neutralBg // Light grey
   },
   success: {
-    iconColor: '#F59E0B',      // Rich amber/gold
-    backgroundColor: '#FEF3C7' // Pale golden yellow
+    iconColor: semantic.successIcon,    // Rich amber/gold
+    backgroundColor: semantic.successBg // Pale golden yellow
   },
   error: {
-    iconColor: '#EF4444',      // Rich red
-    backgroundColor: '#FEE2E2' // Pale red
+    iconColor: semantic.error,          // Rich red
+    backgroundColor: semantic.errorBg   // Pale red
   },
   info: {
-    iconColor: '#3B82F6',      // Rich blue
-    backgroundColor: '#DBEAFE' // Pale blue
+    iconColor: semantic.info,           // Rich blue
+    backgroundColor: semantic.infoBg    // Pale blue
   },
   warning: {
-    iconColor: '#F59E0B',      // Rich amber
-    backgroundColor: '#FEF3C7' // Pale amber
+    iconColor: semantic.warning,        // Rich amber
+    backgroundColor: semantic.warningBg // Pale amber
   }
 };
 
