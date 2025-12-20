@@ -357,31 +357,17 @@ function showLessonSheet() {
 
   content.appendChild(navButtons);
 
-  // Create and show the bottom sheet without a dismiss button
+  // Create and show the bottom sheet without a default dismiss button
   const sheetInstance = showBottomSheetAsync({
     title: section.title,
     content: content,
     icon: 'graduation-cap',
     colorScheme: 'info',
-    dismissLabel: '' // Empty to minimize the button
+    dismissLabel: null // No default dismiss button - we use custom navigation
   });
 
-  // Hide the default dismiss button after the sheet is created
-  // The default button is added outside our custom content, so we need to find and hide it
+  // Initialize icons for the navigation buttons after the sheet is created
   setTimeout(() => {
-    // Find all buttons in the sheet
-    const sheet = document.querySelector('.bottom-sheet');
-    if (sheet) {
-      // The default dismiss button is the last button that's a direct child (not in our content)
-      const allButtons = sheet.querySelectorAll('.bottom-sheet-btn');
-      allButtons.forEach(btn => {
-        // Hide buttons with empty or whitespace-only text (the default dismiss button)
-        if (!btn.textContent || btn.textContent.trim() === '') {
-          btn.style.display = 'none';
-        }
-      });
-    }
-    // Initialize icons for the navigation buttons
     initIcons();
   }, 0);
 
