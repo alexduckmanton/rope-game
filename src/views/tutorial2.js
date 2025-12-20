@@ -451,9 +451,9 @@ export function initTutorial2() {
     gridSize: GRID_SIZE,
     canvas,
     onRender: () => {
-      if (!isAnimating) {
-        render();
-      }
+      // Always render, just like game.js does
+      // Don't add conditions here - let render() decide what to show
+      render();
     }
   });
 
@@ -466,18 +466,18 @@ export function initTutorial2() {
   const backHandler = () => handleBack();
   const themeChangeHandler = () => render();
 
-  // Pointer events - only when interaction enabled
+  // Pointer events - simple gating like game.js does
   const pointerDownHandler = (e) => {
-    if (interactionEnabled && !isAnimating) gameCore.handlePointerDown(e);
+    if (interactionEnabled) gameCore.handlePointerDown(e);
   };
   const pointerMoveHandler = (e) => {
-    if (interactionEnabled && !isAnimating) gameCore.handlePointerMove(e);
+    if (interactionEnabled) gameCore.handlePointerMove(e);
   };
   const pointerUpHandler = (e) => {
-    if (interactionEnabled && !isAnimating) gameCore.handlePointerUp(e);
+    if (interactionEnabled) gameCore.handlePointerUp(e);
   };
   const pointerCancelHandler = (e) => {
-    if (interactionEnabled && !isAnimating) gameCore.handlePointerCancel(e);
+    if (interactionEnabled) gameCore.handlePointerCancel(e);
   };
 
   window.addEventListener('resize', resizeHandler);
