@@ -846,6 +846,12 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
 
   // Detect changes and manage animations
   if (animationMode === 'auto') {
+    // CRITICAL FIX: Clear previousDrawnCells FIRST to prevent cross-view contamination
+    // If tutorial rendered after game init, previousDrawnCells might have stale tutorial cells
+    // This ensures we start fresh and only use cells from THIS view's current drawnCells
+    const safePreviousDrawnCells = new Set(pathAnimationState.previousDrawnCells);
+    pathAnimationState.previousDrawnCells.clear();
+
     // DEFENSIVE: Remove any animating cells that are no longer in drawnCells
     // OR have invalid predecessors (not in current connections)
     // This protects against stale animation data from previous views or race conditions
@@ -862,10 +868,10 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
       }
     }
 
-    // Collect all new cells added this frame
+    // Collect all new cells added this frame (using the safe copy)
     const newCells = new Set();
     for (const cellKey of drawnCells) {
-      if (!pathAnimationState.previousDrawnCells.has(cellKey)) {
+      if (!safePreviousDrawnCells.has(cellKey)) {
         newCells.add(cellKey);
       }
     }
@@ -907,7 +913,8 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
     } while (addedAny);
 
     // Detect removed cells (backtracking) - cancel animations immediately
-    for (const cellKey of pathAnimationState.previousDrawnCells) {
+    // Use safePreviousDrawnCells since we already cleared the shared state
+    for (const cellKey of safePreviousDrawnCells) {
       if (!drawnCells.has(cellKey)) {
         pathAnimationState.animatingCells.delete(cellKey);
       }

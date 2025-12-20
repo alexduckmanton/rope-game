@@ -167,9 +167,6 @@ function render() {
   const totalSize = cellSize * gridSize;
   const dpr = window.devicePixelRatio || 1;
 
-  // TEMPORARY: Force disable animations to test if they're causing the bug
-  const animationMode = 'none';
-
   // DEFENSIVE: Ensure transform is correct before rendering
   // (Setting canvas.width/height resets the context, so we must reapply the transform)
   ctx.setTransform(1, 0, 0, 1, 0, 0);  // Reset to identity
@@ -190,7 +187,7 @@ function render() {
   const renderResult = renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, 'partial', playerDrawnCells, playerConnections, borderMode, true, cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers);
   const hasNumberAnimations = renderResult && renderResult.hasActiveAnimations;
 
-  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon, animationMode);
+  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
   const hasPathAnimations = pathRenderResult && pathRenderResult.hasActiveAnimations;
 
   // Continue animation loop for pulse animation and path animations
@@ -220,7 +217,7 @@ function render() {
   }
 
   // Render path with visual win state (green if currently winning OR officially won)
-  renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon, animationMode);
+  renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon);
 
   // PHASE 2: Modal validation (deferred - only runs when not dragging)
   // This shows modals and sets the official hasWon state
