@@ -339,7 +339,7 @@ function showLessonSheet() {
 
   // Next button (fills remaining space)
   const nextBtn = document.createElement('button');
-  nextBtn.className = 'btn btn-primary';
+  nextBtn.className = 'bottom-sheet-btn bottom-sheet-btn-primary';
   nextBtn.style.flex = '1';
   nextBtn.textContent = isLastSection ? 'Try it' : 'Next';
   nextBtn.onclick = () => {
@@ -357,22 +357,29 @@ function showLessonSheet() {
 
   content.appendChild(navButtons);
 
-  // Create and show the bottom sheet
-  // We'll hide the default dismiss button by setting an empty label and hiding it via callback
+  // Create and show the bottom sheet without a dismiss button
   const sheetInstance = showBottomSheetAsync({
     title: section.title,
     content: content,
     icon: 'graduation-cap',
     colorScheme: 'info',
-    dismissLabel: ' ' // Empty label (space to avoid validation issues)
+    dismissLabel: '' // Empty to minimize the button
   });
 
-  // Hide the default dismiss button and initialize icons after the sheet is created
-  // Wait for next tick to ensure DOM is ready
+  // Hide the default dismiss button after the sheet is created
+  // The default button is added outside our custom content, so we need to find and hide it
   setTimeout(() => {
-    const defaultDismissBtn = document.querySelector('.bottom-sheet .bottom-sheet-btn');
-    if (defaultDismissBtn && defaultDismissBtn.textContent.trim() === '') {
-      defaultDismissBtn.style.display = 'none';
+    // Find all buttons in the sheet
+    const sheet = document.querySelector('.bottom-sheet');
+    if (sheet) {
+      // The default dismiss button is the last button that's a direct child (not in our content)
+      const allButtons = sheet.querySelectorAll('.bottom-sheet-btn');
+      allButtons.forEach(btn => {
+        // Hide buttons with empty or whitespace-only text (the default dismiss button)
+        if (!btn.textContent || btn.textContent.trim() === '') {
+          btn.style.display = 'none';
+        }
+      });
     }
     // Initialize icons for the navigation buttons
     initIcons();
