@@ -210,71 +210,77 @@ function render() {
 
   // PHASE 2: Modal validation (deferred - only runs when not dragging)
   // This shows modals and sets the official hasWon state
-  if (stateChanged && !hasWon && !gameCore.state.isDragging) {
-    // Update last validated state now that we're checking for modals
-    lastValidatedStateKey = currentStateKey;
+  if (!hasWon && !gameCore.state.isDragging) {
+    // Only show modals if state has changed OR if we're currently winning
+    // (to catch cases where the user completes the loop while dragging and then releases)
+    const shouldValidate = stateChanged || isCurrentlyWinning;
 
-    if (isCurrentlyWinning) {
-      // Full win - set official win state and show modal
-      hasWon = true;
-      hasShownPartialWinFeedback = false; // Reset flag
-      // Re-render path with win color (already green from visual validation, but ensures consistency)
-      renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true);
+    if (shouldValidate && currentStateKey !== lastValidatedStateKey) {
+      // Update last validated state now that we're checking for modals
+      lastValidatedStateKey = currentStateKey;
 
-      // Mark tutorial as completed
-      markTutorialCompleted();
+      if (isCurrentlyWinning) {
+        // Full win - set official win state and show modal
+        hasWon = true;
+        hasShownPartialWinFeedback = false; // Reset flag
+        // Re-render path with win color (already green from visual validation, but ensures consistency)
+        renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true);
 
-      // Show win bottom sheet
-      // Destroy any previous tutorial sheet before showing new one
-      if (activeTutorialSheet) {
-        activeTutorialSheet.destroy();
-      }
-      activeTutorialSheet = showBottomSheetAsync({
-        title: 'You made a loop!',
-        content: '<div class="bottom-sheet-message">Great job! You\'ve completed the tutorial.</div>',
-        icon: 'party-popper',
-        colorScheme: 'success',
-        dismissLabel: 'Yay!',
-        dismissVariant: 'primary'
-      });
-    } else if (hasValidStructure && !hasShownPartialWinFeedback) {
-      // Partial win - valid loop but hints don't match
-      // Only show feedback once per structural completion
-      hasShownPartialWinFeedback = true;
+        // Mark tutorial as completed
+        markTutorialCompleted();
 
-      // Calculate turn counts for feedback
-      const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
-      const solutionTurnMap = buildSolutionTurnMap(solutionPath);
-
-      // Find which hints don't match and build feedback message
-      const mismatches = [];
-      for (const cellKey of hintCells) {
-        const { row, col } = parseCellKey(cellKey);
-        const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
-        const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
-        if (expectedTurnCount !== actualTurnCount) {
-          mismatches.push({ expected: expectedTurnCount, actual: actualTurnCount });
+        // Show win bottom sheet
+        // Destroy any previous tutorial sheet before showing new one
+        if (activeTutorialSheet) {
+          activeTutorialSheet.destroy();
         }
-      }
+        activeTutorialSheet = showBottomSheetAsync({
+          title: 'You made a loop!',
+          content: '<div class="bottom-sheet-message">Great job! You\'ve completed the tutorial.</div>',
+          icon: 'party-popper',
+          colorScheme: 'success',
+          dismissLabel: 'Yay!',
+          dismissVariant: 'primary'
+        });
+      } else if (hasValidStructure && !hasShownPartialWinFeedback) {
+        // Partial win - valid loop but hints don't match
+        // Only show feedback once per structural completion
+        hasShownPartialWinFeedback = true;
 
-      // Show feedback bottom sheet
-      const { expected, actual } = mismatches[0];
-      const feedbackContent = `<div class="bottom-sheet-message">This loop has ${actual} bends in the squares touching the ${expected}. Try a different loop shape to complete this tutorial.</div>`;
+        // Calculate turn counts for feedback
+        const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
+        const solutionTurnMap = buildSolutionTurnMap(solutionPath);
 
-      // Destroy any previous tutorial sheet before showing new one
-      if (activeTutorialSheet) {
-        activeTutorialSheet.destroy();
+        // Find which hints don't match and build feedback message
+        const mismatches = [];
+        for (const cellKey of hintCells) {
+          const { row, col } = parseCellKey(cellKey);
+          const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
+          const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
+          if (expectedTurnCount !== actualTurnCount) {
+            mismatches.push({ expected: expectedTurnCount, actual: actualTurnCount });
+          }
+        }
+
+        // Show feedback bottom sheet
+        const { expected, actual } = mismatches[0];
+        const feedbackContent = `<div class="bottom-sheet-message">This loop has ${actual} bends in the squares touching the ${expected}. Try a different loop shape to complete this tutorial.</div>`;
+
+        // Destroy any previous tutorial sheet before showing new one
+        if (activeTutorialSheet) {
+          activeTutorialSheet.destroy();
+        }
+        activeTutorialSheet = showBottomSheetAsync({
+          title: 'Not quite!',
+          content: feedbackContent,
+          icon: 'circle-off',
+          colorScheme: 'error',
+          dismissLabel: 'Keep trying'
+        });
+      } else if (!hasValidStructure) {
+        // No valid structure - reset feedback flag
+        hasShownPartialWinFeedback = false;
       }
-      activeTutorialSheet = showBottomSheetAsync({
-        title: 'Not quite!',
-        content: feedbackContent,
-        icon: 'circle-off',
-        colorScheme: 'error',
-        dismissLabel: 'Keep trying'
-      });
-    } else if (!hasValidStructure) {
-      // No valid structure - reset feedback flag
-      hasShownPartialWinFeedback = false;
     }
   }
 }
@@ -445,6 +451,9 @@ export function initTutorial() {
   const restartBtnHandler = () => restartPuzzle();
   const helpBtnHandler = () => {
     // Re-open the tutorial lesson sheet from the beginning
+    if (activeTutorialSheet) {
+      activeTutorialSheet.destroy();
+    }
     currentLessonSection = 0;
     showLessonSheet();
   };
