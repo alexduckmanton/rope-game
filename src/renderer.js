@@ -832,10 +832,18 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
   // Detect changes and manage animations
   if (animationMode === 'auto') {
     // DEFENSIVE: Remove any animating cells that are no longer in drawnCells
+    // OR have invalid predecessors (not in current connections)
     // This protects against stale animation data from previous views or race conditions
-    for (const cellKey of pathAnimationState.animatingCells.keys()) {
+    for (const [cellKey, animation] of pathAnimationState.animatingCells.entries()) {
       if (!drawnCells.has(cellKey)) {
         pathAnimationState.animatingCells.delete(cellKey);
+      } else if (animation.predecessorKey) {
+        // Validate that the predecessor is actually connected to this cell
+        const cellConnections = connections.get(cellKey);
+        if (!cellConnections || !cellConnections.has(animation.predecessorKey)) {
+          // Invalid predecessor - delete this animation entry
+          pathAnimationState.animatingCells.delete(cellKey);
+        }
       }
     }
 
