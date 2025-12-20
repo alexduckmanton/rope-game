@@ -340,10 +340,11 @@ function render() {
 
   // Render player path
   const isCompleted = hasCompletedStep && config.completionType !== 'button';
-  renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCompleted);
+  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCompleted);
+  const hasPathAnimations = pathRenderResult && pathRenderResult.hasActiveAnimations;
 
   // Continue animation loop if needed
-  const needsAnimationLoop = hintCells.size > 0 || countdownAnimationActive;
+  const needsAnimationLoop = hintCells.size > 0 || countdownAnimationActive || hasPathAnimations;
   if (needsAnimationLoop && !isAnimationFramePending) {
     isAnimationFramePending = true;
     animationFrameId = requestAnimationFrame(render);
