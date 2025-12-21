@@ -5,7 +5,7 @@
  * for use in a multi-view SPA
  */
 
-import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers, resetNumberAnimationState, resetPathAnimationState, recreateAnimationState } from '../renderer.js';
+import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
 import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop, parseCellKey } from '../utils.js';
 import { CONFIG } from '../config.js';
@@ -85,6 +85,17 @@ let cachedSolutionTurnMap = null;
 
 // Timer instance (encapsulates all timer state)
 let gameTimer = null;
+
+// Animation state (owned by game view, isolated from other views)
+const gamePathAnimationState = {
+  animatingCells: new Map(),     // Map<cellKey, { startTime: number, predecessorKey: string }>
+  previousDrawnCells: new Set(), // Set<cellKey> from previous render
+};
+
+const gameNumberAnimationState = {
+  activeAnimations: new Map(),   // Map<cellKey, { startTime: number }>
+  previousState: new Map(),      // Map<cellKey, { displayValue: number, color: string }>
+};
 
 // Game core instance
 let gameCore;
@@ -457,8 +468,10 @@ function resizeCanvas() {
 
   // DEFENSIVE: Clear animation state when cell size changes
   // Any animation data with old cellSize is now invalid
-  resetNumberAnimationState();
-  resetPathAnimationState();
+  gameNumberAnimationState.activeAnimations.clear();
+  gameNumberAnimationState.previousState.clear();
+  gamePathAnimationState.animatingCells.clear();
+  gamePathAnimationState.previousDrawnCells.clear();
 
   // Note: Setting canvas.width/height resets the context (including transform)
   // Transform will be set at the start of each render() call
@@ -486,7 +499,8 @@ function render(triggerSave = true, animationMode = 'auto') {
   const renderResult = renderCellNumbers(
     ctx, gridSize, cellSize, solutionPath, hintCells, hintMode,
     playerDrawnCells, playerConnections, borderMode, countdown,
-    cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers, animationMode
+    cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers, animationMode,
+    gameNumberAnimationState
   );
 
   // Render solution path if player has viewed it
@@ -521,7 +535,7 @@ function render(triggerSave = true, animationMode = 'auto') {
   }
 
   // Render path with visual win state (green if currently winning OR officially won)
-  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon, animationMode);
+  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon, animationMode, gamePathAnimationState);
 
   // PHASE 2: Modal validation (deferred - only runs when not dragging)
   // This shows modals and sets the official hasWon state
@@ -548,7 +562,7 @@ function render(triggerSave = true, animationMode = 'auto') {
       const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
 
       // Re-render path with win color (already green from visual validation, but ensures consistency)
-      const winPathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true, animationMode);
+      const winPathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true, animationMode, gamePathAnimationState);
 
       // Show win celebration
       showWinCelebration(finalTime);
@@ -764,10 +778,6 @@ function loadOrGeneratePuzzle() {
     // Restore timer state
     restoreTimerState(savedState);
 
-    // NUCLEAR: Force clear animation state RIGHT before first render
-    // This ensures absolutely no stale animation data can affect the restored path
-    recreateAnimationState();
-
     // Render restored state (don't trigger save, no animation on restore)
     render(false, 'none');
 
@@ -901,10 +911,6 @@ function getHintProbabilityForDifficulty(difficulty) {
  * @param {string} difficulty - 'easy', 'medium', 'hard', or 'unlimited'
  */
 export function initGame(difficulty) {
-  // NUCLEAR RESET: Recreate animation state objects entirely
-  // This MUST be the first thing we do to guarantee fresh state
-  recreateAnimationState();
-
   // Detect unlimited mode
   isUnlimitedMode = (difficulty === 'unlimited');
 
@@ -1172,8 +1178,10 @@ export function cleanupGame() {
   }
 
   // Clear animation state
-  resetNumberAnimationState();
-  resetPathAnimationState();
+  gameNumberAnimationState.activeAnimations.clear();
+  gameNumberAnimationState.previousState.clear();
+  gamePathAnimationState.animatingCells.clear();
+  gamePathAnimationState.previousDrawnCells.clear();
 
   // Reset drag state in core
   if (gameCore) {

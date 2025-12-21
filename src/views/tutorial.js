@@ -4,7 +4,7 @@
  * Teaches players the game mechanics with a single guided puzzle
  */
 
-import { renderGrid, clearCanvas, renderPlayerPath, renderCellNumbers, buildPlayerTurnMap, renderHintPulse, calculateBorderLayers, resetNumberAnimationState, resetPathAnimationState, recreateAnimationState } from '../renderer.js';
+import { renderGrid, clearCanvas, renderPlayerPath, renderCellNumbers, buildPlayerTurnMap, renderHintPulse, calculateBorderLayers } from '../renderer.js';
 import { buildSolutionTurnMap, countTurnsInArea, parseCellKey } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
@@ -103,6 +103,17 @@ let currentLessonSection = 0;
 let animationFrameId = null;
 let isAnimationFramePending = false;
 
+// Animation state (owned by tutorial view, isolated from other views)
+const tutorialPathAnimationState = {
+  animatingCells: new Map(),     // Map<cellKey, { startTime: number, predecessorKey: string }>
+  previousDrawnCells: new Set(), // Set<cellKey> from previous render
+};
+
+const tutorialNumberAnimationState = {
+  activeAnimations: new Map(),   // Map<cellKey, { startTime: number }>
+  previousState: new Map(),      // Map<cellKey, { displayValue: number, color: string }>
+};
+
 // Event listener references for cleanup
 let eventListeners = [];
 
@@ -152,8 +163,10 @@ function resizeCanvas() {
 
   // DEFENSIVE: Clear animation state when cell size changes
   // Any animation data with old cellSize is now invalid
-  resetNumberAnimationState();
-  resetPathAnimationState();
+  tutorialNumberAnimationState.activeAnimations.clear();
+  tutorialNumberAnimationState.previousState.clear();
+  tutorialPathAnimationState.animatingCells.clear();
+  tutorialPathAnimationState.previousDrawnCells.clear();
 
   ctx.scale(dpr, dpr);
   render();
@@ -184,10 +197,10 @@ function render() {
   renderGrid(ctx, gridSize, cellSize);
 
   // Render hints
-  const renderResult = renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, 'partial', playerDrawnCells, playerConnections, borderMode, true, cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers);
+  const renderResult = renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, 'partial', playerDrawnCells, playerConnections, borderMode, true, cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers, 'auto', tutorialNumberAnimationState);
   const hasNumberAnimations = renderResult && renderResult.hasActiveAnimations;
 
-  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon);
+  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, hasWon, 'auto', tutorialPathAnimationState);
   const hasPathAnimations = pathRenderResult && pathRenderResult.hasActiveAnimations;
 
   // Continue animation loop for pulse animation and path animations
@@ -217,7 +230,7 @@ function render() {
   }
 
   // Render path with visual win state (green if currently winning OR officially won)
-  renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon);
+  renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon, 'auto', tutorialPathAnimationState);
 
   // PHASE 2: Modal validation (deferred - only runs when not dragging)
   // This shows modals and sets the official hasWon state
@@ -245,8 +258,10 @@ function render() {
         dismissVariant: 'primary',
         onClose: () => {
           // Clear animation state before navigating to prevent state leakage
-          resetNumberAnimationState();
-          resetPathAnimationState();
+          tutorialNumberAnimationState.activeAnimations.clear();
+          tutorialNumberAnimationState.previousState.clear();
+          tutorialPathAnimationState.animatingCells.clear();
+          tutorialPathAnimationState.previousDrawnCells.clear();
           if (gameCore) {
             gameCore.resetDragState();
           }
@@ -398,10 +413,6 @@ function showLessonSheet() {
  * ========================================================================= */
 
 function initTutorialGame() {
-  // NUCLEAR RESET: Recreate animation state objects entirely
-  // This MUST be the first thing we do to guarantee fresh state
-  recreateAnimationState();
-
   gridSize = TUTORIAL_CONFIG.gridSize;
 
   // Set tutorial info
@@ -542,8 +553,10 @@ export function initTutorial() {
     eventListeners = [];
 
     // Clear animation state
-    resetNumberAnimationState();
-    resetPathAnimationState();
+    tutorialNumberAnimationState.activeAnimations.clear();
+    tutorialNumberAnimationState.previousState.clear();
+    tutorialPathAnimationState.animatingCells.clear();
+    tutorialPathAnimationState.previousDrawnCells.clear();
 
     if (gameCore) {
       gameCore.resetDragState();
