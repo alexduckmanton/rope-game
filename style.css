@@ -584,6 +584,16 @@ button {
   margin-bottom: 0; /* Remove bottom margin from last paragraph */
 }
 
+/* Video container - square aspect ratio, matches button width */
+.bottom-sheet-video-container {
+  width: calc(100% - 40px); /* Match button width (full width minus 20px margins on each side) */
+  aspect-ratio: 1 / 1; /* Square container */
+  margin: 16px 20px; /* 16px top/bottom spacing, 20px side margins to match buttons */
+  border-radius: 12px;
+  background-color: var(--color-neutral-200); /* Grey background for testing */
+  overflow: hidden; /* Clip video to rounded corners */
+}
+
 /* Button container for multiple buttons */
 .bottom-sheet-buttons {
   display: flex;

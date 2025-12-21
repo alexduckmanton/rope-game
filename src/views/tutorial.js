@@ -251,7 +251,7 @@ function render() {
       }
       activeTutorialSheet = showBottomSheetAsync({
         title: 'You made a loop!',
-        content: '<div class="bottom-sheet-message">You\'re ready to play</div>',
+        content: '<div class="bottom-sheet-message">You\'re ready to play</div><div class="bottom-sheet-video-container"></div>',
         icon: 'party-popper',
         colorScheme: 'success',
         dismissLabel: 'Yay!',
@@ -292,7 +292,7 @@ function render() {
 
         // Show feedback bottom sheet
         const { expected, actual } = mismatches[0];
-        const feedbackContent = `<div class="bottom-sheet-message">This loop has ${actual} bends in the squares touching the ${expected}. Try a different loop shape to complete this tutorial.</div>`;
+        const feedbackContent = `<div class="bottom-sheet-message">This loop has ${actual} bends in the squares touching the ${expected}. Try a different loop shape to complete this tutorial.</div><div class="bottom-sheet-video-container"></div>`;
 
         // Destroy any previous tutorial sheet before showing new one
         if (activeTutorialSheet) {
@@ -363,6 +363,11 @@ function showLessonSheet() {
   message.style.paddingBottom = '16px';
   message.innerHTML = `<p>${section.body}</p>`;
   content.appendChild(message);
+
+  // Video container
+  const videoContainer = document.createElement('div');
+  videoContainer.className = 'bottom-sheet-video-container';
+  content.appendChild(videoContainer);
 
   // Navigation buttons container
   const navButtons = document.createElement('div');
