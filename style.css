@@ -511,7 +511,6 @@ button {
   padding-bottom: 40px;
   /* Hiding transition - steep ease-in, no bounce */
   transition: transform 300ms cubic-bezier(0.6, 0, 0.9, 1), box-shadow 300ms cubic-bezier(0.6, 0, 0.9, 1);
-  max-height: 80vh;
   overflow: visible; /* Allow icon to extend above sheet */
   box-shadow: 0 0 80px rgba(0, 0, 0, 0);
   z-index: 1001;
@@ -562,8 +561,7 @@ button {
 
 /* Content container */
 .bottom-sheet-content {
-  max-height: calc(80vh - 200px); /* Account for icon, header, and dismiss button */
-  overflow-y: auto; /* Scroll long content, moved from .bottom-sheet */
+  /* No max-height - sheet grows to fit content */
 }
 
 /* Message content - used for win/feedback notifications */
