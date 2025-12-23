@@ -331,9 +331,15 @@ function restartPuzzle() {
 /**
  * Create a video element for the tutorial with proper sources and attributes
  * @param {number} videoNumber - The tutorial video number (1-3)
+ * @param {HTMLElement} container - The container element to add skeleton to
  * @returns {HTMLVideoElement} Configured video element
  */
-function createTutorialVideo(videoNumber) {
+function createTutorialVideo(videoNumber, container) {
+  // Add skeleton loader
+  const skeleton = document.createElement('div');
+  skeleton.className = 'bottom-sheet-video-skeleton';
+  container.appendChild(skeleton);
+
   const video = document.createElement('video');
   video.style.width = '100%';
   video.style.height = '100%';
@@ -343,6 +349,13 @@ function createTutorialVideo(videoNumber) {
   video.autoplay = true;
   video.playsInline = true; // Prevents fullscreen on mobile
   video.preload = 'auto'; // Start downloading immediately
+
+  // Remove skeleton when video is ready to play
+  video.addEventListener('canplay', () => {
+    if (skeleton.parentNode) {
+      skeleton.remove();
+    }
+  }, { once: true });
 
   // Prefer webm, fallback to mp4
   const webmSource = document.createElement('source');
@@ -371,7 +384,7 @@ function updateLessonContent(messageEl, videoContainer, nextBtn) {
 
   // Update video (clear and add new one)
   videoContainer.innerHTML = '';
-  const video = createTutorialVideo(currentLessonSection + 1); // +1 because sections are 0-indexed
+  const video = createTutorialVideo(currentLessonSection + 1, videoContainer); // +1 because sections are 0-indexed
   videoContainer.appendChild(video);
 
   // Update next button text
@@ -402,7 +415,7 @@ function showLessonSheet() {
   // Video container with initial video
   const videoContainer = document.createElement('div');
   videoContainer.className = 'bottom-sheet-video-container';
-  const initialVideo = createTutorialVideo(currentLessonSection + 1); // +1 because 0-indexed
+  const initialVideo = createTutorialVideo(currentLessonSection + 1, videoContainer); // +1 because 0-indexed
   videoContainer.appendChild(initialVideo);
   content.appendChild(videoContainer);
 

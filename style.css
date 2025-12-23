@@ -588,8 +588,41 @@ button {
   aspect-ratio: 1 / 1; /* Square container */
   margin: 16px 20px; /* 16px top/bottom spacing, 20px side margins to match buttons */
   border-radius: 12px;
-  background-color: var(--color-neutral-200); /* Grey background for testing */
+  background-color: var(--color-neutral-200); /* Grey background shows during loading */
   overflow: hidden; /* Clip video to rounded corners */
+  position: relative; /* For skeleton positioning */
+}
+
+/* Skeleton loader for video loading state */
+.bottom-sheet-video-skeleton {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--color-neutral-200) 0%,
+    var(--color-neutral-300) 50%,
+    var(--color-neutral-200) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  z-index: 1; /* Above video but below other content */
+}
+
+@keyframes skeleton-pulse {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.bottom-sheet-video-container video {
+  position: relative;
+  z-index: 2; /* Above skeleton */
 }
 
 /* Button container for multiple buttons */
