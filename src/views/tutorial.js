@@ -329,15 +329,49 @@ function restartPuzzle() {
  * ========================================================================= */
 
 /**
+ * Create a video element for the tutorial with proper sources and attributes
+ * @param {number} videoNumber - The tutorial video number (1-3)
+ * @returns {HTMLVideoElement} Configured video element
+ */
+function createTutorialVideo(videoNumber) {
+  const video = document.createElement('video');
+  video.style.width = '100%';
+  video.style.height = '100%';
+  video.style.objectFit = 'cover';
+  video.muted = true;
+  video.loop = true;
+  video.autoplay = true;
+  video.playsInline = true; // Prevents fullscreen on mobile
+
+  // Prefer webm, fallback to mp4
+  const webmSource = document.createElement('source');
+  webmSource.src = `/videos/tutorial-${videoNumber}.webm`;
+  webmSource.type = 'video/webm';
+  video.appendChild(webmSource);
+
+  const mp4Source = document.createElement('source');
+  mp4Source.src = `/videos/tutorial-${videoNumber}.mp4`;
+  mp4Source.type = 'video/mp4';
+  video.appendChild(mp4Source);
+
+  return video;
+}
+
+/**
  * Update the lesson sheet content for the current section
  */
-function updateLessonContent(messageEl, nextBtn) {
+function updateLessonContent(messageEl, videoContainer, nextBtn) {
   const sections = TUTORIAL_CONFIG.lessonSections;
   const section = sections[currentLessonSection];
   const isLastSection = currentLessonSection === sections.length - 1;
 
   // Update message content
   messageEl.innerHTML = `<p>${section.body}</p>`;
+
+  // Update video (clear and add new one)
+  videoContainer.innerHTML = '';
+  const video = createTutorialVideo(currentLessonSection + 1); // +1 because sections are 0-indexed
+  videoContainer.appendChild(video);
 
   // Update next button text
   nextBtn.textContent = isLastSection ? 'Try it' : 'Next';
@@ -364,9 +398,11 @@ function showLessonSheet() {
   message.innerHTML = `<p>${section.body}</p>`;
   content.appendChild(message);
 
-  // Video container
+  // Video container with initial video
   const videoContainer = document.createElement('div');
   videoContainer.className = 'bottom-sheet-video-container';
+  const initialVideo = createTutorialVideo(currentLessonSection + 1); // +1 because 0-indexed
+  videoContainer.appendChild(initialVideo);
   content.appendChild(videoContainer);
 
   // Navigation buttons container
@@ -389,7 +425,7 @@ function showLessonSheet() {
     } else {
       // Go to next section
       currentLessonSection++;
-      updateLessonContent(message, nextBtn);
+      updateLessonContent(message, videoContainer, nextBtn);
     }
   };
   navButtons.appendChild(nextBtn);
