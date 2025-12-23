@@ -342,6 +342,7 @@ function createTutorialVideo(videoNumber) {
   video.loop = true;
   video.autoplay = true;
   video.playsInline = true; // Prevents fullscreen on mobile
+  video.preload = 'auto'; // Start downloading immediately
 
   // Prefer webm, fallback to mp4
   const webmSource = document.createElement('source');
