@@ -522,6 +522,19 @@ export function initTutorial() {
   backBtn = document.getElementById('tutorial-back-btn');
   instructionEl = document.getElementById('tutorial-instruction');
 
+  // Preload tutorial videos (webm versions only, good browser support)
+  // This allows videos 2 and 3 to download while user watches video 1
+  const preloadLinks = [];
+  for (let i = 1; i <= 3; i++) {
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'video';
+    link.href = `/videos/tutorial-${i}.webm`;
+    link.type = 'video/webm';
+    document.head.appendChild(link);
+    preloadLinks.push(link);
+  }
+
   // Reset event listeners array
   eventListeners = [];
 
@@ -612,6 +625,13 @@ export function initTutorial() {
     tutorialNumberAnimationState.previousState.clear();
     tutorialPathAnimationState.animatingCells.clear();
     tutorialPathAnimationState.previousDrawnCells.clear();
+
+    // Remove video preload links from head
+    for (const link of preloadLinks) {
+      if (link.parentNode) {
+        link.parentNode.removeChild(link);
+      }
+    }
 
     if (gameCore) {
       gameCore.resetDragState();
