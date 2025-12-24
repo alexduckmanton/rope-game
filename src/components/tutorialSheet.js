@@ -268,7 +268,6 @@ function showLessonSheet() {
   activeSheet = showBottomSheetAsync({
     title: ' ', // Empty title - content speaks for itself
     content: content,
-    icon: 'graduation-cap',
     colorScheme: 'info',
     dismissLabel: null // No default dismiss button - we use custom navigation
   });
