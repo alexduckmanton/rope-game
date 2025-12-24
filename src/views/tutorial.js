@@ -378,6 +378,9 @@ function attachTutorialVideo(sectionIndex, container) {
   // Get the pre-created video
   const video = tutorialVideos[sectionIndex];
 
+  // Reset video to beginning for clean playback
+  video.currentTime = 0;
+
   // Remove skeleton when video is ready to play
   // Use a new listener each time since video is reused across sections
   const removeSkeletonHandler = () => {
