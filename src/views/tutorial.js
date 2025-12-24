@@ -117,6 +117,10 @@ const tutorialNumberAnimationState = {
 // Event listener references for cleanup
 let eventListeners = [];
 
+// Pre-created video elements for reliable preloading
+// Creating all videos upfront with preload="auto" ensures they download in background
+let tutorialVideos = [];
+
 /* ============================================================================
  * VALIDATION
  * ========================================================================= */
@@ -329,17 +333,12 @@ function restartPuzzle() {
  * ========================================================================= */
 
 /**
- * Create a video element for the tutorial with proper sources and attributes
+ * Create a single video element with sources and attributes
+ * Used during initialization to create all videos upfront for preloading
  * @param {number} videoNumber - The tutorial video number (1-3)
- * @param {HTMLElement} container - The container element to add skeleton to
  * @returns {HTMLVideoElement} Configured video element
  */
-function createTutorialVideo(videoNumber, container) {
-  // Add skeleton loader
-  const skeleton = document.createElement('div');
-  skeleton.className = 'bottom-sheet-video-skeleton';
-  container.appendChild(skeleton);
-
+function buildVideoElement(videoNumber) {
   const video = document.createElement('video');
   video.style.width = '100%';
   video.style.height = '100%';
@@ -349,13 +348,6 @@ function createTutorialVideo(videoNumber, container) {
   video.autoplay = true;
   video.playsInline = true; // Prevents fullscreen on mobile
   video.preload = 'auto'; // Start downloading immediately
-
-  // Remove skeleton when video is ready to play
-  video.addEventListener('canplay', () => {
-    if (skeleton.parentNode) {
-      skeleton.remove();
-    }
-  }, { once: true });
 
   // Prefer webm, fallback to mp4
   const webmSource = document.createElement('source');
@@ -372,6 +364,39 @@ function createTutorialVideo(videoNumber, container) {
 }
 
 /**
+ * Get the pre-created video for a lesson section and add it to container with skeleton
+ * @param {number} sectionIndex - The lesson section index (0-2)
+ * @param {HTMLElement} container - The container element to add skeleton and video to
+ * @returns {HTMLVideoElement} The pre-created video element
+ */
+function attachTutorialVideo(sectionIndex, container) {
+  // Add skeleton loader
+  const skeleton = document.createElement('div');
+  skeleton.className = 'bottom-sheet-video-skeleton';
+  container.appendChild(skeleton);
+
+  // Get the pre-created video
+  const video = tutorialVideos[sectionIndex];
+
+  // Remove skeleton when video is ready to play
+  // Use a new listener each time since video is reused across sections
+  const removeSkeletonHandler = () => {
+    if (skeleton.parentNode) {
+      skeleton.remove();
+    }
+  };
+
+  // If video is already ready (cached/loaded), remove skeleton immediately
+  if (video.readyState >= 3) { // HAVE_FUTURE_DATA or better
+    removeSkeletonHandler();
+  } else {
+    video.addEventListener('canplay', removeSkeletonHandler, { once: true });
+  }
+
+  return video;
+}
+
+/**
  * Update the lesson sheet content for the current section
  */
 function updateLessonContent(messageEl, videoContainer, nextBtn) {
@@ -382,9 +407,9 @@ function updateLessonContent(messageEl, videoContainer, nextBtn) {
   // Update message content
   messageEl.innerHTML = `<p>${section.body}</p>`;
 
-  // Update video (clear and add new one)
+  // Update video (clear and add pre-created one)
   videoContainer.innerHTML = '';
-  const video = createTutorialVideo(currentLessonSection + 1, videoContainer); // +1 because sections are 0-indexed
+  const video = attachTutorialVideo(currentLessonSection, videoContainer);
   videoContainer.appendChild(video);
 
   // Update next button text
@@ -415,7 +440,7 @@ function showLessonSheet() {
   // Video container with initial video
   const videoContainer = document.createElement('div');
   videoContainer.className = 'bottom-sheet-video-container';
-  const initialVideo = createTutorialVideo(currentLessonSection + 1, videoContainer); // +1 because 0-indexed
+  const initialVideo = attachTutorialVideo(currentLessonSection, videoContainer);
   videoContainer.appendChild(initialVideo);
   content.appendChild(videoContainer);
 
@@ -522,17 +547,13 @@ export function initTutorial() {
   backBtn = document.getElementById('tutorial-back-btn');
   instructionEl = document.getElementById('tutorial-instruction');
 
-  // Preload tutorial videos (webm versions only, good browser support)
-  // This allows videos 2 and 3 to download while user watches video 1
-  const preloadLinks = [];
+  // Create all tutorial videos upfront for reliable preloading
+  // Video elements with preload="auto" actually download the full video
+  // (link rel="preload" has poor browser support and often only fetches metadata)
+  tutorialVideos = [];
   for (let i = 1; i <= 3; i++) {
-    const link = document.createElement('link');
-    link.rel = 'preload';
-    link.as = 'video';
-    link.href = `/videos/tutorial-${i}.webm`;
-    link.type = 'video/webm';
-    document.head.appendChild(link);
-    preloadLinks.push(link);
+    const video = buildVideoElement(i);
+    tutorialVideos.push(video);
   }
 
   // Reset event listeners array
@@ -626,12 +647,14 @@ export function initTutorial() {
     tutorialPathAnimationState.animatingCells.clear();
     tutorialPathAnimationState.previousDrawnCells.clear();
 
-    // Remove video preload links from head
-    for (const link of preloadLinks) {
-      if (link.parentNode) {
-        link.parentNode.removeChild(link);
-      }
+    // Clean up pre-created video elements
+    for (const video of tutorialVideos) {
+      // Pause and clear sources to stop any ongoing downloads
+      video.pause();
+      video.src = '';
+      video.load(); // Reset the video element
     }
+    tutorialVideos = [];
 
     if (gameCore) {
       gameCore.resetDragState();
