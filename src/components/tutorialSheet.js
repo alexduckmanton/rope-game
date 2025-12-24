@@ -71,8 +71,16 @@ function attachTutorialVideo(sectionIndex, container) {
   // Get the pre-created video
   const video = tutorialVideos[sectionIndex];
 
+  // Pause first to avoid flash of previous frame
+  video.pause();
+
   // Reset video to beginning for clean playback
   video.currentTime = 0;
+
+  // Start playback
+  video.play().catch(() => {
+    // Autoplay might be blocked, but that's okay
+  });
 
   // Remove skeleton when video is ready to play
   const removeSkeletonHandler = () => {
