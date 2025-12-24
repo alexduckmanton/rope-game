@@ -21,6 +21,9 @@ const LESSON_SECTIONS = [
   }
 ];
 
+// Configuration constants
+const VIDEO_VISIBILITY_THRESHOLD = 0.5; // Video plays when 50% visible
+
 // Module state - videos created once and cached for entire session
 let tutorialVideos = [];
 let activeSheet = null;
@@ -171,7 +174,7 @@ function setupVideoObserver() {
     (entries) => {
       entries.forEach((entry) => {
         const video = entry.target.querySelector('video');
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+        if (entry.isIntersecting && entry.intersectionRatio >= VIDEO_VISIBILITY_THRESHOLD) {
           // Section is visible, play video
           video.currentTime = 0;
           video.play().catch(() => {
@@ -185,7 +188,7 @@ function setupVideoObserver() {
     },
     {
       root: scrollContainer,
-      threshold: [0.5] // Trigger when 50% visible
+      threshold: [VIDEO_VISIBILITY_THRESHOLD]
     }
   );
 
@@ -269,14 +272,24 @@ function showLessonSheet() {
     title: ' ', // Empty title - content speaks for itself
     content: content,
     colorScheme: 'info',
-    dismissLabel: null // No default dismiss button - we use custom navigation
+    dismissLabel: null, // No default dismiss button - we use custom navigation
+    onClose: () => {
+      // Clean up observer when sheet is dismissed
+      if (intersectionObserver) {
+        intersectionObserver.disconnect();
+        intersectionObserver = null;
+      }
+    }
   });
 
   // Setup video observer after sheet is shown
-  setTimeout(() => {
-    setupVideoObserver();
-    initIcons();
-  }, 100);
+  // Use double RAF for guaranteed DOM ready (more reliable than setTimeout)
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      setupVideoObserver();
+      initIcons();
+    });
+  });
 }
 
 /**
