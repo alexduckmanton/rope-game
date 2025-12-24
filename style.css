@@ -636,6 +636,7 @@ button {
   font-size: 16px;
   line-height: 1.5;
   color: var(--color-text-primary);
+  text-wrap: balance;
 }
 
 .tutorial-section-message p {
