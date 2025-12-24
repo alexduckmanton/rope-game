@@ -23,8 +23,10 @@ const LESSON_SECTIONS = [
 
 // Module state - videos created once and cached for entire session
 let tutorialVideos = [];
-let currentLessonSection = 0;
 let activeSheet = null;
+let scrollContainer = null;
+let pagingDots = [];
+let intersectionObserver = null;
 
 /**
  * Create a single video element with sources and attributes
@@ -57,98 +59,188 @@ function buildVideoElement(videoNumber) {
 }
 
 /**
- * Get the pre-created video for a lesson section and add it to container
+ * Create a tutorial section with video and message
  * @param {number} sectionIndex - The lesson section index (0-2)
- * @param {HTMLElement} container - The container element
- * @returns {HTMLVideoElement} The pre-created video element
+ * @returns {HTMLElement} Section element with video and message
  */
-function attachTutorialVideo(sectionIndex, container) {
-  // Add skeleton loader
+function createTutorialSection(sectionIndex) {
+  const section = document.createElement('div');
+  section.className = 'tutorial-section';
+  section.dataset.sectionIndex = sectionIndex;
+
+  // Video container with skeleton loader
+  const videoContainer = document.createElement('div');
+  videoContainer.className = 'bottom-sheet-video-container';
+
   const skeleton = document.createElement('div');
   skeleton.className = 'bottom-sheet-video-skeleton';
-  container.appendChild(skeleton);
+  videoContainer.appendChild(skeleton);
 
   // Get the pre-created video
   const video = tutorialVideos[sectionIndex];
+  video.currentTime = 0; // Reset to beginning
 
-  // Pause first to avoid flash of previous frame
-  video.pause();
-
-  // Reset video to beginning for clean playback
-  video.currentTime = 0;
-
-  // Start playback
-  video.play().catch(() => {
-    // Autoplay might be blocked, but that's okay
-  });
-
-  // Remove skeleton when video is ready to play
+  // Remove skeleton when video is ready
   const removeSkeletonHandler = () => {
     if (skeleton.parentNode) {
       skeleton.remove();
     }
   };
 
-  // If video is already ready (cached/loaded), remove skeleton immediately
   if (video.readyState >= 3) {
     removeSkeletonHandler();
   } else {
     video.addEventListener('canplay', removeSkeletonHandler, { once: true });
   }
 
-  return video;
+  videoContainer.appendChild(video);
+  section.appendChild(videoContainer);
+
+  // Message below video
+  const message = document.createElement('div');
+  message.className = 'tutorial-section-message';
+  message.innerHTML = `<p>${LESSON_SECTIONS[sectionIndex].body}</p>`;
+  section.appendChild(message);
+
+  return section;
 }
 
 /**
- * Update the lesson sheet content for the current section
- * @param {HTMLElement} messageEl - Message container element
- * @param {HTMLElement} videoContainer - Video container element
+ * Get current section index based on scroll position
+ * @returns {number} Current section index (0-2)
+ */
+function getCurrentSectionIndex() {
+  if (!scrollContainer) return 0;
+  const scrollLeft = scrollContainer.scrollLeft;
+  const sectionWidth = scrollContainer.offsetWidth;
+  return Math.round(scrollLeft / sectionWidth);
+}
+
+/**
+ * Update paging dots to reflect current section
+ */
+function updatePagingDots() {
+  const currentIndex = getCurrentSectionIndex();
+  pagingDots.forEach((dot, index) => {
+    if (index === currentIndex) {
+      dot.classList.add('active');
+    } else {
+      dot.classList.remove('active');
+    }
+  });
+}
+
+/**
+ * Update next button text based on current section
  * @param {HTMLElement} nextBtn - Next button element
  */
-function updateLessonContent(messageEl, videoContainer, nextBtn) {
-  const section = LESSON_SECTIONS[currentLessonSection];
-  const isLastSection = currentLessonSection === LESSON_SECTIONS.length - 1;
-
-  // Update message content
-  messageEl.innerHTML = `<p>${section.body}</p>`;
-
-  // Update video (clear and add pre-created one)
-  videoContainer.innerHTML = '';
-  const video = attachTutorialVideo(currentLessonSection, videoContainer);
-  videoContainer.appendChild(video);
-
-  // Update next button text
+function updateNextButton(nextBtn) {
+  const currentIndex = getCurrentSectionIndex();
+  const isLastSection = currentIndex === LESSON_SECTIONS.length - 1;
   nextBtn.textContent = isLastSection ? 'Got it' : 'Next';
 }
 
 /**
- * Show the multi-section tutorial lesson sheet
+ * Scroll to next section or dismiss sheet if on last section
+ * @param {HTMLElement} nextBtn - Next button element
+ */
+function handleNextClick(nextBtn) {
+  const currentIndex = getCurrentSectionIndex();
+
+  if (currentIndex === LESSON_SECTIONS.length - 1) {
+    // Dismiss the sheet on last section
+    activeSheet.destroy();
+  } else {
+    // Scroll to next section
+    const nextSection = scrollContainer.children[currentIndex + 1];
+    nextSection.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+  }
+}
+
+/**
+ * Setup Intersection Observer to play/pause videos based on visibility
+ */
+function setupVideoObserver() {
+  // Clean up existing observer if any
+  if (intersectionObserver) {
+    intersectionObserver.disconnect();
+  }
+
+  // Create new observer
+  intersectionObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        const video = entry.target.querySelector('video');
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+          // Section is visible, play video
+          video.currentTime = 0;
+          video.play().catch(() => {
+            // Autoplay might be blocked
+          });
+        } else {
+          // Section not visible, pause video
+          video.pause();
+        }
+      });
+    },
+    {
+      root: scrollContainer,
+      threshold: [0.5] // Trigger when 50% visible
+    }
+  );
+
+  // Observe all sections
+  const sections = scrollContainer.querySelectorAll('.tutorial-section');
+  sections.forEach((section) => {
+    intersectionObserver.observe(section);
+  });
+}
+
+/**
+ * Show the multi-section tutorial lesson sheet with horizontal carousel
  */
 function showLessonSheet() {
-  const section = LESSON_SECTIONS[currentLessonSection];
-  const isLastSection = currentLessonSection === LESSON_SECTIONS.length - 1;
-
-  // Build the content with navigation buttons
+  // Build the content container
   const content = document.createElement('div');
   content.style.display = 'flex';
   content.style.flexDirection = 'column';
   content.style.gap = '0';
 
-  // Message content
-  const message = document.createElement('div');
-  message.className = 'bottom-sheet-message';
-  message.style.paddingBottom = '16px';
-  message.innerHTML = `<p>${section.body}</p>`;
-  content.appendChild(message);
+  // Horizontal scroll container with all 3 sections
+  scrollContainer = document.createElement('div');
+  scrollContainer.className = 'tutorial-scroll-container';
 
-  // Video container with initial video
-  const videoContainer = document.createElement('div');
-  videoContainer.className = 'bottom-sheet-video-container';
-  const initialVideo = attachTutorialVideo(currentLessonSection, videoContainer);
-  videoContainer.appendChild(initialVideo);
-  content.appendChild(videoContainer);
+  // Create all 3 sections
+  for (let i = 0; i < LESSON_SECTIONS.length; i++) {
+    const section = createTutorialSection(i);
+    scrollContainer.appendChild(section);
+  }
 
-  // Navigation buttons container
+  content.appendChild(scrollContainer);
+
+  // Paging dots container
+  const pagingDotsContainer = document.createElement('div');
+  pagingDotsContainer.className = 'tutorial-paging-dots';
+  pagingDots = [];
+
+  for (let i = 0; i < LESSON_SECTIONS.length; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'tutorial-paging-dot';
+    if (i === 0) dot.classList.add('active'); // First dot active initially
+
+    // Click dot to scroll to that section
+    dot.addEventListener('click', () => {
+      const section = scrollContainer.children[i];
+      section.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+    });
+
+    pagingDots.push(dot);
+    pagingDotsContainer.appendChild(dot);
+  }
+
+  content.appendChild(pagingDotsContainer);
+
+  // Navigation button container
   const navButtons = document.createElement('div');
   navButtons.style.display = 'flex';
   navButtons.style.gap = '12px';
@@ -156,24 +248,21 @@ function showLessonSheet() {
   navButtons.style.width = 'calc(100% - 40px)';
   navButtons.style.margin = '24px 20px 20px 20px';
 
-  // Next button (full width)
+  // Next button
   const nextBtn = document.createElement('button');
   nextBtn.className = 'bottom-sheet-btn bottom-sheet-btn-primary';
   nextBtn.style.flex = '1';
-  nextBtn.textContent = isLastSection ? 'Got it' : 'Next';
-  nextBtn.onclick = () => {
-    if (currentLessonSection === LESSON_SECTIONS.length - 1) {
-      // Dismiss the sheet on last section
-      activeSheet.destroy();
-    } else {
-      // Go to next section
-      currentLessonSection++;
-      updateLessonContent(message, videoContainer, nextBtn);
-    }
-  };
+  nextBtn.textContent = 'Next';
+  nextBtn.onclick = () => handleNextClick(nextBtn);
   navButtons.appendChild(nextBtn);
 
   content.appendChild(navButtons);
+
+  // Add scroll listener to update paging dots and button text
+  scrollContainer.addEventListener('scroll', () => {
+    updatePagingDots();
+    updateNextButton(nextBtn);
+  });
 
   // Create and show the bottom sheet
   activeSheet = showBottomSheetAsync({
@@ -184,10 +273,11 @@ function showLessonSheet() {
     dismissLabel: null // No default dismiss button - we use custom navigation
   });
 
-  // Initialize icons for the navigation buttons
+  // Setup video observer after sheet is shown
   setTimeout(() => {
+    setupVideoObserver();
     initIcons();
-  }, 0);
+  }, 100);
 }
 
 /**
@@ -212,13 +302,21 @@ export function showTutorialSheet() {
   // Ensure videos are created (only happens once)
   initializeVideos();
 
-  // Close any existing tutorial sheet
+  // Clean up any existing sheet and observer
+  if (intersectionObserver) {
+    intersectionObserver.disconnect();
+    intersectionObserver = null;
+  }
+
   if (activeSheet) {
     activeSheet.destroy();
   }
 
-  // Reset to first section
-  currentLessonSection = 0;
+  // Pause all videos before opening new sheet
+  tutorialVideos.forEach((video) => {
+    video.pause();
+    video.currentTime = 0;
+  });
 
   // Show the lesson sheet
   showLessonSheet();

@@ -625,6 +625,67 @@ button {
   z-index: 2; /* Above skeleton */
 }
 
+/* Tutorial horizontal scroll container */
+.tutorial-scroll-container {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  scrollbar-width: none; /* Hide scrollbar on Firefox */
+  -ms-overflow-style: none; /* Hide scrollbar on IE/Edge */
+}
+
+.tutorial-scroll-container::-webkit-scrollbar {
+  display: none; /* Hide scrollbar on Chrome/Safari */
+}
+
+/* Individual tutorial section (full width, snap aligned) */
+.tutorial-section {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Tutorial section message (below video) */
+.tutorial-section-message {
+  padding: 16px 20px;
+  text-align: center;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+}
+
+.tutorial-section-message p {
+  margin: 0;
+}
+
+/* Paging dots container (fixed below scroll container) */
+.tutorial-paging-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 20px;
+}
+
+/* Individual paging dot */
+.tutorial-paging-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-neutral-300);
+  transition: all 200ms ease;
+  cursor: pointer;
+}
+
+.tutorial-paging-dot.active {
+  background-color: var(--color-primary);
+  width: 24px;
+  border-radius: 4px;
+}
+
 /* Button container for multiple buttons */
 .bottom-sheet-buttons {
   display: flex;
