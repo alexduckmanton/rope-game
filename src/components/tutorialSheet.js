@@ -11,13 +11,13 @@ import { initIcons } from '../icons.js';
 // Tutorial lesson content
 const LESSON_SECTIONS = [
   {
-    body: 'To win, drag to draw a single continuous loop'
+    body: 'To win, drag to draw a loop of any shape. Tap to erase.'
   },
   {
-    body: 'Numbers count the bends of your loop in the squares they touch'
+    body: 'Whenever your path bends in the squares on or around a number, the number counts down.'
   },
   {
-    body: 'To win, draw a loop that makes all numbers zero'
+    body: 'To win, draw a single continuous loop that makes all numbers zero.'
   }
 ];
 
