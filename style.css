@@ -546,9 +546,10 @@ button {
   padding: 8px 20px 8px 20px;
 }
 
-/* When no icon is present, header is first child and needs more top spacing */
+/* When no icon is present, header is first child and needs slightly more top spacing */
+/* Combined with video margin-top (16px), this totals 20px to match left/right spacing */
 .bottom-sheet-header:first-child {
-  padding-top: 24px;
+  padding-top: 4px;
 }
 
 .bottom-sheet-header h2 {
