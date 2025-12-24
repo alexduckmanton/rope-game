@@ -6,13 +6,15 @@ import { CONFIG } from './config.js';
 import { drawSmoothCurve, buildSolutionTurnMap, countTurnsInArea, parseCellKey, createCellKey } from './utils.js';
 
 /**
- * Animation state for number scaling animations
- * Tracks active animations and previous state for change detection
+ * Animation state for number scaling animations is now owned by each view (game.js, tutorial.js)
+ * and passed as a parameter to rendering functions.
+ *
+ * Expected structure:
+ * {
+ *   activeAnimations: Map<cellKey, { startTime: number }>,
+ *   previousState: Map<cellKey, { displayValue: number, color: string }>
+ * }
  */
-const numberAnimationState = {
-  activeAnimations: new Map(), // Map<cellKey, { startTime: number }>
-  previousState: new Map(),    // Map<cellKey, { displayValue: number, color: string }>
-};
 
 /**
  * Animation timing constants (pre-calculated for performance)
@@ -55,7 +57,7 @@ function easeOutBack(t) {
  * @param {number} currentTime - Current timestamp in milliseconds
  * @returns {number} Scale factor (1.0 to 1.4)
  */
-function getAnimationScale(cellKey, currentTime) {
+function getAnimationScale(cellKey, currentTime, numberAnimationState) {
   const animation = numberAnimationState.activeAnimations.get(cellKey);
   if (!animation) return 1.0;
 
@@ -85,22 +87,19 @@ function getAnimationScale(cellKey, currentTime) {
 }
 
 /**
- * Reset all number animation state
- * Call this when changing puzzles or cleaning up the game view
- */
-export function resetNumberAnimationState() {
-  numberAnimationState.activeAnimations.clear();
-  numberAnimationState.previousState.clear();
-}
-
-/**
  * Path animation state for smooth path drawing animations
  * Tracks cells that are currently animating as they're added to the path
  */
-const pathAnimationState = {
-  animatingCells: new Map(),     // Map<cellKey, { startTime: number, predecessorKey: string }>
-  previousDrawnCells: new Set(), // Set<cellKey> from previous render
-};
+/**
+ * Animation state for path drawing animations is now owned by each view (game.js, tutorial.js)
+ * and passed as a parameter to rendering functions.
+ *
+ * Expected structure:
+ * {
+ *   animatingCells: Map<cellKey, { startTime: number, predecessorKey: string }>,
+ *   previousDrawnCells: Set<cellKey>
+ * }
+ */
 
 /**
  * Path animation timing constants
@@ -123,9 +122,10 @@ function easeOutCubic(t) {
  * @param {string} cellKey - The cell key to check
  * @param {number} cellSize - Size of each cell in pixels
  * @param {number} currentTime - Current timestamp in milliseconds
+ * @param {Object} pathAnimationState - The path animation state object
  * @returns {{x: number, y: number} | null} Interpolated position or null if not animating
  */
-function getAnimatedCellPosition(cellKey, cellSize, currentTime) {
+function getAnimatedCellPosition(cellKey, cellSize, currentTime, pathAnimationState) {
   const animation = pathAnimationState.animatingCells.get(cellKey);
   if (!animation) return null;
 
@@ -166,10 +166,11 @@ function getAnimatedCellPosition(cellKey, cellSize, currentTime) {
  * Reset all path animation state
  * Call this when changing puzzles or cleaning up the game view
  */
-export function resetPathAnimationState() {
-  pathAnimationState.animatingCells.clear();
-  pathAnimationState.previousDrawnCells.clear();
-}
+/**
+ * Animation state is now owned by each view.
+ * Views should clear their own animation state objects when needed (e.g., on restart).
+ * No shared reset functions needed.
+ */
 
 /**
  * Render the grid lines
@@ -512,9 +513,10 @@ function getColorByMagnitude(value, isValidated) {
  * @param {Map<string, boolean>} [prebuiltPlayerTurnMap] - Optional pre-built player turn map for performance
  * @param {Map<string, number>} [prebuiltBorderLayers] - Optional pre-built border layers for performance
  * @param {string} [animationMode] - Animation mode: 'auto' (detect changes and animate) or 'none' (no animation)
+ * @param {Object} numberAnimationState - Number animation state object from the view
  * @returns {{hasActiveAnimations: boolean}} Object indicating if there are active animations
  */
-export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null, animationMode = 'auto') {
+export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null, animationMode = 'auto', numberAnimationState) {
   if (!solutionPath || solutionPath.length === 0) {
     return { hasActiveAnimations: false };
   }
@@ -620,7 +622,7 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         }
 
         // Get current animation scale (if any animation is active)
-        scale = getAnimationScale(cellKey, currentTime);
+        scale = getAnimationScale(cellKey, currentTime, numberAnimationState);
       }
 
       // Set text color and opacity
@@ -699,8 +701,10 @@ function tracePathSegments(connections) {
  * @param {Map<string, Set<string>>} connections - Map of cell connections
  * @param {number} cellSize - Size of each cell in pixels
  * @param {string} color - Stroke color
+ * @param {number|null} currentTime - Current timestamp for animations (null to disable)
+ * @param {Object|null} pathAnimationState - Path animation state object (null to disable)
  */
-function drawSmoothSegment(ctx, segment, connections, cellSize, color, currentTime = null) {
+function drawSmoothSegment(ctx, segment, connections, cellSize, color, currentTime = null, pathAnimationState = null) {
   if (segment.length === 0) return;
 
   // Convert segment to ordered path by following connections
@@ -756,11 +760,11 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color, currentTi
     }
   } else if (orderedPath.length === 2) {
     // Two cells - draw a simple line (with animation if applicable)
-    const animatedPos1 = currentTime !== null
-      ? getAnimatedCellPosition(orderedPath[0], cellSize, currentTime)
+    const animatedPos1 = (currentTime !== null && pathAnimationState !== null)
+      ? getAnimatedCellPosition(orderedPath[0], cellSize, currentTime, pathAnimationState)
       : null;
-    const animatedPos2 = currentTime !== null
-      ? getAnimatedCellPosition(orderedPath[1], cellSize, currentTime)
+    const animatedPos2 = (currentTime !== null && pathAnimationState !== null)
+      ? getAnimatedCellPosition(orderedPath[1], cellSize, currentTime, pathAnimationState)
       : null;
 
     const { row: row1, col: col1 } = parseCellKey(orderedPath[0]);
@@ -783,8 +787,8 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color, currentTi
 
     // Convert to pixel coordinates, using animated positions when available
     const points = orderedPath.map(cellKey => {
-      if (currentTime !== null) {
-        const animatedPos = getAnimatedCellPosition(cellKey, cellSize, currentTime);
+      if (currentTime !== null && pathAnimationState !== null) {
+        const animatedPos = getAnimatedCellPosition(cellKey, cellSize, currentTime, pathAnimationState);
         if (animatedPos) return animatedPos;
       }
 
@@ -814,9 +818,10 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color, currentTi
  * @param {number} cellSize - Size of each cell in pixels
  * @param {boolean} hasWon - Whether the player has won (uses green color)
  * @param {string} animationMode - 'auto' to enable animations, 'none' to disable
+ * @param {Object} pathAnimationState - Path animation state object from the view
  * @returns {{hasActiveAnimations: boolean}} Animation status for requestAnimationFrame
  */
-export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false, animationMode = 'auto') {
+export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false, animationMode = 'auto', pathAnimationState) {
   // Only use currentTime for animation calculations when animations are enabled
   // In 'none' mode, pass null to force static positions even if stale animation data exists
   const currentTime = animationMode === 'auto' ? Date.now() : null;
@@ -831,18 +836,32 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
 
   // Detect changes and manage animations
   if (animationMode === 'auto') {
+    // CRITICAL FIX: Clear previousDrawnCells FIRST to prevent cross-view contamination
+    // If tutorial rendered after game init, previousDrawnCells might have stale tutorial cells
+    // This ensures we start fresh and only use cells from THIS view's current drawnCells
+    const safePreviousDrawnCells = new Set(pathAnimationState.previousDrawnCells);
+    pathAnimationState.previousDrawnCells.clear();
+
     // DEFENSIVE: Remove any animating cells that are no longer in drawnCells
+    // OR have invalid predecessors (not in current connections)
     // This protects against stale animation data from previous views or race conditions
-    for (const cellKey of pathAnimationState.animatingCells.keys()) {
+    for (const [cellKey, animation] of pathAnimationState.animatingCells.entries()) {
       if (!drawnCells.has(cellKey)) {
         pathAnimationState.animatingCells.delete(cellKey);
+      } else if (animation.predecessorKey) {
+        // Validate that the predecessor is actually connected to this cell
+        const cellConnections = connections.get(cellKey);
+        if (!cellConnections || !cellConnections.has(animation.predecessorKey)) {
+          // Invalid predecessor - delete this animation entry
+          pathAnimationState.animatingCells.delete(cellKey);
+        }
       }
     }
 
-    // Collect all new cells added this frame
+    // Collect all new cells added this frame (using the safe copy)
     const newCells = new Set();
     for (const cellKey of drawnCells) {
-      if (!pathAnimationState.previousDrawnCells.has(cellKey)) {
+      if (!safePreviousDrawnCells.has(cellKey)) {
         newCells.add(cellKey);
       }
     }
@@ -859,12 +878,13 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
         if (pathAnimationState.animatingCells.has(cellKey)) continue;
 
         // Find predecessor in EITHER previous cells OR currently animating cells
+        // Use safePreviousDrawnCells since we cleared the shared state
         const connectedCells = connections.get(cellKey);
         let predecessorKey = null;
 
         if (connectedCells) {
           for (const connKey of connectedCells) {
-            if (pathAnimationState.previousDrawnCells.has(connKey) ||
+            if (safePreviousDrawnCells.has(connKey) ||
                 pathAnimationState.animatingCells.has(connKey)) {
               predecessorKey = connKey;
               break;
@@ -884,7 +904,8 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
     } while (addedAny);
 
     // Detect removed cells (backtracking) - cancel animations immediately
-    for (const cellKey of pathAnimationState.previousDrawnCells) {
+    // Use safePreviousDrawnCells since we already cleared the shared state
+    for (const cellKey of safePreviousDrawnCells) {
       if (!drawnCells.has(cellKey)) {
         pathAnimationState.animatingCells.delete(cellKey);
       }
@@ -910,14 +931,16 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
 
   // Draw each segment with smooth curves and animations
   for (const segment of segments) {
-    drawSmoothSegment(ctx, segment, connections, cellSize, PLAYER_COLOR, currentTime);
+    drawSmoothSegment(ctx, segment, connections, cellSize, PLAYER_COLOR, currentTime, pathAnimationState);
   }
 
   // Draw dots for cells with 0 connections (isolated cells)
   for (const cellKey of drawnCells) {
     const connectionCount = connections.get(cellKey)?.size || 0;
     if (connectionCount === 0) {
-      const animatedPos = getAnimatedCellPosition(cellKey, cellSize, currentTime);
+      const animatedPos = currentTime !== null && pathAnimationState !== null
+        ? getAnimatedCellPosition(cellKey, cellSize, currentTime, pathAnimationState)
+        : null;
 
       if (animatedPos) {
         hasActiveAnimations = true;

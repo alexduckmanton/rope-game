@@ -17,10 +17,11 @@
 | `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()` |
 | `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles |
 | `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `parseCellKey()`, `createCellKey()`, `getCellsAlongLine()` - Bresenham with 4-connected enforcement |
-| `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet()`, `showBottomSheetAsync()` - Factory + async helper |
+| `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet()`, `showBottomSheetAsync()` - Factory + async helper with onClose callback |
+| `components/tutorialSheet.js` | Tutorial bottom sheet | `showTutorialSheet()` - Self-contained carousel with video management |
 | `game/timer.js` | Game timer | `createGameTimer({ onUpdate, difficulty })`, `formatTime()` - Encapsulated timer with pause/resume |
 | `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback |
-| `game/validation.js` | Win validation | `checkStructuralWin()`, `checkFullWin()`, `validateHints()` - Shared by game and tutorial |
+| `game/validation.js` | Win validation | `checkStructuralWin()`, `checkFullWin()`, `validateHints()` - Game validation logic |
 | `game/canvasSetup.js` | Canvas sizing | `calculateCellSize(gridSize, extraSpace)`, `setupCanvas()` - Responsive sizing utilities |
 
 ### Core Concepts
@@ -261,11 +262,12 @@ In tutorial pages, hint numbers use the magnitude-based gradient for educational
 
 ```
 rope-game/
-├── index.html              # Single-page app with three view containers
+├── index.html              # Single-page app with two view containers (home, play)
 ├── style.css               # Global styles + view-specific styles
 ├── netlify.toml           # Netlify deployment configuration
 ├── public/
-│   └── _redirects         # SPA routing for Netlify (serves index.html for all routes)
+│   ├── _redirects         # SPA routing for Netlify (serves index.html for all routes)
+│   └── videos/            # Tutorial demonstration videos (mp4/webm, ~688KB total)
 ├── src/
 │   ├── main.js            # App entry point, initializes router and icons
 │   ├── router.js          # Client-side routing with History API
@@ -278,14 +280,15 @@ rope-game/
 │   ├── gameCore.js        # Game state and interaction logic (pointer events, drag handling)
 │   ├── renderer.js        # Canvas rendering (grid, paths, hints, borders)
 │   ├── persistence.js     # localStorage save/load/cleanup with throttled writes
-│   ├── game/              # Shared game modules (used by both game and tutorial views)
+│   ├── components/        # Reusable UI components
+│   │   └── tutorialSheet.js # Tutorial carousel bottom sheet with video management
+│   ├── game/              # Shared game utilities
 │   │   ├── timer.js       # Encapsulated timer with pause/resume support
 │   │   ├── share.js       # Share functionality (Web Share API + clipboard fallback)
 │   │   ├── validation.js  # Win checking and hint validation logic
 │   │   └── canvasSetup.js # Responsive canvas sizing utilities
 │   └── views/
 │       ├── home.js        # Home view with difficulty selection and date display
-│       ├── tutorial.js    # Tutorial view with progressive puzzles
 │       └── game.js        # Game view with daily/unlimited mode logic
 └── package.json
 ```
@@ -341,13 +344,19 @@ Generates Hamiltonian cycles (paths visiting all cells exactly once forming a lo
 
 **Architecture:** Single-Page Application (SPA) with client-side routing via History API. No page reloads.
 
-**Three Main Views:**
+**Two Main Views:**
 
 | View | Route | Purpose |
 |------|-------|---------|
-| **Home** | `/` | Landing page, displays current date, five navigation buttons (Tutorial, Easy, Medium, Hard, Unlimited) |
-| **Tutorial** | `/tutorial` | Placeholder for future interactive tutorials, includes back button |
-| **Play** | `/play?difficulty=X` | Main game interface with canvas, controls, timer, settings |
+| **Home** | `/` | Landing page with current date and navigation buttons (Tutorial, Easy, Medium, Hard) |
+| **Play** | `/play?difficulty=X` | Main game interface with canvas, controls, timer, settings, help button |
+
+**Tutorial Access:**
+
+Tutorial is implemented as a bottom sheet component rather than a dedicated view:
+- **From Home**: Tutorial button opens carousel bottom sheet overlay
+- **From Game**: Help icon (circle-help, left of settings) opens same tutorial sheet
+- **No Route**: Tutorial has no URL route - accessible via function call from any view
 
 **Smart History Management:**
 
@@ -634,6 +643,66 @@ No built-in state tracking across multiple sheets (only one should be visible at
 
 Component could be extended to support multiple simultaneous sheets with z-index stacking, animation queueing for rapid successive shows, keyboard navigation (Escape to close), focus management (trap focus within sheet, restore on close), and ARIA attributes for screen readers. Current implementation prioritizes simplicity and covers all existing use cases without over-engineering for hypothetical requirements.
 
+### Tutorial Bottom Sheet System
+
+**Architecture:** Self-contained carousel component providing interactive walkthrough accessible from any view without navigation.
+
+**Key Design Decisions:**
+
+**Bottom Sheet Instead of Dedicated View:**
+- Maintains user context - tutorial overlay doesn't navigate away from current screen
+- Accessible from anywhere via simple function call - no routing complexity
+- Consistent with app's modal pattern for transient content
+- Reduces bundle size by eliminating separate view scaffolding
+
+**Horizontal Scrolling Carousel:**
+- iOS-style onboarding pattern familiar to mobile users
+- Natural swipe gesture for progression through lessons
+- Scroll-snap ensures crisp section alignment
+- Paging dots provide visual progress indicator and direct navigation
+
+**Video-Based Content:**
+- Three demonstration videos showing core mechanics
+- Videos cached on first open and reused across session
+- Total size ~688KB (webm format) - acceptable for educational content
+- Intersection Observer manages video playback - only visible video plays
+
+**Technical Implementation:**
+
+**Module State Management:**
+- Videos created once on first `showTutorialSheet()` call and cached for session
+- Intersection Observer cleaned up via bottom sheet's `onClose` callback
+- Double requestAnimationFrame ensures DOM ready before observer setup
+- Named constants for configuration values (VIDEO_VISIBILITY_THRESHOLD)
+
+**Performance Optimizations:**
+- Lazy video initialization - no overhead until tutorial accessed
+- Video element reuse - no DOM thrashing on section changes
+- Scroll event listener updates paging dots in real-time (lightweight operations)
+- Skeleton loader provides perceived performance during video load
+
+**Content Structure:**
+
+Each of three sections contains:
+- Demonstration video (square aspect ratio, muted, looping, autoplay)
+- Body copy explaining mechanic (centered below video)
+- Shared paging dots (fixed position, iOS-style pill expansion on active)
+- Navigation button ("Next" → "Next" → "Got it")
+
+**Tutorial Content:**
+1. Drawing closed loops with drag gesture and tap-to-erase
+2. How numbers count down based on path bends in surrounding area
+3. Win condition - single continuous loop with all numbers at zero
+
+**Integration Points:**
+- Accessible via `showTutorialSheet()` from home.js and game.js
+- No dependencies on game state or routing
+- Shares bottom sheet component for consistent UX
+- Videos stored in public/videos/ folder
+
+**Resource Cleanup:**
+Observer disconnected on sheet close via onClose callback. Videos remain cached in memory for instant reopening. On app reload, videos re-initialize on first tutorial access.
+
 -----
 
 ## UI/UX Specifications
@@ -692,7 +761,7 @@ For implementation details, see Color Token System in Key Systems section.
 - **Library**: Lucide icons (tree-shakeable, ~2-3KB for current icons)
 - **Sizing**: 18px inline, 20px standalone, 24px close buttons
 - **Color**: Inherit via `currentColor`
-- **Usage**: Arrow-left (back), Settings (gear), X (close), Refresh-ccw (restart), Dices (new puzzle)
+- **Usage**: Arrow-left (back), Circle-help (tutorial help), Settings (gear), X (close), Refresh-ccw (restart), Dices (new puzzle)
 
 **Settings Bottom Sheet:**
 
@@ -706,8 +775,7 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
   - **Countdown**: Boolean toggle for remaining vs total corners display (default ON)
   - **Borders**: Three-state toggle (Off → Center → Full) for hint area borders
   - **Solution**: Boolean toggle to overlay solution path in blue
-- **Behavior**: Context-aware (difficulty segmented control appears only in Unlimited mode), changes apply immediately with live re-render (no save/cancel buttons), click outside or X button to dismiss
-- **Visibility**: Hidden in tutorial view
+- **Behavior**: Context-aware (difficulty segmented control appears only in Unlimited mode), changes apply immediately with live re-render (no save/cancel buttons), click outside or dismiss button to close
 
 ### Animations
 

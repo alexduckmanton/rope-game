@@ -435,34 +435,6 @@ button {
 }
 
 /* ============================================================================
- * TUTORIAL VIEW
- * ========================================================================= */
-
-.tutorial-info {
-  display: none;
-}
-
-.tutorial-info h2 {
-  display: none;
-}
-
-#tutorial-view .game-container {
-  flex-direction: column;
-  gap: 24px;
-  padding: 20px;
-}
-
-#tutorial-view .game-container p {
-  font-size: 16px;
-  line-height: 1.5em;
-  color: var(--color-text-secondary);
-  margin: 0;
-  max-width: 500px;
-  white-space: pre-line;
-  text-align: center;
-}
-
-/* ============================================================================
  * PLAY VIEW
  * ========================================================================= */
 
@@ -485,56 +457,6 @@ button {
 /* Timer-specific styling: use tabular numerals to prevent layout shift */
 #game-timer {
   font-variant-numeric: tabular-nums;
-}
-
-.tutorial-complete-screen {
-  display: none;
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: var(--color-bg-base);
-  z-index: 10;
-}
-
-.tutorial-complete-screen.active {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.complete-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  text-align: center;
-  padding: 32px;
-}
-
-.complete-content h2 {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin: 0;
-}
-
-.complete-content p {
-  font-size: 20px;
-  color: var(--color-text-secondary);
-  margin: 0;
-}
-
-/* Mobile adjustments for tutorial complete */
-@media (max-width: 400px) {
-  .complete-content h2 {
-    font-size: 28px;
-  }
-
-  .complete-content p {
-    font-size: 18px;
-  }
 }
 
 /* ============================================================================
@@ -569,7 +491,6 @@ button {
   padding-bottom: 40px;
   /* Hiding transition - steep ease-in, no bounce */
   transition: transform 300ms cubic-bezier(0.6, 0, 0.9, 1), box-shadow 300ms cubic-bezier(0.6, 0, 0.9, 1);
-  max-height: 80vh;
   overflow: visible; /* Allow icon to extend above sheet */
   box-shadow: 0 0 80px rgba(0, 0, 0, 0);
   z-index: 1001;
@@ -605,9 +526,10 @@ button {
   padding: 8px 20px 8px 20px;
 }
 
-/* When no icon is present, header is first child and needs more top spacing */
+/* When no icon is present, header is first child and needs slightly more top spacing */
+/* Combined with video margin-top (16px), this totals 20px to match left/right spacing */
 .bottom-sheet-header:first-child {
-  padding-top: 24px;
+  padding-top: 4px;
 }
 
 .bottom-sheet-header h2 {
@@ -620,8 +542,7 @@ button {
 
 /* Content container */
 .bottom-sheet-content {
-  max-height: calc(80vh - 200px); /* Account for icon, header, and dismiss button */
-  overflow-y: auto; /* Scroll long content, moved from .bottom-sheet */
+  /* No max-height - sheet grows to fit content */
 }
 
 /* Message content - used for win/feedback notifications */
@@ -640,6 +561,111 @@ button {
 
 .bottom-sheet-message p:last-child {
   margin-bottom: 0; /* Remove bottom margin from last paragraph */
+}
+
+/* Video container - square aspect ratio, matches button width */
+.bottom-sheet-video-container {
+  width: calc(100% - 40px); /* Match button width (full width minus 20px margins on each side) */
+  aspect-ratio: 1 / 1; /* Square container */
+  margin: 16px 20px; /* 16px top/bottom spacing, 20px side margins to match buttons */
+  border-radius: 12px;
+  background-color: var(--color-neutral-200); /* Grey background shows during loading */
+  overflow: hidden; /* Clip video to rounded corners */
+  position: relative; /* For skeleton positioning */
+}
+
+/* Skeleton loader for video loading state */
+.bottom-sheet-video-skeleton {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--color-neutral-200) 0%,
+    var(--color-neutral-300) 50%,
+    var(--color-neutral-200) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  z-index: 1; /* Above video but below other content */
+}
+
+@keyframes skeleton-pulse {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.bottom-sheet-video-container video {
+  position: relative;
+  z-index: 2; /* Above skeleton */
+}
+
+/* Tutorial horizontal scroll container */
+.tutorial-scroll-container {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  scrollbar-width: none; /* Hide scrollbar on Firefox */
+  -ms-overflow-style: none; /* Hide scrollbar on IE/Edge */
+}
+
+.tutorial-scroll-container::-webkit-scrollbar {
+  display: none; /* Hide scrollbar on Chrome/Safari */
+}
+
+/* Individual tutorial section (full width, snap aligned) */
+.tutorial-section {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Tutorial section message (below video) */
+.tutorial-section-message {
+  padding: 8px 20px 16px 20px; /* Reduced top padding for tighter spacing with video */
+  text-align: center;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  text-wrap: balance;
+}
+
+.tutorial-section-message p {
+  margin: 0;
+}
+
+/* Paging dots container (fixed below scroll container) */
+.tutorial-paging-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 20px;
+}
+
+/* Individual paging dot */
+.tutorial-paging-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-neutral-300);
+  transition: all 200ms ease;
+  cursor: pointer;
+}
+
+.tutorial-paging-dot.active {
+  background-color: var(--color-primary);
+  width: 24px;
+  border-radius: 4px;
 }
 
 /* Button container for multiple buttons */

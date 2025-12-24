@@ -48,7 +48,7 @@ const COLOR_SCHEMES = {
  * @param {HTMLElement|string} options.content - Content to display (HTMLElement or HTML string)
  * @param {string} [options.icon] - Optional Lucide icon name (e.g., 'settings', 'party-popper', 'circle-off')
  * @param {string} [options.colorScheme='neutral'] - Color scheme: 'neutral', 'success', 'error', 'info', 'warning'
- * @param {string} [options.dismissLabel='Close'] - Label for the dismiss button at bottom
+ * @param {string|null} [options.dismissLabel='Close'] - Label for the dismiss button at bottom. Pass null to hide the dismiss button.
  * @param {string} [options.dismissVariant='secondary'] - Dismiss button variant: 'primary' or 'secondary'
  * @param {Object} [options.primaryButton] - Optional primary action button above dismiss
  * @param {string} options.primaryButton.label - Button text
@@ -114,7 +114,10 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   // Create buttons container and buttons
   let buttonsContainer;
   let primaryBtn = null;
-  let dismissBtn;
+  let dismissBtn = null;
+
+  // Only create dismiss button if dismissLabel is provided (not null/undefined)
+  const hasDismissButton = dismissLabel !== null && dismissLabel !== undefined;
 
   // Determine dismiss button class based on variant
   const dismissBtnClass = dismissVariant === 'primary'
@@ -146,15 +149,17 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
       primaryBtn.textContent = primaryButton.label;
     }
 
-    // Create dismiss button
-    dismissBtn = document.createElement('button');
-    dismissBtn.className = dismissBtnClass;
-    dismissBtn.textContent = dismissLabel;
-
     buttonsContainer.appendChild(primaryBtn);
-    buttonsContainer.appendChild(dismissBtn);
-  } else {
-    // Single dismiss button
+
+    // Create dismiss button only if dismissLabel is provided
+    if (hasDismissButton) {
+      dismissBtn = document.createElement('button');
+      dismissBtn.className = dismissBtnClass;
+      dismissBtn.textContent = dismissLabel;
+      buttonsContainer.appendChild(dismissBtn);
+    }
+  } else if (hasDismissButton) {
+    // Single dismiss button (only if dismissLabel is provided)
     dismissBtn = document.createElement('button');
     dismissBtn.className = dismissBtnClass;
     // Add margin styles for standalone button (not in container)
@@ -171,7 +176,7 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   sheet.appendChild(contentContainer);
   if (buttonsContainer) {
     sheet.appendChild(buttonsContainer);
-  } else {
+  } else if (dismissBtn) {
     sheet.appendChild(dismissBtn);
   }
   overlay.appendChild(sheet);
@@ -186,7 +191,9 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   };
   const handlePrimaryClick = primaryButton ? () => primaryButton.onClick(primaryBtn) : null;
 
-  dismissBtn.addEventListener('click', handleClose);
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', handleClose);
+  }
   overlay.addEventListener('click', handleOverlayClick);
   if (primaryBtn && handlePrimaryClick) {
     primaryBtn.addEventListener('click', handlePrimaryClick);
@@ -242,7 +249,9 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
     hide(true);
 
     // Clean up event listeners
-    dismissBtn.removeEventListener('click', handleClose);
+    if (dismissBtn) {
+      dismissBtn.removeEventListener('click', handleClose);
+    }
     overlay.removeEventListener('click', handleOverlayClick);
     if (primaryBtn && handlePrimaryClick) {
       primaryBtn.removeEventListener('click', handlePrimaryClick);

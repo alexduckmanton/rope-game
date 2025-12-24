@@ -5,7 +5,7 @@
  * for use in a multi-view SPA
  */
 
-import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers, resetNumberAnimationState, resetPathAnimationState } from '../renderer.js';
+import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
 import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop, parseCellKey } from '../utils.js';
 import { CONFIG } from '../config.js';
@@ -18,6 +18,7 @@ import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
 import { checkStructuralWin as checkStructuralWinUtil, checkFullWin, checkPartialStructuralWin, checkAllCellsVisited, validateHints, DIFFICULTY, computeStateKey } from '../game/validation.js';
+import { showTutorialSheet } from '../components/tutorialSheet.js';
 
 /* ============================================================================
  * CONSTANTS
@@ -58,6 +59,7 @@ let hintsCheckbox;
 let countdownCheckbox;
 let borderCheckbox;
 let backBtn;
+let helpBtn;
 let settingsBtn;
 let difficultySettingsItem;
 let segmentedControl;
@@ -85,6 +87,17 @@ let cachedSolutionTurnMap = null;
 
 // Timer instance (encapsulates all timer state)
 let gameTimer = null;
+
+// Animation state (owned by game view, isolated from other views)
+const gamePathAnimationState = {
+  animatingCells: new Map(),     // Map<cellKey, { startTime: number, predecessorKey: string }>
+  previousDrawnCells: new Set(), // Set<cellKey> from previous render
+};
+
+const gameNumberAnimationState = {
+  activeAnimations: new Map(),   // Map<cellKey, { startTime: number }>
+  previousState: new Map(),      // Map<cellKey, { displayValue: number, color: string }>
+};
 
 // Game core instance
 let gameCore;
@@ -455,6 +468,13 @@ function resizeCanvas() {
   canvas.style.width = totalSize + 'px';
   canvas.style.height = totalSize + 'px';
 
+  // DEFENSIVE: Clear animation state when cell size changes
+  // Any animation data with old cellSize is now invalid
+  gameNumberAnimationState.activeAnimations.clear();
+  gameNumberAnimationState.previousState.clear();
+  gamePathAnimationState.animatingCells.clear();
+  gamePathAnimationState.previousDrawnCells.clear();
+
   // Note: Setting canvas.width/height resets the context (including transform)
   // Transform will be set at the start of each render() call
   // Don't render here - let caller decide if render is needed
@@ -481,7 +501,8 @@ function render(triggerSave = true, animationMode = 'auto') {
   const renderResult = renderCellNumbers(
     ctx, gridSize, cellSize, solutionPath, hintCells, hintMode,
     playerDrawnCells, playerConnections, borderMode, countdown,
-    cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers, animationMode
+    cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers, animationMode,
+    gameNumberAnimationState
   );
 
   // Render solution path if player has viewed it
@@ -516,7 +537,7 @@ function render(triggerSave = true, animationMode = 'auto') {
   }
 
   // Render path with visual win state (green if currently winning OR officially won)
-  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon, animationMode);
+  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon, animationMode, gamePathAnimationState);
 
   // PHASE 2: Modal validation (deferred - only runs when not dragging)
   // This shows modals and sets the official hasWon state
@@ -543,7 +564,7 @@ function render(triggerSave = true, animationMode = 'auto') {
       const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
 
       // Re-render path with win color (already green from visual validation, but ensures consistency)
-      const winPathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true, animationMode);
+      const winPathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true, animationMode, gamePathAnimationState);
 
       // Show win celebration
       showWinCelebration(finalTime);
@@ -898,11 +919,6 @@ export function initGame(difficulty) {
   // Daily mode is any non-unlimited difficulty (easy, medium, hard)
   isDailyMode = !isUnlimitedMode;
 
-  // Reset animation state from any previous view (e.g., tutorial)
-  // This ensures clean slate when initializing game
-  resetNumberAnimationState();
-  resetPathAnimationState();
-
   // Load saved settings (applies to all modes)
   const settings = loadSettings();
 
@@ -933,6 +949,7 @@ export function initGame(difficulty) {
   countdownCheckbox = document.getElementById('countdown-checkbox');
   borderCheckbox = document.getElementById('border-checkbox');
   backBtn = document.getElementById('back-btn');
+  helpBtn = document.getElementById('help-btn');
   settingsBtn = document.getElementById('settings-btn');
   difficultySettingsItem = document.getElementById('difficulty-settings-item');
   segmentedControl = document.getElementById('difficulty-segmented-control');
@@ -1035,6 +1052,7 @@ export function initGame(difficulty) {
       navigate('/', true);
     }
   };
+  const helpBtnHandler = () => showTutorialSheet();
   const settingsBtnHandler = () => showSettings();
   const visibilityChangeHandler = () => {
     if (document.hidden) {
@@ -1074,6 +1092,7 @@ export function initGame(difficulty) {
   countdownCheckbox.addEventListener('change', countdownHandler);
   borderCheckbox.addEventListener('click', borderHandler);
   backBtn.addEventListener('click', backBtnHandler);
+  helpBtn.addEventListener('click', helpBtnHandler);
   settingsBtn.addEventListener('click', settingsBtnHandler);
   document.addEventListener('visibilitychange', visibilityChangeHandler);
   canvas.addEventListener('pointerdown', pointerDownHandler);
@@ -1091,6 +1110,7 @@ export function initGame(difficulty) {
     { element: countdownCheckbox, event: 'change', handler: countdownHandler },
     { element: borderCheckbox, event: 'click', handler: borderHandler },
     { element: backBtn, event: 'click', handler: backBtnHandler },
+    { element: helpBtn, event: 'click', handler: helpBtnHandler },
     { element: settingsBtn, event: 'click', handler: settingsBtnHandler },
     { element: document, event: 'visibilitychange', handler: visibilityChangeHandler },
     { element: canvas, event: 'pointerdown', handler: pointerDownHandler },
@@ -1164,8 +1184,10 @@ export function cleanupGame() {
   }
 
   // Clear animation state
-  resetNumberAnimationState();
-  resetPathAnimationState();
+  gameNumberAnimationState.activeAnimations.clear();
+  gameNumberAnimationState.previousState.clear();
+  gamePathAnimationState.animatingCells.clear();
+  gamePathAnimationState.previousDrawnCells.clear();
 
   // Reset drag state in core
   if (gameCore) {

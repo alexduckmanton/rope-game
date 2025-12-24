@@ -16,7 +16,6 @@ let currentUrl = null;
 // Route definitions
 const routes = [
   { path: '/', viewId: 'home-view' },
-  { path: '/tutorial', viewId: 'tutorial-view' },
   { path: '/play', viewId: 'play-view' }
 ];
 
@@ -108,10 +107,6 @@ async function initView(viewId, params) {
     case 'home-view':
       const { initHome } = await import('./views/home.js');
       return initHome();
-
-    case 'tutorial-view':
-      const { initTutorial } = await import('./views/tutorial.js');
-      return initTutorial(params);
 
     case 'play-view':
       const { initGame, cleanupGame } = await import('./views/game.js');

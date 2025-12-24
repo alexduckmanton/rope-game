@@ -8,6 +8,7 @@ import { navigate } from '../router.js';
 import { getFormattedDate } from '../seededRandom.js';
 import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution } from '../persistence.js';
 import { initIcons } from '../icons.js';
+import { showTutorialSheet } from '../components/tutorialSheet.js';
 
 /**
  * Update button completed state based on completion status
@@ -85,7 +86,7 @@ export function initHome() {
   initIcons();
 
   // Event handlers - pass fromHome state to track navigation origin
-  const handleTutorial = () => navigate('/tutorial?page=1', false, { fromHome: true });
+  const handleTutorial = () => showTutorialSheet();
   const handleEasy = () => navigate('/play?difficulty=easy', false, { fromHome: true });
   const handleMedium = () => navigate('/play?difficulty=medium', false, { fromHome: true });
   const handleHard = () => navigate('/play?difficulty=hard', false, { fromHome: true });
