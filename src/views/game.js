@@ -18,6 +18,7 @@ import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
 import { checkStructuralWin as checkStructuralWinUtil, checkFullWin, checkPartialStructuralWin, checkAllCellsVisited, validateHints, DIFFICULTY, computeStateKey } from '../game/validation.js';
+import { showTutorialSheet } from '../components/tutorialSheet.js';
 
 /* ============================================================================
  * CONSTANTS
@@ -58,6 +59,7 @@ let hintsCheckbox;
 let countdownCheckbox;
 let borderCheckbox;
 let backBtn;
+let helpBtn;
 let settingsBtn;
 let difficultySettingsItem;
 let segmentedControl;
@@ -947,6 +949,7 @@ export function initGame(difficulty) {
   countdownCheckbox = document.getElementById('countdown-checkbox');
   borderCheckbox = document.getElementById('border-checkbox');
   backBtn = document.getElementById('back-btn');
+  helpBtn = document.getElementById('help-btn');
   settingsBtn = document.getElementById('settings-btn');
   difficultySettingsItem = document.getElementById('difficulty-settings-item');
   segmentedControl = document.getElementById('difficulty-segmented-control');
@@ -1049,6 +1052,7 @@ export function initGame(difficulty) {
       navigate('/', true);
     }
   };
+  const helpBtnHandler = () => showTutorialSheet();
   const settingsBtnHandler = () => showSettings();
   const visibilityChangeHandler = () => {
     if (document.hidden) {
@@ -1088,6 +1092,7 @@ export function initGame(difficulty) {
   countdownCheckbox.addEventListener('change', countdownHandler);
   borderCheckbox.addEventListener('click', borderHandler);
   backBtn.addEventListener('click', backBtnHandler);
+  helpBtn.addEventListener('click', helpBtnHandler);
   settingsBtn.addEventListener('click', settingsBtnHandler);
   document.addEventListener('visibilitychange', visibilityChangeHandler);
   canvas.addEventListener('pointerdown', pointerDownHandler);
@@ -1105,6 +1110,7 @@ export function initGame(difficulty) {
     { element: countdownCheckbox, event: 'change', handler: countdownHandler },
     { element: borderCheckbox, event: 'click', handler: borderHandler },
     { element: backBtn, event: 'click', handler: backBtnHandler },
+    { element: helpBtn, event: 'click', handler: helpBtnHandler },
     { element: settingsBtn, event: 'click', handler: settingsBtnHandler },
     { element: document, event: 'visibilitychange', handler: visibilityChangeHandler },
     { element: canvas, event: 'pointerdown', handler: pointerDownHandler },
