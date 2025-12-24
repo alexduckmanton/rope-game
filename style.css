@@ -435,26 +435,6 @@ button {
 }
 
 /* ============================================================================
- * TUTORIAL VIEW
- * ========================================================================= */
-
-#tutorial-view .game-container {
-  flex-direction: column;
-  gap: 24px;
-  padding: 20px;
-}
-
-#tutorial-view .game-container p {
-  font-size: 16px;
-  line-height: 1.5em;
-  color: var(--color-text-secondary);
-  margin: 0;
-  max-width: 500px;
-  white-space: pre-line;
-  text-align: center;
-}
-
-/* ============================================================================
  * PLAY VIEW
  * ========================================================================= */
 
