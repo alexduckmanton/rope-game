@@ -11,7 +11,7 @@ import { initIcons } from '../icons.js';
 // Tutorial lesson content
 const LESSON_SECTIONS = [
   {
-    body: 'To win, drag to draw a loop of any shape. Tap to erase.'
+    body: 'To win, drag to draw a closed loop of any shape. Tap to erase parts of your loop.'
   },
   {
     body: 'Whenever your path bends in the squares on or around a number, the number counts down.'
