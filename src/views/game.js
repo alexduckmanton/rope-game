@@ -665,6 +665,7 @@ function render(triggerSave = true, animationMode = 'auto') {
 
       // Update UI state for completed game
       setGameUIState(GAME_STATE.WON);
+      updateUndoButton();
 
       // Mark daily puzzle as completed (not for unlimited mode)
       if (isDailyMode) {
