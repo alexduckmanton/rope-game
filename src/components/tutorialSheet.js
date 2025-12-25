@@ -7,6 +7,7 @@
 
 import { showBottomSheetAsync } from '../bottomSheet.js';
 import { initIcons } from '../icons.js';
+import { markTutorialCompleted } from '../persistence.js';
 
 // Tutorial lesson content
 const LESSON_SECTIONS = [
@@ -151,6 +152,12 @@ function handleNextClick(nextBtn) {
   const currentIndex = getCurrentSectionIndex();
 
   if (currentIndex === LESSON_SECTIONS.length - 1) {
+    // Mark tutorial as completed when user clicks "Got it"
+    markTutorialCompleted();
+
+    // Dispatch event to notify that tutorial was completed
+    window.dispatchEvent(new CustomEvent('tutorialCompleted'));
+
     // Dismiss the sheet on last section
     activeSheet.destroy();
   } else {
