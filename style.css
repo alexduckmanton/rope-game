@@ -259,8 +259,7 @@ button {
 /* Game controls container - holds restart and undo buttons */
 .game-controls {
   display: flex;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 24px;
   width: 100%;
   max-width: 400px;
 }
