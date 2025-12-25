@@ -7,7 +7,7 @@
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
-import { buildSolutionTurnMap, countTurnsInArea, checkStructuralLoop, parseCellKey } from '../utils.js';
+import { buildSolutionTurnMap, countTurnsInArea, parseCellKey } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
@@ -17,7 +17,7 @@ import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
-import { checkStructuralWin as checkStructuralWinUtil, checkFullWin, checkPartialStructuralWin, checkAllCellsVisited, validateHints, DIFFICULTY, computeStateKey } from '../game/validation.js';
+import { checkPartialStructuralWin, validateHints, computeStateKey } from '../game/validation.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
 
 /* ============================================================================
@@ -77,7 +77,6 @@ let borderMode = 'off';
 let countdown = true;
 let hasWon = false;
 let hasShownPartialWinFeedback = false;
-let hasShownIncompleteLoopFeedback = false;
 let hasViewedSolution = false;
 let lastValidatedStateKey = '';  // Track state to avoid redundant validation
 
@@ -194,27 +193,6 @@ function setGameUIState(state) {
     }
   }
 }
-
-function checkStructuralWin() {
-  const { playerDrawnCells, playerConnections } = gameCore.state;
-  return checkStructuralWinUtil(playerDrawnCells, playerConnections, gridSize);
-}
-
-function checkWin(playerTurnMap = null) {
-  const { playerDrawnCells, playerConnections } = gameCore.state;
-  const sTurnMap = cachedSolutionTurnMap || buildSolutionTurnMap(solutionPath);
-  const pTurnMap = playerTurnMap || buildPlayerTurnMap(playerDrawnCells, playerConnections);
-
-  return checkFullWin(
-    { playerDrawnCells, playerConnections },
-    solutionPath,
-    hintCells,
-    gridSize,
-    sTurnMap,
-    pTurnMap
-  );
-}
-
 
 /* ============================================================================
  * TIMER FUNCTIONS
@@ -519,8 +497,6 @@ function render(triggerSave = true, animationMode = 'auto') {
   let isCurrentlyWinning = false;
   let hasValidStructure = false;
   let hintsValid = false;
-  let allCellsVisited = false;
-  const requiresAllCells = currentGameDifficulty === DIFFICULTY.HARD;
 
   if (!hasWon) {
     hasValidStructure = checkPartialStructuralWin(playerDrawnCells, playerConnections);
@@ -529,10 +505,9 @@ function render(triggerSave = true, animationMode = 'auto') {
       const solMap = cachedSolutionTurnMap;
       const playerMap = playerTurnMap;
       hintsValid = validateHints(solMap, playerMap, hintCells, gridSize);
-      allCellsVisited = checkAllCellsVisited(playerDrawnCells, gridSize);
 
       // Path is green if all win conditions are met
-      isCurrentlyWinning = hintsValid && (!requiresAllCells || allCellsVisited);
+      isCurrentlyWinning = hintsValid;
     }
   }
 
@@ -549,7 +524,6 @@ function render(triggerSave = true, animationMode = 'auto') {
       // WIN - set official win state and show modal
       hasWon = true;
       hasShownPartialWinFeedback = false;
-      hasShownIncompleteLoopFeedback = false;
       stopTimer();
 
       // Update UI state for completed game
@@ -570,26 +544,8 @@ function render(triggerSave = true, animationMode = 'auto') {
       showWinCelebration(finalTime);
     } else if (hasValidStructure) {
       // Valid structure but not winning - check for error modals
-      if (requiresAllCells && !allCellsVisited && !hasShownIncompleteLoopFeedback) {
-        // Hard mode only: Valid loop, all hints correct, but not all cells visited
-        hasShownIncompleteLoopFeedback = true;
-
-        // Destroy any previous game sheet before showing new one
-        if (activeGameSheet) {
-          activeGameSheet.destroy();
-        }
-        activeGameSheet = showBottomSheetAsync({
-          title: 'Almost there',
-          content: '<div class="bottom-sheet-message">In hard mode, your loop must pass through every square in the grid.</div>',
-          icon: 'circle-off',
-          colorScheme: 'error',
-          dismissLabel: 'Keep trying'
-        });
-      }
-
       // Check for wrong hints error
-      const shouldShowHintsError = requiresAllCells ? allCellsVisited : true;
-      if (!hintsValid && shouldShowHintsError && !hasShownPartialWinFeedback) {
+      if (!hintsValid && !hasShownPartialWinFeedback) {
         // "Almost there!" error - hints don't match
         hasShownPartialWinFeedback = true;
 
@@ -608,7 +564,6 @@ function render(triggerSave = true, animationMode = 'auto') {
     } else {
       // No valid structure - reset feedback flags
       hasShownPartialWinFeedback = false;
-      hasShownIncompleteLoopFeedback = false;
     }
   }
 
@@ -670,7 +625,6 @@ function generateNewPuzzle() {
   gameCore.restartPuzzle();
   hasWon = false;
   hasShownPartialWinFeedback = false;
-  hasShownIncompleteLoopFeedback = false;
   hasViewedSolution = false;
   lastValidatedStateKey = '';
 
@@ -812,7 +766,6 @@ function restartPuzzle() {
 
   hasWon = false;
   hasShownPartialWinFeedback = false;
-  hasShownIncompleteLoopFeedback = false;
   lastValidatedStateKey = '';
 
   // Update UI state for in-progress game
@@ -1004,7 +957,6 @@ export function initGame(difficulty) {
   // Reset game state
   hasWon = false;
   hasShownPartialWinFeedback = false;
-  hasShownIncompleteLoopFeedback = false;
   hasViewedSolution = false;
   lastValidatedStateKey = '';
   eventListeners = [];

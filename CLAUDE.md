@@ -12,7 +12,7 @@
 | `tokens.js` | Color token exports | `colors`, `semantic` - Reads CSS variables, dispatches `themeChanged` event |
 | `config.js` | Configuration constants | `CONFIG` - Colors (from tokens.js), sizes, generation tuning, rendering params, interaction behavior |
 | `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
-| `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle |
+| `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle (used for hint generation; players can make smaller loops) |
 | `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCells()`, `calculateBorderLayers()` |
 | `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()` |
 | `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles |
@@ -28,7 +28,7 @@
 
 - **Turn**: Path changes direction within a cell. Corner = 1 turn, straight = 0 turns.
 - **Constraint (Hint)**: Number showing expected turn count in surrounding 3x3 area (includes diagonals + self).
-- **Victory**: Closed loop satisfying all constraints. Hard mode additionally requires visiting every cell.
+- **Victory**: Closed loop satisfying all constraints.
 - **Daily Puzzle**: Deterministic generation using date-based seed (YYYYMMDD + difficulty offset 0/1/2).
 - **Unlimited Mode**: True random generation (not date-based), allows infinite practice with difficulty switching.
 
@@ -38,7 +38,7 @@
 |------------|-----------|-------------|-----------|------------------|-----------------|---------------------|
 | Easy       | 4x4       | 16          | 2         | 30%              | Any valid loop  | 20                  |
 | Medium     | 6x6       | 36          | Unlimited | 20%              | Any valid loop  | 50                  |
-| Hard       | 8x8       | 64          | Unlimited | 30%              | All cells       | 100                 |
+| Hard       | 8x8       | 64          | Unlimited | 30%              | Any valid loop  | 100                 |
 
 ### Storage Keys
 
@@ -57,23 +57,16 @@
 3. **Numbered cells are clues** that indicate how many turns (corners/bends) the path must make in the surrounding 3x3 area
 4. **The number counts a 3x3 grid centered on itself** - includes orthogonal neighbors, diagonal neighbors, and the numbered cell itself
 5. A "turn" = when the path changes direction within a cell (straight = 0 turns, corner = 1 turn)
-6. **Hard mode only**: The path must visit every cell exactly once (Hamiltonian cycle)
 
 ### Victory Condition
 
-Victory requirements vary by difficulty:
+Victory requirements are consistent across all difficulties:
 
-**Tutorial, Easy, and Medium:**
 - Path forms a valid closed loop (any shape, any size)
 - All hint constraints are satisfied (turn counts match)
 - Loop does NOT need to visit every cell
 
-**Hard Mode:**
-- Path forms a valid closed loop
-- All hint constraints are satisfied
-- Loop MUST visit every cell in the grid
-
-This design makes easier difficulties more accessible by allowing creative loop shapes, while hard mode preserves the traditional Hamiltonian cycle challenge.
+This design allows for creative loop shapes and multiple valid solutions while maintaining challenging constraint satisfaction puzzles.
 
 ### Constraint Validation Algorithm
 
@@ -149,13 +142,10 @@ When players complete a closed loop, contextual feedback modals appear based on 
 
 | Condition | Modal Title | When Shown | Difficulty |
 |-----------|-------------|------------|------------|
-| Hints satisfied, all cells visited | "You made a loop!" | Win state | All |
-| Hints satisfied, not all cells | "You made a loop!" | Win state | Easy/Medium |
-| Hints satisfied, not all cells | "Almost there" | Error | Hard only |
-| Hints wrong, any complete loop | "Almost there!" | Error | Easy/Medium |
-| Hints wrong, all cells visited | "Almost there!" | Error | Hard |
+| Hints satisfied | "You made a loop!" | Win state | All |
+| Hints wrong, complete loop formed | "Almost there!" | Error | All |
 
-The hard mode incomplete loop error specifically mentions "In hard mode, your loop must pass through every square" to clarify the requirement.
+The error modal provides feedback that some numbers are touching the wrong amount of bends in the loop.
 
 **Validation Optimization:**
 
@@ -301,7 +291,7 @@ rope-game/
 
 **Algorithm: Warnsdorff's Heuristic**
 
-Generates Hamiltonian cycles (paths visiting all cells exactly once forming a loop).
+Generates Hamiltonian cycles (paths visiting all cells exactly once forming a loop). Note: While the generated solution is a Hamiltonian cycle, players are not required to visit all cells - they only need to satisfy the hint constraints with any valid closed loop.
 
 **Strategy:**
 1. Try Warnsdorff's heuristic multiple times (fast, ~0.5ms per attempt, ~25% success rate)
@@ -1046,7 +1036,7 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 | **New Button** | Hidden (can't regenerate daily puzzle) | Visible (generate fresh puzzle anytime) |
 | **Difficulty** | Fixed by initial selection | Switchable in-session via settings segmented control |
 | **Grid Size** | Easy 4x4, Medium 6x6, Hard 8x8 | Same sizes, switchable within session |
-| **Win Requirement** | Easy/Medium: any loop; Hard: all cells | Same (based on selected difficulty) |
+| **Win Requirement** | Any valid loop satisfying all hints | Same for all difficulties |
 | **Timer Display** | Shows selected difficulty (e.g., "Medium • 0:00") | Shows current difficulty (e.g., "Easy • 0:00") |
 | **Settings** | Hints, Countdown, Borders, Solution toggles | Same + difficulty segmented control at top |
 | **Save Slots** | One per date+difficulty | One per difficulty (persistent across sessions) |
@@ -1080,5 +1070,5 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 
 **Path Colors:**
 - **Black**: Player's active drawing
-- **Green**: Victory state (constraints satisfied; hard mode also requires all cells)
+- **Green**: Victory state (all constraints satisfied)
 - **Blue**: Solution path (when "Solution" setting enabled)
