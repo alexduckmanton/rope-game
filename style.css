@@ -276,6 +276,11 @@ button {
   box-shadow: none;
 }
 
+#undo-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 #undo-btn svg {
   display: block;
 }
