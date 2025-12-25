@@ -241,6 +241,65 @@ button {
   box-shadow: 0 1px 2px var(--color-shadow-sm);
 }
 
+/* Secondary button variant - grey background, dark text */
+.btn-secondary {
+  color: var(--color-text-emphasis);
+  background-color: var(--color-bg-secondary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-border-light);
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+  box-shadow: 0 1px 2px var(--color-shadow-sm);
+}
+
+/* Game controls container - holds restart and undo buttons */
+.game-controls {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.game-controls button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: var(--color-bg-elevated);
+  box-shadow: none;
+}
+
+/* Override all interactive states - use theme-aware colors */
+.game-controls button:hover {
+  background-color: var(--color-bg-elevated);
+  box-shadow: none;
+}
+
+.game-controls button:active {
+  background-color: var(--color-bg-elevated);
+  box-shadow: none;
+  transform: none;
+}
+
+.game-controls button:focus {
+  outline: none;
+  background-color: var(--color-bg-elevated);
+}
+
+.game-controls button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.game-controls button svg {
+  display: block;
+}
+
 .grid-size-select {
   padding: 12px 16px;
   font-size: 16px;
@@ -440,7 +499,7 @@ button {
 
 #play-view .game-container {
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
   padding: 20px;
 }
 

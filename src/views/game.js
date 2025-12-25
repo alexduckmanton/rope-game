@@ -55,6 +55,7 @@ let gameTitle;
 let gameTimerEl;
 let newBtn;
 let restartBtn;
+let undoBtn;
 let hintsCheckbox;
 let countdownCheckbox;
 let borderCheckbox;
@@ -114,6 +115,10 @@ let animationFrameId = null;
 // Cached settings values to avoid re-reading localStorage
 let cachedLastUnlimitedDifficulty = 'easy';
 
+// Undo functionality
+const UNDO_HISTORY_LIMIT = 50;
+let undoHistory = [];
+
 /* ============================================================================
  * PERSISTENCE HELPERS
  * ========================================================================= */
@@ -152,6 +157,121 @@ function saveCurrentSettings() {
   };
 
   saveSettings(settings);
+}
+
+/* ============================================================================
+ * UNDO FUNCTIONALITY
+ * ========================================================================= */
+
+/**
+ * Capture current game state for undo history
+ * Deep copies playerDrawnCells and playerConnections to avoid reference issues
+ */
+function captureUndoState() {
+  const { playerDrawnCells, playerConnections } = gameCore.state;
+
+  return {
+    playerDrawnCells: new Set(playerDrawnCells),
+    playerConnections: new Map(
+      Array.from(playerConnections.entries()).map(([key, val]) => [key, new Set(val)])
+    ),
+    hasWon,
+    hasShownPartialWinFeedback,
+    lastValidatedStateKey
+  };
+}
+
+/**
+ * Compare two undo states for equality
+ * Used to prevent duplicate consecutive states in history
+ */
+function statesEqual(state1, state2) {
+  // Quick size check
+  if (state1.playerDrawnCells.size !== state2.playerDrawnCells.size) {
+    return false;
+  }
+
+  // Deep comparison of drawn cells
+  for (const cell of state1.playerDrawnCells) {
+    if (!state2.playerDrawnCells.has(cell)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Push current state to undo history
+ * Automatically enforces history limit and prevents duplicate states
+ */
+function pushUndoState() {
+  const state = captureUndoState();
+
+  // Don't push duplicate states (handles empty clicks, resize events, etc.)
+  if (undoHistory.length > 0) {
+    const lastState = undoHistory[undoHistory.length - 1];
+    if (statesEqual(lastState, state)) {
+      return;
+    }
+  }
+
+  undoHistory.push(state);
+
+  // Limit history size
+  if (undoHistory.length > UNDO_HISTORY_LIMIT) {
+    undoHistory.shift(); // Remove oldest
+  }
+
+  updateUndoButton();
+}
+
+/**
+ * Perform undo operation - restore previous state from history
+ */
+function performUndo() {
+  if (undoHistory.length === 0) return;
+
+  const previousState = undoHistory.pop();
+
+  // Restore game state (deep copy to avoid reference issues)
+  gameCore.state.playerDrawnCells = new Set(previousState.playerDrawnCells);
+  gameCore.state.playerConnections = new Map(
+    Array.from(previousState.playerConnections.entries()).map(([key, val]) => [key, new Set(val)])
+  );
+  hasWon = previousState.hasWon;
+  hasShownPartialWinFeedback = previousState.hasShownPartialWinFeedback;
+  lastValidatedStateKey = previousState.lastValidatedStateKey;
+
+  // Update UI based on restored state
+  if (hasWon) {
+    setGameUIState(GAME_STATE.WON);
+  } else {
+    setGameUIState(GAME_STATE.IN_PROGRESS);
+  }
+
+  updateUndoButton();
+  render();
+}
+
+/**
+ * Update undo button enabled/disabled state
+ * Button is enabled only if there's history AND game is not completed
+ */
+function updateUndoButton() {
+  if (undoBtn) {
+    const canUndo = undoHistory.length > 0 && !hasWon && !hasViewedSolution;
+    undoBtn.disabled = !canUndo;
+  }
+}
+
+/**
+ * Clear undo history
+ * Called on new puzzle, difficulty change, or puzzle load
+ */
+function clearUndoHistory() {
+  undoHistory = [];
+  updateUndoButton();
 }
 
 /* ============================================================================
@@ -386,6 +506,7 @@ function changeDifficulty(newDifficulty) {
   // Save current difficulty's state before switching
   // This preserves progress when switching between difficulties
   saveGameState(captureGameState());
+  clearUndoHistory(); // Different difficulty = fresh start
 
   currentUnlimitedDifficulty = newDifficulty;
   currentGameDifficulty = newDifficulty;
@@ -600,6 +721,7 @@ function generateNewPuzzle() {
   // Clear any saved progress when generating a new puzzle
   // (Important for unlimited mode when user clicks "New")
   clearGameState(currentPuzzleId, currentGameDifficulty, isUnlimitedMode);
+  clearUndoHistory(); // New puzzle = fresh start
 
   if (isDailyMode) {
     // Generate daily puzzle with seeded random
@@ -713,6 +835,8 @@ function restoreTimerState(savedState) {
  * Called during initialization to restore progress if available
  */
 function loadOrGeneratePuzzle() {
+  clearUndoHistory(); // Undo is session-only, not persisted
+
   // Try to load saved state
   const savedState = loadGameState(currentPuzzleId, currentGameDifficulty, isUnlimitedMode);
 
@@ -756,6 +880,8 @@ function loadOrGeneratePuzzle() {
  * Does not generate a new puzzle - same solution path and hint cells.
  */
 function restartPuzzle() {
+  pushUndoState(); // Save state before restart (enables undoing the restart)
+
   gameCore.restartPuzzle();
 
   // Only restart timer if the game was already won (timer was stopped)
@@ -770,6 +896,8 @@ function restartPuzzle() {
 
   // Update UI state for in-progress game
   setGameUIState(GAME_STATE.IN_PROGRESS);
+
+  updateUndoButton(); // Button becomes enabled after hasWon reset
 
   render();
 }
@@ -799,6 +927,9 @@ function viewSolution() {
 
   // Update UI state for viewed solution
   setGameUIState(GAME_STATE.VIEWED_SOLUTION);
+
+  // Disable undo button
+  updateUndoButton();
 
   // For daily puzzles, mark as completed with viewed solution (skull icon)
   if (isDailyMode) {
@@ -898,6 +1029,7 @@ export function initGame(difficulty) {
   gameTimerEl = document.getElementById('game-timer');
   newBtn = document.getElementById('new-btn');
   restartBtn = document.getElementById('restart-btn');
+  undoBtn = document.getElementById('undo-btn');
   hintsCheckbox = document.getElementById('hints-checkbox');
   countdownCheckbox = document.getElementById('countdown-checkbox');
   borderCheckbox = document.getElementById('border-checkbox');
@@ -981,6 +1113,7 @@ export function initGame(difficulty) {
   };
   const newBtnHandler = () => generateNewPuzzle();
   const restartBtnHandler = () => restartPuzzle();
+  const undoBtnHandler = () => performUndo();
   const hintsHandler = (e) => {
     e.preventDefault();
     cycleHintMode();
@@ -1020,13 +1153,18 @@ export function initGame(difficulty) {
   // Use gameCore methods for pointer events
   // Prevent drawing if game is won or solution was viewed
   const pointerDownHandler = (e) => {
-    if (!hasWon && !hasViewedSolution) gameCore.handlePointerDown(e);
+    if (!hasWon && !hasViewedSolution) {
+      pushUndoState(); // Save state before drawing action starts
+      gameCore.handlePointerDown(e);
+    }
   };
   const pointerMoveHandler = (e) => {
     if (!hasWon && !hasViewedSolution) gameCore.handlePointerMove(e);
   };
   const pointerUpHandler = (e) => {
-    if (!hasWon && !hasViewedSolution) gameCore.handlePointerUp(e);
+    if (!hasWon && !hasViewedSolution) {
+      gameCore.handlePointerUp(e);
+    }
   };
   const pointerCancelHandler = (e) => {
     if (!hasWon && !hasViewedSolution) gameCore.handlePointerCancel(e);
@@ -1040,6 +1178,7 @@ export function initGame(difficulty) {
   window.addEventListener('themeChanged', themeChangeHandler);
   newBtn.addEventListener('click', newBtnHandler);
   restartBtn.addEventListener('click', restartBtnHandler);
+  undoBtn.addEventListener('click', undoBtnHandler);
   hintsCheckbox.addEventListener('click', hintsHandler);
   countdownCheckbox.addEventListener('change', countdownHandler);
   borderCheckbox.addEventListener('click', borderHandler);
@@ -1058,6 +1197,7 @@ export function initGame(difficulty) {
     { element: window, event: 'themeChanged', handler: themeChangeHandler },
     { element: newBtn, event: 'click', handler: newBtnHandler },
     { element: restartBtn, event: 'click', handler: restartBtnHandler },
+    { element: undoBtn, event: 'click', handler: undoBtnHandler },
     { element: hintsCheckbox, event: 'click', handler: hintsHandler },
     { element: countdownCheckbox, event: 'change', handler: countdownHandler },
     { element: borderCheckbox, event: 'click', handler: borderHandler },
@@ -1096,6 +1236,9 @@ export function initGame(difficulty) {
   updateCheckboxState();
   updateBorderCheckboxState();
   countdownCheckbox.checked = countdown;
+
+  // Initialize undo button state
+  updateUndoButton();
 }
 
 /**

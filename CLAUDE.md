@@ -394,9 +394,11 @@ Auto-saves game state to localStorage (client-side, no backend).
 4. **Data format**: Sets→Arrays, Maps→Objects (JSON-serializable), version field for migration, timestamp for debugging. Throttle returns `{ save, destroy }` for cleanup.
 
 **Save triggers**: Player moves, restart, new puzzle, completion.
-**Save skips**: Window resize, settings toggles (have dedicated save).
+**Save skips**: Window resize, settings toggles (have dedicated save), undo operations.
 
 **Edge cases**: Partial win feedback persisted, restore without triggering cooldown, daily ID validation, immediate save on tab blur.
+
+**Session-only state**: Undo history is not persisted to localStorage. Cleared on puzzle load, new puzzle, or difficulty change.
 
 **Tradeoffs**: No cross-device sync, trust-based times, 5-second max progress loss (rare).
 
@@ -420,6 +422,40 @@ Auto-saves game state to localStorage (client-side, no backend).
 - Multiple windows where tab visible but window lacks focus
 
 **Benefits:** Fair competition (daily times exclude time away), better UX (no time anxiety), accurate metrics.
+
+### Undo System
+
+**Purpose:** Allows players to revert drawing actions without restarting the entire puzzle.
+
+**Implementation:**
+- **History limit**: 50 actions maximum (configurable via UNDO_HISTORY_LIMIT constant)
+- **State capture timing**: Before each action begins (on pointerDown), not after completion
+- **Action granularity**: Each complete drawing gesture or tap-to-erase counts as one action
+- **Duplicate prevention**: Consecutive identical states are filtered out to avoid wasted history slots
+- **Deep copying**: Game state is deep-copied to prevent reference issues
+
+**What can be undone:**
+- Drawing actions (drag to create path)
+- Erase actions (tap to remove cell)
+- Restart button (saves state before clearing, enabling undo of restart itself)
+
+**When undo is disabled:**
+- No history available (fresh puzzle or all history used)
+- Puzzle is won
+- Solution has been viewed
+
+**When undo history is cleared:**
+- New puzzle generated
+- Difficulty changed (unlimited mode)
+- Saved game loaded (undo is session-only)
+
+**State captured per action:**
+- Player drawn cells (Set)
+- Player connections (Map of Sets)
+- Win status flags (hasWon, hasShownPartialWinFeedback)
+- Validation state key
+
+**Performance:** O(1) state comparison for duplicate detection, minimal memory impact (~50 states × small data structures).
 
 ### Google Analytics
 
@@ -735,23 +771,25 @@ For implementation details, see Color Token System in Key Systems section.
 
 ```
 +---------------------------+
-|   [←] [Title]  [⚙ ↻ 🎲]   | ← Top bar (80px)
+|   [←] [Title]   [🎲 ? ⚙]  | ← Top bar (64px) - New, Help, Settings
 +---------------------------+
 |     Timer: Easy • 1:23    | ← Timer display (format: "Difficulty • MM:SS")
-|                           |
-|       [GRID 5x5]          | ← Canvas, centered, responsive
-|                           |
-|                           |
+|                           | ← 16px spacing
+|       [GRID 5x5]          | ← Canvas (fixed size across all difficulties)
+|                           | ← 16px spacing
+|  [Restart]  [Undo]        | ← Control buttons (equal width, elevated bg)
 +---------------------------+
 ```
+
+**Canvas Sizing:** All difficulty levels (4x4, 6x6, 8x8) render at the same total canvas size. The reference size is calculated based on a 4x4 grid, then applied to larger grids with proportionally smaller cells. This ensures visual alignment with the restart and undo buttons below.
 
 **Button Styling:** Minimal flat design, rounded corners (8px), subtle shadow on tap, no heavy borders.
 
 **Icons:**
 - **Library**: Lucide icons (tree-shakeable, ~2-3KB for current icons)
-- **Sizing**: 18px inline, 20px standalone, 24px close buttons
+- **Sizing**: 18px inline (button labels), 20px standalone, 24px header buttons
 - **Color**: Inherit via `currentColor`
-- **Usage**: Arrow-left (back), Circle-help (tutorial help), Settings (gear), X (close), Refresh-ccw (restart), Dices (new puzzle)
+- **Usage**: Arrow-left (back), Circle-help (help), Settings (gear), Dices (new puzzle), Refresh-ccw (restart), Undo2 (undo), Party-popper (win), Circle-off (error), Share2 (share), Trophy/Skull (completion icons)
 
 **Settings Bottom Sheet:**
 
@@ -766,6 +804,23 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
   - **Borders**: Three-state toggle (Off → Center → Full) for hint area borders
   - **Solution**: Boolean toggle to overlay solution path in blue
 - **Behavior**: Context-aware (difficulty segmented control appears only in Unlimited mode), changes apply immediately with live re-render (no save/cancel buttons), click outside or dismiss button to close
+
+**Game Control Buttons:**
+
+Restart and Undo buttons appear below the canvas in a horizontal layout.
+
+- **Positioning**: Centered below canvas with 16px top spacing
+- **Layout**: Flex container with equal-width buttons (flex: 1), 16px gap between
+- **Max width**: 400px to prevent oversizing on large screens
+- **Styling**: Elevated background matching canvas (theme-aware), no drop shadow, no transform on interaction
+- **States**:
+  - Default: Elevated background with standard text color
+  - Hover: No visual change (prevents stuck states on touch devices)
+  - Active: No visual change (prevents stuck states on touch devices)
+  - Disabled: 30% opacity, not-allowed cursor
+  - Focus: No outline (removes persistent grey background after tap)
+- **Restart button**: Always enabled unless puzzle is won or solution viewed
+- **Undo button**: Enabled only when undo history exists and puzzle not completed
 
 ### Animations
 
@@ -821,6 +876,15 @@ Drawing diagonally across the grid maintains smooth, uninterrupted flow:
 - **Behavior**: Creates natural alternating patterns (horizontal→vertical→horizontal) that follow the drawing gesture
 - **Result**: Players can draw at any angle without interruption or having to manually trace step-by-step paths
 
+**Undo Button vs Drag Backtracking:**
+
+The game provides two distinct mechanisms for reversing actions:
+
+- **Drag backtracking**: During an active drawing gesture, dragging backward over recently drawn cells removes them (1-4 cells back). This is immediate, gesture-based correction.
+- **Undo button**: After completing a drawing action, the undo button reverts the entire action. This provides step-by-step history navigation across multiple completed actions (up to 50).
+
+These complement each other: backtracking for in-gesture corrections, undo for multi-action history.
+
 **Mobile Optimizations:**
 - Prevent page scroll while drawing
 - Large touch targets (minimum 48×48px)
@@ -840,8 +904,10 @@ Drawing diagonally across the grid maintains smooth, uninterrupted flow:
 - Unlimited practice mode with in-session difficulty switching
 - Settings persistence (hints, borders, solution display)
 - Game progress persistence with throttled saves
+- Undo functionality with 50-action history (session-only, not persisted)
 - Timer with auto-pause on tab blur
 - Responsive mobile-first UI with smooth animations
+- Consistent canvas sizing across all difficulty levels
 - Settings bottom sheet with context-aware controls
 - Intelligent drag interactions and path smoothing
 - Automatic dark mode following system preferences
@@ -849,7 +915,7 @@ Drawing diagonally across the grid maintains smooth, uninterrupted flow:
 
 **🚧 Planned Enhancements**
 - Interactive tutorial with guided puzzle examples
-- Undo/Redo functionality
+- Redo functionality (undo already implemented)
 - Move counter
 - Daily puzzle completion tracking and statistics dashboard
 - Streak counter (consecutive days completed)

@@ -80,9 +80,6 @@
           <button id="new-btn" class="icon-btn" aria-label="New puzzle">
             <i data-lucide="dices" width="24" height="24"></i>
           </button>
-          <button id="restart-btn" class="icon-btn" aria-label="Restart puzzle">
-            <i data-lucide="refresh-ccw" width="24" height="24"></i>
-          </button>
           <button id="help-btn" class="icon-btn" aria-label="Help">
             <i data-lucide="circle-help" width="24" height="24"></i>
           </button>
@@ -94,6 +91,16 @@
       <main class="game-container">
         <p id="game-timer">0:00</p>
         <canvas id="game-canvas"></canvas>
+        <div class="game-controls">
+          <button id="restart-btn" class="btn btn-secondary">
+            <i data-lucide="refresh-ccw" width="18" height="18"></i>
+            <span>Restart</span>
+          </button>
+          <button id="undo-btn" class="btn btn-secondary" disabled>
+            <i data-lucide="undo-2" width="18" height="18"></i>
+            <span>Undo</span>
+          </button>
+        </div>
       </main>
 
       <!-- Settings Content (will be wrapped in bottom sheet dynamically) -->
