@@ -264,6 +264,16 @@ button {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  background-color: white;
+  box-shadow: none;
+}
+
+#undo-btn:hover {
+  box-shadow: none;
+}
+
+#undo-btn:active {
+  box-shadow: none;
 }
 
 #undo-btn svg {
