@@ -275,6 +275,12 @@ button {
   box-shadow: none;
 }
 
+/* Override hover styles - only grey background on hover-capable devices */
+.game-controls button:hover {
+  background-color: white;
+  box-shadow: none;
+}
+
 /* Only apply hover styles on devices with fine pointer (mouse/trackpad - not touch) */
 @media (pointer: fine) {
   .game-controls button:hover {
@@ -283,8 +289,11 @@ button {
   }
 }
 
+/* Override active state - no transform or shadow */
 .game-controls button:active {
+  background-color: white;
   box-shadow: none;
+  transform: none;
 }
 
 .game-controls button:focus {
