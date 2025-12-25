@@ -5,6 +5,12 @@
  * with clipboard fallback.
  */
 
+import {
+  trackShareAttempted,
+  trackShareCompleted,
+  trackShareFailed
+} from '../analytics.js';
+
 /**
  * Format date as "DD Mon YYYY" (e.g., "26 Jan 2025")
  * @param {Date} [date] - Date to format (defaults to today)
@@ -63,16 +69,25 @@ function showButtonFeedback(button, text, duration = 2000) {
 export async function handleShare(button, difficulty, time) {
   const shareText = buildShareText(difficulty, time);
 
+  // Track share attempt
+  trackShareAttempted(difficulty, time);
+
   // Try native share first (iOS/Android)
   if (navigator.share) {
     try {
       await navigator.share({ text: shareText });
+      // Track successful native share
+      trackShareCompleted(difficulty, 'native');
       return; // Share was successful or cancelled
     } catch (err) {
       // User cancelled or share failed - fall through to clipboard
       if (err.name === 'AbortError') {
+        // User cancelled - track as failed with specific error type
+        trackShareFailed(difficulty, 'user_cancelled');
         return; // User cancelled, don't fall through
       }
+      // Other native share error - track and fall through to clipboard
+      trackShareFailed(difficulty, 'native_failed');
     }
   }
 
@@ -80,7 +95,11 @@ export async function handleShare(button, difficulty, time) {
   try {
     await navigator.clipboard.writeText(shareText);
     showButtonFeedback(button, 'Copied!');
+    // Track successful clipboard share
+    trackShareCompleted(difficulty, 'clipboard');
   } catch (err) {
     showButtonFeedback(button, 'Failed');
+    // Track clipboard failure
+    trackShareFailed(difficulty, 'clipboard_failed');
   }
 }

@@ -19,6 +19,16 @@ import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
 import { checkPartialStructuralWin, validateHints, computeStateKey } from '../game/validation.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
+import {
+  trackGameStarted,
+  trackGameCompleted,
+  trackGameRestarted,
+  trackPuzzleGenerated,
+  trackUndoUsed,
+  trackSolutionViewed,
+  trackSettingsOpened,
+  trackValidationError
+} from '../analytics.js';
 
 /* ============================================================================
  * CONSTANTS
@@ -232,6 +242,9 @@ function pushUndoState() {
 function performUndo() {
   if (undoHistory.length === 0) return;
 
+  // Track undo usage
+  trackUndoUsed(currentGameDifficulty, isDailyMode ? 'daily' : 'unlimited');
+
   const previousState = undoHistory.pop();
 
   // Restore game state (deep copy to avoid reference issues)
@@ -423,6 +436,9 @@ function cycleBorderMode() {
 }
 
 function showSettings() {
+  // Track settings opened
+  trackSettingsOpened();
+
   if (settingsSheet) {
     settingsSheet.show();
 
@@ -657,6 +673,15 @@ function render(triggerSave = true, animationMode = 'auto') {
 
       // Capture time BEFORE any rendering that might cause re-renders
       const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
+      const completionTimeSeconds = gameTimer ? gameTimer.getElapsedSeconds() : 0;
+
+      // Track game completion
+      trackGameCompleted(
+        currentGameDifficulty,
+        isDailyMode ? 'daily' : 'unlimited',
+        completionTimeSeconds,
+        finalTime
+      );
 
       // Re-render path with win color (already green from visual validation, but ensures consistency)
       const winPathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true, animationMode, gamePathAnimationState);
@@ -669,6 +694,9 @@ function render(triggerSave = true, animationMode = 'auto') {
       if (!hintsValid && !hasShownPartialWinFeedback) {
         // "Almost there!" error - hints don't match
         hasShownPartialWinFeedback = true;
+
+        // Track validation error
+        trackValidationError(currentGameDifficulty, isDailyMode ? 'daily' : 'unlimited');
 
         // Destroy any previous game sheet before showing new one
         if (activeGameSheet) {
@@ -757,6 +785,14 @@ function generateNewPuzzle() {
   if (gameTimerEl) {
     gameTimerEl.textContent = '0:00';
   }
+
+  // Track analytics events
+  if (isUnlimitedMode) {
+    // Track puzzle generation (unlimited mode only - daily puzzles are deterministic)
+    trackPuzzleGenerated(currentUnlimitedDifficulty);
+  }
+  // Track game started (both daily and unlimited for fresh puzzles)
+  trackGameStarted(currentGameDifficulty, isDailyMode ? 'daily' : 'unlimited');
 
   startTimer();
   render();
@@ -880,6 +916,9 @@ function loadOrGeneratePuzzle() {
  * Does not generate a new puzzle - same solution path and hint cells.
  */
 function restartPuzzle() {
+  // Track game restart
+  trackGameRestarted(currentGameDifficulty, isDailyMode ? 'daily' : 'unlimited');
+
   pushUndoState(); // Save state before restart (enables undoing the restart)
 
   gameCore.restartPuzzle();
@@ -914,6 +953,9 @@ function restartPuzzle() {
  * - Closes the settings sheet
  */
 function viewSolution() {
+  // Track solution viewed
+  trackSolutionViewed(currentGameDifficulty, isDailyMode ? 'daily' : 'unlimited');
+
   // Mark solution as viewed (disqualifies the player)
   hasViewedSolution = true;
 
@@ -1137,7 +1179,7 @@ export function initGame(difficulty) {
       navigate('/', true);
     }
   };
-  const helpBtnHandler = () => showTutorialSheet();
+  const helpBtnHandler = () => showTutorialSheet('game');
   const settingsBtnHandler = () => showSettings();
   const visibilityChangeHandler = () => {
     if (document.hidden) {

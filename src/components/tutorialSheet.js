@@ -8,17 +8,25 @@
 import { showBottomSheetAsync } from '../bottomSheet.js';
 import { initIcons } from '../icons.js';
 import { markTutorialCompleted } from '../persistence.js';
+import {
+  trackTutorialOpened,
+  trackTutorialSectionViewed,
+  trackTutorialCompleted
+} from '../analytics.js';
 
 // Tutorial lesson content
 const LESSON_SECTIONS = [
   {
-    body: 'Drag to draw a closed loop of any shape. Tap to erase parts of your loop.'
+    body: 'Drag to draw a closed loop of any shape. Tap to erase parts of your loop.',
+    name: 'Drawing loops'
   },
   {
-    body: 'Whenever your path bends in the squares on or around a number, the number counts down.'
+    body: 'Whenever your path bends in the squares on or around a number, the number counts down.',
+    name: 'Counting bends'
   },
   {
-    body: 'To win, draw a single continuous loop that makes all numbers zero.'
+    body: 'To win, draw a single continuous loop that makes all numbers zero.',
+    name: 'Win condition'
   }
 ];
 
@@ -31,6 +39,7 @@ let activeSheet = null;
 let scrollContainer = null;
 let pagingDots = [];
 let intersectionObserver = null;
+let lastTrackedSection = -1; // Track last section to avoid duplicate analytics events
 
 /**
  * Create a single video element with sources and attributes
@@ -132,6 +141,16 @@ function updatePagingDots() {
       dot.classList.remove('active');
     }
   });
+
+  // Track section view when scrolling (only once per section)
+  if (currentIndex !== lastTrackedSection && currentIndex >= 0 && currentIndex < LESSON_SECTIONS.length) {
+    lastTrackedSection = currentIndex;
+    trackTutorialSectionViewed(
+      currentIndex,
+      LESSON_SECTIONS[currentIndex].name,
+      'scroll'
+    );
+  }
 }
 
 /**
@@ -152,6 +171,9 @@ function handleNextClick(nextBtn) {
   const currentIndex = getCurrentSectionIndex();
 
   if (currentIndex === LESSON_SECTIONS.length - 1) {
+    // Track tutorial completion
+    trackTutorialCompleted();
+
     // Mark tutorial as completed when user clicks "Got it"
     markTutorialCompleted();
 
@@ -240,6 +262,9 @@ function showLessonSheet() {
 
     // Click dot to scroll to that section
     dot.addEventListener('click', () => {
+      // Track dot click (different from scroll-based view)
+      trackTutorialSectionViewed(i, LESSON_SECTIONS[i].name, 'dot_click');
+
       const section = scrollContainer.children[i];
       section.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
     });
@@ -316,8 +341,12 @@ function initializeVideos() {
  * Show the tutorial bottom sheet
  * Can be called from anywhere in the app (home screen, game screens, etc.)
  * Videos are lazy-loaded on first open and cached for subsequent opens
+ * @param {string} [source='unknown'] - Where tutorial was opened from ('home', 'game')
  */
-export function showTutorialSheet() {
+export function showTutorialSheet(source = 'unknown') {
+  // Track tutorial opened
+  trackTutorialOpened(source);
+
   // Ensure videos are created (only happens once)
   initializeVideos();
 
@@ -336,6 +365,9 @@ export function showTutorialSheet() {
     video.pause();
     video.currentTime = 0;
   });
+
+  // Reset section tracking
+  lastTrackedSection = -1;
 
   // Show the lesson sheet
   showLessonSheet();
