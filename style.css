@@ -283,6 +283,11 @@ button {
   box-shadow: none;
 }
 
+.game-controls button:focus {
+  outline: none;
+  background-color: white;
+}
+
 .game-controls button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
