@@ -241,6 +241,35 @@ button {
   box-shadow: 0 1px 2px var(--color-shadow-sm);
 }
 
+/* Secondary button variant - grey background, dark text */
+.btn-secondary {
+  color: var(--color-text-emphasis);
+  background-color: var(--color-bg-secondary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-border-light);
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+  box-shadow: 0 1px 2px var(--color-shadow-sm);
+}
+
+/* Undo button - positioned under canvas, centered with icon */
+#undo-btn {
+  margin-top: 16px;
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+#undo-btn svg {
+  display: block;
+}
+
 .grid-size-select {
   padding: 12px 16px;
   font-size: 16px;

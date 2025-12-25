@@ -10,6 +10,7 @@
  * - X: Close button (legacy, now unused after bottom sheet redesign)
  * - Dices: New puzzle button
  * - RefreshCcw: Restart puzzle button
+ * - Undo2: Undo button in game view
  * - PartyPopper: Win/celebration bottom sheets
  * - CircleOff: Error/incorrect feedback bottom sheets
  * - Share2: Share button in win bottom sheet
@@ -21,7 +22,7 @@
  * - CircleHelp: Help button in tutorial navigation to re-open lesson sheet
  */
 
-import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, PartyPopper, CircleOff, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -42,6 +43,7 @@ export function initIcons() {
       X,
       Dices,
       RefreshCcw,
+      Undo2,
       PartyPopper,
       CircleOff,
       Share2,
