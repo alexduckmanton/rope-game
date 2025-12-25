@@ -259,7 +259,7 @@ button {
 /* Game controls container - holds restart and undo buttons */
 .game-controls {
   display: flex;
-  gap: 24px;
+  gap: 16px;
   width: 100%;
   max-width: 400px;
 }
@@ -499,7 +499,7 @@ button {
 
 #play-view .game-container {
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
   padding: 20px;
 }
 
