@@ -101,12 +101,20 @@ export function initHome() {
   // Temporarily hidden - page still works via direct URL
   // unlimitedBtn.addEventListener('click', handleUnlimited);
 
+  // Listen for tutorial completion to update checkmark immediately
+  const handleTutorialCompleted = () => {
+    updateCompletedState(tutorialBtn, true, 'check');
+    initIcons();
+  };
+  window.addEventListener('tutorialCompleted', handleTutorialCompleted);
+
   // Return cleanup function
   return () => {
     tutorialBtn.removeEventListener('click', handleTutorial);
     easyBtn.removeEventListener('click', handleEasy);
     mediumBtn.removeEventListener('click', handleMedium);
     hardBtn.removeEventListener('click', handleHard);
+    window.removeEventListener('tutorialCompleted', handleTutorialCompleted);
     // Temporarily hidden - page still works via direct URL
     // unlimitedBtn.removeEventListener('click', handleUnlimited);
   };
