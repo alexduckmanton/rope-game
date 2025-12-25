@@ -9,6 +9,7 @@ import { getFormattedDate } from '../seededRandom.js';
 import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution } from '../persistence.js';
 import { initIcons } from '../icons.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
+import { trackDifficultySelected } from '../analytics.js';
 
 /**
  * Update button completed state based on completion status
@@ -86,10 +87,19 @@ export function initHome() {
   initIcons();
 
   // Event handlers - pass fromHome state to track navigation origin
-  const handleTutorial = () => showTutorialSheet();
-  const handleEasy = () => navigate('/play?difficulty=easy', false, { fromHome: true });
-  const handleMedium = () => navigate('/play?difficulty=medium', false, { fromHome: true });
-  const handleHard = () => navigate('/play?difficulty=hard', false, { fromHome: true });
+  const handleTutorial = () => showTutorialSheet('home');
+  const handleEasy = () => {
+    trackDifficultySelected('easy');
+    navigate('/play?difficulty=easy', false, { fromHome: true });
+  };
+  const handleMedium = () => {
+    trackDifficultySelected('medium');
+    navigate('/play?difficulty=medium', false, { fromHome: true });
+  };
+  const handleHard = () => {
+    trackDifficultySelected('hard');
+    navigate('/play?difficulty=hard', false, { fromHome: true });
+  };
   // Temporarily hidden - page still works via direct URL
   // const handleUnlimited = () => navigate('/play?difficulty=unlimited', false, { fromHome: true });
 
