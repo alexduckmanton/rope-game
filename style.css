@@ -275,8 +275,11 @@ button {
   box-shadow: none;
 }
 
-.game-controls button:hover {
-  box-shadow: none;
+/* Only apply hover styles on devices that support hover (not touch-only devices) */
+@media (hover: hover) {
+  .game-controls button:hover {
+    box-shadow: none;
+  }
 }
 
 .game-controls button:active {
