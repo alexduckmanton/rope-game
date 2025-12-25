@@ -1153,7 +1153,10 @@ export function initGame(difficulty) {
   // Use gameCore methods for pointer events
   // Prevent drawing if game is won or solution was viewed
   const pointerDownHandler = (e) => {
-    if (!hasWon && !hasViewedSolution) gameCore.handlePointerDown(e);
+    if (!hasWon && !hasViewedSolution) {
+      pushUndoState(); // Save state before drawing action starts
+      gameCore.handlePointerDown(e);
+    }
   };
   const pointerMoveHandler = (e) => {
     if (!hasWon && !hasViewedSolution) gameCore.handlePointerMove(e);
@@ -1161,7 +1164,6 @@ export function initGame(difficulty) {
   const pointerUpHandler = (e) => {
     if (!hasWon && !hasViewedSolution) {
       gameCore.handlePointerUp(e);
-      pushUndoState(); // Save state after drawing action completes
     }
   };
   const pointerCancelHandler = (e) => {
