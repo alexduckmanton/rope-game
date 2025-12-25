@@ -256,10 +256,17 @@ button {
   box-shadow: 0 1px 2px var(--color-shadow-sm);
 }
 
-/* Undo button - positioned under canvas, centered with icon */
-#undo-btn {
+/* Game controls container - holds restart and undo buttons */
+.game-controls {
+  display: flex;
+  gap: 12px;
   margin-top: 16px;
-  min-width: 120px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.game-controls button {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -268,20 +275,20 @@ button {
   box-shadow: none;
 }
 
-#undo-btn:hover {
+.game-controls button:hover {
   box-shadow: none;
 }
 
-#undo-btn:active {
+.game-controls button:active {
   box-shadow: none;
 }
 
-#undo-btn:disabled {
+.game-controls button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
 }
 
-#undo-btn svg {
+.game-controls button svg {
   display: block;
 }
 
