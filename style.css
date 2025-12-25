@@ -275,9 +275,10 @@ button {
   box-shadow: none;
 }
 
-/* Only apply hover styles on devices that support hover (not touch-only devices) */
-@media (hover: hover) {
+/* Only apply hover styles on devices with fine pointer (mouse/trackpad - not touch) */
+@media (pointer: fine) {
   .game-controls button:hover {
+    background-color: white;
     box-shadow: none;
   }
 }
