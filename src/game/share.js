@@ -34,9 +34,9 @@ export function buildShareText(difficulty, time, score) {
   const dateStr = formatShareDate();
   const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
 
-  // If score provided, use new format: "<difficulty> Loopy\n<score>% in <time>\n<date>"
+  // If score provided, use new format: "💫 <difficulty> Loopy\n<score>% in <time>\n<date>"
   if (score !== undefined && score !== null) {
-    return `${label} Loopy\n${score}% in ${time}\n${dateStr}`;
+    return `💫 ${label} Loopy\n${score}% in ${time}\n${dateStr}`;
   }
 
   // Otherwise, use original format for perfect wins
