@@ -583,6 +583,16 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* Hide "New" button by default to prevent flash during load */
+/* Only shown in unlimited mode via JavaScript */
+#new-btn {
+  display: none;
+}
+
+#play-view.unlimited-mode #new-btn {
+  display: flex;
+}
+
 /* ============================================================================
  * BOTTOM SHEET (REUSABLE COMPONENT)
  * ========================================================================= */

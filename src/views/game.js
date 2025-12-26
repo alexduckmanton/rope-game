@@ -1126,18 +1126,19 @@ export function initGame(difficulty) {
   // Clear title text (difficulty is shown in timer display)
   gameTitle.textContent = '';
 
+  // Add unlimited-mode class to play-view for CSS targeting
+  const playView = document.getElementById('play-view');
+  if (isUnlimitedMode && playView) {
+    playView.classList.add('unlimited-mode');
+  } else if (playView) {
+    playView.classList.remove('unlimited-mode');
+  }
+
   // Show/hide difficulty control based on mode
   if (isUnlimitedMode && difficultySettingsItem) {
     difficultySettingsItem.classList.add('visible');
   } else if (difficultySettingsItem) {
     difficultySettingsItem.classList.remove('visible');
-  }
-
-  // Hide "New" button in daily modes (only show in unlimited mode)
-  if (isDailyMode && newBtn) {
-    newBtn.style.display = 'none';
-  } else if (newBtn) {
-    newBtn.style.display = '';
   }
 
   // Apply saved settings (or defaults)
@@ -1351,5 +1352,11 @@ export function cleanupGame() {
   // Reset canvas loading state for next visit
   if (canvasContainer) {
     canvasContainer.classList.remove('canvas-ready');
+  }
+
+  // Remove unlimited-mode class from play-view
+  const playView = document.getElementById('play-view');
+  if (playView) {
+    playView.classList.remove('unlimited-mode');
   }
 }
