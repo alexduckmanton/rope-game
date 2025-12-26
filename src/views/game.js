@@ -715,8 +715,10 @@ function render(triggerSave = true, animationMode = 'auto') {
         // Partial win - show score and encourage improvement
         hasShownPartialWinFeedback = true;
 
-        // Stop timer while modal is visible
-        stopTimer();
+        // Pause timer while modal is visible
+        if (gameTimer) {
+          gameTimer.pause();
+        }
 
         // Capture current time and score for sharing
         const currentTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
@@ -746,7 +748,7 @@ function render(triggerSave = true, animationMode = 'auto') {
           onClose: () => {
             // Resume timer when modal is dismissed
             if (gameTimer && !hasWon) {
-              gameTimer.start();
+              gameTimer.resume();
             }
           }
         });
