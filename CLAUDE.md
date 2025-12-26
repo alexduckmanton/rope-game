@@ -20,8 +20,8 @@
 | `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet()`, `showBottomSheetAsync()` - Factory + async helper with onClose callback |
 | `components/tutorialSheet.js` | Tutorial bottom sheet | `showTutorialSheet()` - Self-contained carousel with video management |
 | `game/timer.js` | Game timer | `createGameTimer({ onUpdate, difficulty })`, `formatTime()` - Encapsulated timer with pause/resume |
-| `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback |
-| `game/validation.js` | Win validation | `checkStructuralWin()`, `checkFullWin()`, `validateHints()` - Game validation logic |
+| `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback, score-aware share text |
+| `game/validation.js` | Win validation & scoring | `checkStructuralWin()`, `checkFullWin()`, `validateHints()`, `calculateScore()`, `getScoreLabel()` - Game validation logic and score calculation |
 | `game/canvasSetup.js` | Canvas sizing | `calculateCellSize(gridSize, extraSpace)`, `setupCanvas()` - Responsive sizing utilities |
 
 ### Core Concepts
@@ -136,16 +136,67 @@ Validation logic remains identical - both modes use the same `isValid = remainin
 
 Setting is accessible via bottom sheet under Hints checkbox. Changes apply immediately with live re-render. Setting persists across sessions and applies to all game modes (daily and unlimited).
 
-**Validation Error Modals:**
+**Score Tracking System:**
+
+Players receive real-time progress feedback through a percentage-based scoring metric that tracks how close they are to satisfying all hint constraints.
+
+**Score Calculation:**
+- Formula: `(startingTotal - currentTotal) / startingTotal × 100%`
+- `startingTotal`: Sum of absolute values of all expected turn counts
+- `currentTotal`: Sum of absolute values of all remaining turns needed
+- Uses absolute values so positive and negative deviations are weighted equally
+
+**Score Labels:**
+| Score Range | Label |
+|-------------|-------|
+| 100% | Perfect |
+| 80-99% | Genius |
+| 60-79% | Amazing |
+| 40-59% | Great |
+| 20-39% | Good |
+| 0-19% | Okay |
+
+**Display:**
+- Timer shows: "Difficulty • Time • Score%" (e.g., "Medium • 1:23 • 75%")
+- Score updates in real-time as player draws path
+- Hidden when no hints exist or solution has been viewed
+
+**Validation Modals:**
 
 When players complete a closed loop, contextual feedback modals appear based on validation state:
 
-| Condition | Modal Title | When Shown | Difficulty |
-|-----------|-------------|------------|------------|
-| Hints satisfied | "You made a loop!" | Win state | All |
-| Hints wrong, complete loop formed | "Almost there!" | Error | All |
+| Condition | Modal Title | Modal Body | Icon | Color |
+|-----------|-------------|------------|------|-------|
+| All hints satisfied (100%) | "Perfect loop!" | Completion time | party-popper | Gold/amber |
+| Partial completion (<100%) | "\<Score Label\> loop!" | "You scored \<score\>% in \<time\>. Make all numbers zero for a perfect score." | circle-check-big | Green |
 
-The error modal provides feedback that some numbers are touching the wrong amount of bends in the loop.
+**Partial Win Modal:**
+- Shows player's current score percentage and time
+- Displays encouraging score label as title (e.g., "Amazing loop!")
+- Includes Share button to share partial completion
+- Timer pauses while modal is visible, resumes on dismiss
+- Motivates continued improvement with clear goal
+
+**Perfect Win Modal:**
+- Celebrates complete puzzle solution
+- Daily mode includes Share button for social features
+- Timer stops permanently on perfect completion
+
+**Share Text Format:**
+
+Both partial and perfect completions use a consistent share format that includes the score:
+
+```
+💫 Medium Loopy
+75% in 2:34
+26 Dec 2025
+```
+
+- **Perfect wins** (100%): Share text shows "100% in \<time\>"
+- **Partial wins** (<100%): Share text shows actual score percentage
+- Includes difficulty level, score percentage, time, and date
+- Uses Web Share API on mobile devices with clipboard fallback
+- Share button available in both partial win and perfect win modals
 
 **Validation Optimization:**
 
@@ -468,7 +519,6 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Tracked Pages:**
 - `/` (home)
-- `/tutorial`
 - `/play?difficulty=easy|medium|hard`
 
 **Key Files:**
@@ -541,7 +591,7 @@ The app automatically follows the user's system-wide dark mode preference withou
 | `src/config.js` | Game configuration | Imports semantic tokens for canvas colors |
 | `src/main.js` | App initialization | Updates theme-color meta tag on theme change |
 | `src/views/game.js` | Game view | Re-renders canvas on theme change |
-| `src/views/tutorial.js` | Tutorial view | Re-renders canvas on theme change |
+| `src/components/tutorialSheet.js` | Tutorial component | Re-renders canvas on theme change |
 
 **Performance Characteristics:**
 
@@ -591,13 +641,14 @@ Icon container is 80px tall, fully rounded, with center aligned to sheet's top e
 
 **Color Schemes:**
 
-Five predefined color schemes provide visual context:
+Six predefined color schemes provide visual context:
 
 | Scheme | Icon Color | Background Color | Usage |
 |--------|-----------|------------------|-------|
 | `neutral` | `#6B7280` (grey) | `#F3F4F6` (pale grey) | Settings, default |
-| `success` | `#F59E0B` (amber/gold) | `#FEF3C7` (pale golden yellow) | Win notifications, celebrations |
-| `error` | `#EF4444` (red) | `#FEE2E2` (pale red) | Incorrect loop feedback |
+| `success` | `#F59E0B` (amber/gold) | `#FEF3C7` (pale golden yellow) | Perfect win notifications, celebrations |
+| `partial` | `#10B981` (green) | `#D1FAE5` (pale green) | Partial win notifications with score feedback |
+| `error` | `#EF4444` (red) | `#FEE2E2` (pale red) | Error feedback (legacy) |
 | `info` | `#3B82F6` (blue) | `#DBEAFE` (pale blue) | Informational messages |
 | `warning` | `#F59E0B` (amber) | `#FEF3C7` (pale amber) | Warnings |
 
@@ -653,9 +704,9 @@ All dismissal paths wait for hide animation to complete before firing onClose ca
 | Location | Sheet Type | Content | Icon | Color Scheme | Dismiss Label |
 |----------|-----------|---------|------|--------------|---------------|
 | Settings panel | Persistent | HTMLElement | `settings` | `neutral` | "Close" |
-| Win notification (game) | Transient | HTML string | `party-popper` | `success` | "Yay!" |
-| Win notification (tutorial) | Transient | HTML string | `party-popper` | `success` | "Next" |
-| Partial win feedback | Transient | HTML string | `circle-off` | `error` | "Keep trying" |
+| Perfect win (game) | Transient | HTML string | `party-popper` | `success` | "Yay!" |
+| Perfect win (tutorial) | Transient | HTML string | `party-popper` | `success` | "Next" |
+| Partial win (game) | Transient | HTML string | `circle-check-big` | `partial` | "Keep trying" |
 
 **Integration Points:**
 

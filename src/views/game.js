@@ -17,7 +17,7 @@ import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
-import { checkPartialStructuralWin, validateHints, computeStateKey } from '../game/validation.js';
+import { checkPartialStructuralWin, validateHints, computeStateKey, calculateScore } from '../game/validation.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
 import {
   trackGameStarted,
@@ -129,6 +129,9 @@ let cachedLastUnlimitedDifficulty = 'easy';
 // Undo functionality
 const UNDO_HISTORY_LIMIT = 50;
 let undoHistory = [];
+
+// Score tracking
+let currentScore = null;  // { percentage: number, label: string } | null
 
 /* ============================================================================
  * PERSISTENCE HELPERS
@@ -472,7 +475,7 @@ function hideSettings() {
 function showWinCelebration(finalTime) {
   // Build bottom sheet options
   const bottomSheetOptions = {
-    title: 'You made a loop!',
+    title: 'Perfect loop!',
     content: `<div class="bottom-sheet-message">You finished in ${finalTime}.</div>`,
     icon: 'party-popper',
     colorScheme: 'success',
@@ -485,7 +488,7 @@ function showWinCelebration(finalTime) {
     bottomSheetOptions.primaryButton = {
       label: 'Share',
       icon: 'share-2',
-      onClick: (buttonEl) => handleShare(buttonEl, finalTime)
+      onClick: (buttonEl) => handleShare(buttonEl, finalTime, 100)
     };
   }
 
@@ -500,8 +503,8 @@ function showWinCelebration(finalTime) {
 /**
  * Handle share button click - delegates to share module
  */
-async function handleShare(buttonEl, finalTime) {
-  await handleShareUtil(buttonEl, currentGameDifficulty, finalTime);
+async function handleShare(buttonEl, finalTime, score) {
+  await handleShareUtil(buttonEl, currentGameDifficulty, finalTime, score);
 }
 
 function updateSegmentedControlState() {
@@ -616,6 +619,9 @@ function render(triggerSave = true, animationMode = 'auto') {
   // Build player turn map ONCE per render for reuse
   const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
+  // Calculate score (but don't update display yet - wait until after rendering)
+  currentScore = calculateScore(hintCells, gridSize, cachedSolutionTurnMap, playerTurnMap);
+
   clearCanvas(ctx, totalSize, totalSize);
   renderGrid(ctx, gridSize, cellSize);
 
@@ -657,6 +663,12 @@ function render(triggerSave = true, animationMode = 'auto') {
 
   // Render path with visual win state (green if currently winning OR officially won)
   const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon, animationMode, gamePathAnimationState);
+
+  // Now that all canvas rendering is complete, update timer display to show score
+  // Skip only when solution has been viewed (shows "Viewed solution" text instead)
+  if (gameTimer && !hasViewedSolution) {
+    gameTimer.updateDisplay();
+  }
 
   // PHASE 2: Modal validation (deferred - only runs when not dragging)
   // This shows modals and sets the official hasWon state
@@ -700,8 +712,18 @@ function render(triggerSave = true, animationMode = 'auto') {
       // Valid structure but not winning - check for error modals
       // Check for wrong hints error
       if (!hintsValid && !hasShownPartialWinFeedback) {
-        // "Almost there!" error - hints don't match
+        // Partial win - show score and encourage improvement
         hasShownPartialWinFeedback = true;
+
+        // Pause timer while modal is visible
+        if (gameTimer) {
+          gameTimer.pause();
+        }
+
+        // Capture current time and score for sharing
+        const currentTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
+        const scorePercentage = currentScore ? currentScore.percentage : 0;
+        const scoreLabel = currentScore ? currentScore.label : 'Okay';
 
         // Track validation error
         trackValidationError(currentGameDifficulty, isDailyMode ? 'daily' : 'unlimited');
@@ -711,11 +733,24 @@ function render(triggerSave = true, animationMode = 'auto') {
           activeGameSheet.destroy();
         }
         activeGameSheet = showBottomSheetAsync({
-          title: 'Almost there!',
-          content: '<div class="bottom-sheet-message"><p style="margin-bottom: 1em;">Some numbers are touching the wrong amount of bends in your loop.</p><p>Draw a loop that satisfies all numbers.</p></div>',
-          icon: 'circle-off',
-          colorScheme: 'error',
-          dismissLabel: 'Keep trying'
+          title: `${scoreLabel} loop!`,
+          content: `<div class="bottom-sheet-message"><p style="margin-bottom: 1em;">You scored ${scorePercentage}% in ${currentTime}.</p><p>Make all numbers zero for a perfect score.</p></div>`,
+          icon: 'circle-check-big',
+          colorScheme: 'partial',
+          dismissLabel: 'Keep trying',
+          primaryButton: {
+            label: 'Share',
+            icon: 'share-2',
+            onClick: async (buttonEl) => {
+              await handleShare(buttonEl, currentTime, scorePercentage);
+            }
+          },
+          onClose: () => {
+            // Resume timer when modal is dismissed
+            if (gameTimer && !hasWon) {
+              gameTimer.resume();
+            }
+          }
         });
       }
     } else {
@@ -858,6 +893,10 @@ function restoreTimerState(savedState) {
   if (hasViewedSolution) {
     // Show "Viewed solution" text (takes priority over win time)
     stopTimer();
+    // Preserve elapsed seconds for partial win modal and stats
+    if (gameTimer) {
+      gameTimer.setElapsedSeconds(savedState.elapsedSeconds);
+    }
     if (gameTimerEl) {
       gameTimerEl.textContent = 'Viewed solution';
     }
@@ -1118,7 +1157,14 @@ export function initGame(difficulty) {
   // Create timer instance
   gameTimer = createGameTimer({
     onUpdate: (text) => {
-      if (gameTimerEl) gameTimerEl.textContent = text;
+      if (gameTimerEl) {
+        // Append score to timer display if available
+        if (currentScore) {
+          gameTimerEl.textContent = `${text} • ${currentScore.percentage}%`;
+        } else {
+          gameTimerEl.textContent = text;
+        }
+      }
     },
     difficulty: currentGameDifficulty
   });

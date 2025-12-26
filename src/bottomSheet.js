@@ -27,6 +27,10 @@ const COLOR_SCHEMES = {
     iconColor: semantic.successIcon,    // Rich amber/gold
     backgroundColor: semantic.successBg // Pale golden yellow
   },
+  partial: {
+    iconColor: semantic.partial,        // Rich green
+    backgroundColor: semantic.partialBg // Pale green
+  },
   error: {
     iconColor: semantic.error,          // Rich red
     backgroundColor: semantic.errorBg   // Pale red
@@ -47,7 +51,7 @@ const COLOR_SCHEMES = {
  * @param {string} options.title - Title displayed in the header
  * @param {HTMLElement|string} options.content - Content to display (HTMLElement or HTML string)
  * @param {string} [options.icon] - Optional Lucide icon name (e.g., 'settings', 'party-popper', 'circle-off')
- * @param {string} [options.colorScheme='neutral'] - Color scheme: 'neutral', 'success', 'error', 'info', 'warning'
+ * @param {string} [options.colorScheme='neutral'] - Color scheme: 'neutral', 'success', 'partial', 'error', 'info', 'warning'
  * @param {string|null} [options.dismissLabel='Close'] - Label for the dismiss button at bottom. Pass null to hide the dismiss button.
  * @param {string} [options.dismissVariant='secondary'] - Dismiss button variant: 'primary' or 'secondary'
  * @param {Object} [options.primaryButton] - Optional primary action button above dismiss

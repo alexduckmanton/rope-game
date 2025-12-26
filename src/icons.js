@@ -12,7 +12,8 @@
  * - RefreshCcw: Restart puzzle button
  * - Undo2: Undo button in game view
  * - PartyPopper: Win/celebration bottom sheets
- * - CircleOff: Error/incorrect feedback bottom sheets
+ * - CircleOff: Error/incorrect feedback bottom sheets (legacy)
+ * - CircleCheckBig: Partial win bottom sheets
  * - Share2: Share button in win bottom sheet
  * - Check: Tutorial completed icon on home screen
  * - Trophy: Daily puzzle completed icon on home screen
@@ -22,7 +23,7 @@
  * - CircleHelp: Help button in tutorial navigation to re-open lesson sheet
  */
 
-import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, CircleCheckBig, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -46,6 +47,7 @@ export function initIcons() {
       Undo2,
       PartyPopper,
       CircleOff,
+      CircleCheckBig,
       Share2,
       Check,
       Trophy,

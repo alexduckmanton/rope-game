@@ -3,7 +3,43 @@
  * Centralizes magic numbers for easier tuning and maintenance
  */
 
-import { semantic, colors } from './tokens.js';
+import tokens from './tokens.js';
+
+/**
+ * Get current color configuration
+ * Returns a fresh colors object that reads from current token values
+ * This ensures colors update when tokens are reloaded (e.g., on theme change)
+ */
+function getColors() {
+  return {
+    // Grid and background
+    BACKGROUND: tokens.semantic.canvasBg,
+    GRID_LINE: tokens.semantic.gridLine,
+
+    // Paths
+    SOLUTION_PATH: tokens.semantic.solutionPath,
+    PLAYER_PATH: tokens.semantic.playerPath,
+    PLAYER_PATH_WIN: tokens.semantic.playerPathWin,
+
+    // UI elements
+    UI_TEXT: tokens.semantic.textPrimary,
+
+    // Hints
+    HINT_EXTRA: tokens.semantic.hintExtra,         // Color for non-hint cells in 'all' mode
+    HINT_VALIDATED: tokens.semantic.hintValidated, // Color when hint is satisfied
+    HINT_COLORS: [                          // Magnitude-based color palette (bright yellow-orange → dark magenta)
+      tokens.colors.hint[1],  // Magnitude 1 - Bright orange-yellow (lightest)
+      tokens.colors.hint[2],  // Magnitude 2 - Bright orange
+      tokens.colors.hint[3],  // Magnitude 3 - Tomato red
+      tokens.colors.hint[4],  // Magnitude 4 - Red-pink
+      tokens.colors.hint[5],  // Magnitude 5 - Hot pink
+      tokens.colors.hint[6],  // Magnitude 6 - Pink-magenta
+      tokens.colors.hint[7],  // Magnitude 7 - Magenta
+      tokens.colors.hint[8],  // Magnitude 8 - Dark magenta
+      tokens.colors.hint[9],  // Magnitude 9 - Very dark magenta (darkest)
+    ],
+  };
+}
 
 export const CONFIG = {
   // Cell sizing
@@ -41,33 +77,9 @@ export const CONFIG = {
 
   // Colors - imported from design tokens
   // See src/tokens.js for full color system
-  COLORS: {
-    // Grid and background
-    BACKGROUND: semantic.canvasBg,
-    GRID_LINE: semantic.gridLine,
-
-    // Paths
-    SOLUTION_PATH: semantic.solutionPath,
-    PLAYER_PATH: semantic.playerPath,
-    PLAYER_PATH_WIN: semantic.playerPathWin,
-
-    // UI elements
-    UI_TEXT: semantic.textPrimary,
-
-    // Hints
-    HINT_EXTRA: semantic.hintExtra,         // Color for non-hint cells in 'all' mode
-    HINT_VALIDATED: semantic.hintValidated, // Color when hint is satisfied
-    HINT_COLORS: [                          // Magnitude-based color palette (bright yellow-orange → dark magenta)
-      colors.hint[1],  // Magnitude 1 - Bright orange-yellow (lightest)
-      colors.hint[2],  // Magnitude 2 - Bright orange
-      colors.hint[3],  // Magnitude 3 - Tomato red
-      colors.hint[4],  // Magnitude 4 - Red-pink
-      colors.hint[5],  // Magnitude 5 - Hot pink
-      colors.hint[6],  // Magnitude 6 - Pink-magenta
-      colors.hint[7],  // Magnitude 7 - Magenta
-      colors.hint[8],  // Magnitude 8 - Dark magenta
-      colors.hint[9],  // Magnitude 9 - Very dark magenta (darkest)
-    ],
+  // Getter ensures colors always reflect current token values (even after reload/theme change)
+  get COLORS() {
+    return getColors();
   },
 
   // Puzzle generation

@@ -166,3 +166,71 @@ export function checkShouldValidate({
     stateChanged
   };
 }
+
+/**
+ * Map score percentage to label
+ * @param {number} percentage - Score percentage (0-100)
+ * @returns {string} Label for the percentage range
+ */
+export function getScoreLabel(percentage) {
+  if (percentage === 100) return 'Perfect';
+  if (percentage >= 80) return 'Genius';
+  if (percentage >= 60) return 'Amazing';
+  if (percentage >= 40) return 'Great';
+  if (percentage >= 20) return 'Good';
+  return 'Okay';
+}
+
+/**
+ * Calculate progress score based on hint constraints
+ *
+ * Score represents how close the player is to satisfying all hint constraints:
+ * - 100% = all hints satisfied (all remainingTurns = 0)
+ * - 0% = no progress (all hints at starting values)
+ *
+ * Uses absolute values so +1 and -1 are treated the same.
+ *
+ * @param {Set<string>} hintCells - Cells with hint numbers
+ * @param {number} gridSize - Size of the grid
+ * @param {Map<string, boolean>} solutionTurnMap - Pre-built solution turn map
+ * @param {Map<string, boolean>} playerTurnMap - Pre-built player turn map
+ * @returns {{ percentage: number, label: string } | null} Score object or null if no hints
+ */
+export function calculateScore(hintCells, gridSize, solutionTurnMap, playerTurnMap) {
+  // Return null if no hints (hide score display)
+  if (!hintCells || hintCells.size === 0) {
+    return null;
+  }
+
+  let startingTotal = 0;
+  let currentTotal = 0;
+
+  // Calculate totals for all required hints
+  for (const cellKey of hintCells) {
+    const { row, col } = parseCellKey(cellKey);
+    const expectedTurnCount = countTurnsInArea(row, col, gridSize, solutionTurnMap);
+    const actualTurnCount = countTurnsInArea(row, col, gridSize, playerTurnMap);
+    const remainingTurns = expectedTurnCount - actualTurnCount;
+
+    startingTotal += Math.abs(expectedTurnCount);
+    currentTotal += Math.abs(remainingTurns);
+  }
+
+  // Calculate percentage (clamp to 0% minimum)
+  let percentage;
+  if (startingTotal === 0) {
+    // Edge case: all hints have expected value of 0
+    percentage = currentTotal === 0 ? 100 : 0;
+  } else {
+    percentage = ((startingTotal - currentTotal) / startingTotal) * 100;
+    percentage = Math.max(0, percentage);
+  }
+
+  // Round to nearest integer
+  percentage = Math.round(percentage);
+
+  return {
+    percentage,
+    label: getScoreLabel(percentage)
+  };
+}
