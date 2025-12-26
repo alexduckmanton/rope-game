@@ -662,7 +662,9 @@ function render(triggerSave = true, animationMode = 'auto') {
   }
 
   // Render path with visual win state (green if currently winning OR officially won)
-  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon, animationMode, gamePathAnimationState);
+  // Use 50% opacity when solution is visible to improve visibility
+  const playerOpacity = hasViewedSolution ? 0.5 : 1.0;
+  const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon, animationMode, gamePathAnimationState, playerOpacity);
 
   // Now that all canvas rendering is complete, update timer display to show score
   // Skip only when solution has been viewed (shows "Viewed solution" text instead)
@@ -704,7 +706,7 @@ function render(triggerSave = true, animationMode = 'auto') {
       );
 
       // Re-render path with win color (already green from visual validation, but ensures consistency)
-      const winPathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true, animationMode, gamePathAnimationState);
+      const winPathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, true, animationMode, gamePathAnimationState, playerOpacity);
 
       // Show win celebration
       showWinCelebration(finalTime);

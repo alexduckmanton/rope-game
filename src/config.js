@@ -55,7 +55,8 @@ export const CONFIG = {
   // Rendering
   RENDERING: {
     CORNER_RADIUS_FACTOR: 0.35,  // Multiplier for cellSize to get corner radius
-    PATH_LINE_WIDTH: 4,          // Width of path lines
+    PATH_LINE_WIDTH: 4,          // Width of player path lines
+    SOLUTION_LINE_WIDTH: 8,      // Width of solution path line (thicker for visibility)
     GRID_LINE_WIDTH: 1,          // Width of grid lines
     DOT_RADIUS: 6,               // Radius for isolated cell dots
   },
