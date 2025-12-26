@@ -11,6 +11,7 @@ import { initRouter } from './router.js';
 import { initIcons } from './icons.js';
 import { cleanupOldSaves } from './persistence.js';
 import { CONFIG } from './config.js';
+import tokens from './tokens.js';
 
 // Preload critical fonts for faster loading
 // Using Vite's ?url import to get correct paths in dev and production
@@ -78,6 +79,11 @@ function init() {
   // Inject layout constants from config.js into CSS immediately
   // This must happen before any rendering to ensure CSS has correct values
   injectLayoutConstants();
+
+  // Reload color tokens from CSS now that DOM is ready
+  // This ensures colors are read after stylesheets are loaded
+  // (Initial module-level color load may happen before CSS is ready)
+  tokens.reloadColors();
 
   // Preload fonts first for fastest loading
   preloadFonts();
