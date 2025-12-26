@@ -9,6 +9,7 @@ import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCel
 import { generateSolutionPath } from '../generator.js';
 import { buildSolutionTurnMap, countTurnsInArea, parseCellKey } from '../utils.js';
 import { CONFIG } from '../config.js';
+import tokens from '../tokens.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
@@ -1067,6 +1068,11 @@ function getHintProbabilityForDifficulty(difficulty) {
  * @param {string} difficulty - 'easy', 'medium', 'hard', or 'unlimited'
  */
 export function initGame(difficulty) {
+  // Force color reload to avoid CSS loading race condition
+  // This ensures colors are fresh from CSS before any rendering,
+  // regardless of when modules were loaded vs when stylesheets finished loading
+  tokens.reloadColors();
+
   // Detect unlimited mode
   isUnlimitedMode = (difficulty === 'unlimited');
 
