@@ -736,7 +736,7 @@ function render(triggerSave = true, animationMode = 'auto') {
           title: `${scoreLabel} loop!`,
           content: `<div class="bottom-sheet-message"><p style="margin-bottom: 1em;">You got ${scorePercentage}% in ${currentTime}.</p><p>Make all numbers zero for a perfect score.</p></div>`,
           icon: 'circle-check-big',
-          colorScheme: 'error',
+          colorScheme: 'partial',
           dismissLabel: 'Keep trying',
           primaryButton: {
             label: 'Share',

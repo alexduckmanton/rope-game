@@ -141,6 +141,9 @@ function loadSemanticFromCSS() {
     successBg: getCSSColor('--color-success-bg'),
     successIcon: getCSSColor('--color-success-icon'),
 
+    partial: getCSSColor('--color-partial'),
+    partialBg: getCSSColor('--color-partial-bg'),
+
     error: getCSSColor('--color-error'),
     errorBg: getCSSColor('--color-error-bg'),
 
