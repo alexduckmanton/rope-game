@@ -380,6 +380,19 @@ button {
   display: flex;
   justify-content: center;
   align-items: center;
+
+  /* Calculate default size before JavaScript loads (mirrors calculateCellSize logic) */
+  /* This ensures skeleton is visible immediately during loading */
+  --available-width: calc(100vw - 40px);
+  --available-height: calc(100vh - 100px);
+  --cell-size-from-width: calc(var(--available-width) / 4);
+  --cell-size-from-height: calc(var(--available-height) / 4);
+  --cell-size-unclamped: min(var(--cell-size-from-width), var(--cell-size-from-height));
+  --cell-size: clamp(50px, var(--cell-size-unclamped), 100px);
+  --total-size: calc(var(--cell-size) * 4);
+
+  width: var(--total-size);
+  height: var(--total-size);
 }
 
 /* Skeleton loader for canvas loading state */
