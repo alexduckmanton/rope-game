@@ -262,10 +262,11 @@ export function getHintColor(magnitude) {
 
 /**
  * Default export for convenient importing
+ * Uses getters to ensure colors and semantic always reflect current values
  */
 export default {
-  colors,
-  semantic,
+  get colors() { return colors; },
+  get semantic() { return semantic; },
   opacity,
   legacy,
   getHintColor,
