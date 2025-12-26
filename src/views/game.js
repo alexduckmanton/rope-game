@@ -475,7 +475,7 @@ function hideSettings() {
 function showWinCelebration(finalTime) {
   // Build bottom sheet options
   const bottomSheetOptions = {
-    title: 'You made a loop!',
+    title: 'Perfect loop!',
     content: `<div class="bottom-sheet-message">You finished in ${finalTime}.</div>`,
     icon: 'party-popper',
     colorScheme: 'success',
