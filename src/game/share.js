@@ -27,20 +27,15 @@ export function formatShareDate(date = new Date()) {
  * Build share text for completed puzzle
  * @param {string} difficulty - Difficulty level
  * @param {string} time - Formatted completion time
- * @param {number} [score] - Score percentage (optional, for partial completion)
+ * @param {number} [score] - Score percentage (optional, defaults to 100 for perfect wins)
  * @returns {string} Share text
  */
-export function buildShareText(difficulty, time, score) {
+export function buildShareText(difficulty, time, score = 100) {
   const dateStr = formatShareDate();
   const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
 
-  // If score provided, use new format: "💫 <difficulty> Loopy\n<score>% in <time>\n<date>"
-  if (score !== undefined && score !== null) {
-    return `💫 ${label} Loopy\n${score}% in ${time}\n${dateStr}`;
-  }
-
-  // Otherwise, use original format for perfect wins
-  return `💫 ${label} Loopy ${time}\n${dateStr}`;
+  // Use consistent format: "💫 <difficulty> Loopy\n<score>% in <time>\n<date>"
+  return `💫 ${label} Loopy\n${score}% in ${time}\n${dateStr}`;
 }
 
 /**

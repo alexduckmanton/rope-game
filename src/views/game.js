@@ -488,7 +488,7 @@ function showWinCelebration(finalTime) {
     bottomSheetOptions.primaryButton = {
       label: 'Share',
       icon: 'share-2',
-      onClick: (buttonEl) => handleShare(buttonEl, finalTime)
+      onClick: (buttonEl) => handleShare(buttonEl, finalTime, 100)
     };
   }
 
