@@ -893,6 +893,10 @@ function restoreTimerState(savedState) {
   if (hasViewedSolution) {
     // Show "Viewed solution" text (takes priority over win time)
     stopTimer();
+    // Preserve elapsed seconds for partial win modal and stats
+    if (gameTimer) {
+      gameTimer.setElapsedSeconds(savedState.elapsedSeconds);
+    }
     if (gameTimerEl) {
       gameTimerEl.textContent = 'Viewed solution';
     }
