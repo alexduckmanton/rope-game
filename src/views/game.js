@@ -620,7 +620,7 @@ function render(triggerSave = true, animationMode = 'auto') {
   const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
   // Calculate score and update display
-  currentScore = calculateScore(hintCells, playerDrawnCells, playerConnections, gridSize, cachedSolutionTurnMap, playerTurnMap);
+  currentScore = calculateScore(hintCells, gridSize, cachedSolutionTurnMap, playerTurnMap);
 
   // Trigger timer display update to show score
   // Skip only when solution has been viewed (shows "Viewed solution" text instead)

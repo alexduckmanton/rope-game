@@ -191,16 +191,14 @@ export function getScoreLabel(percentage) {
  * Uses absolute values so +1 and -1 are treated the same.
  *
  * @param {Set<string>} hintCells - Cells with hint numbers
- * @param {Set<string>} playerDrawnCells - Player's drawn cells
- * @param {Map<string, Set<string>>} playerConnections - Player's connections
  * @param {number} gridSize - Size of the grid
  * @param {Map<string, boolean>} solutionTurnMap - Pre-built solution turn map
  * @param {Map<string, boolean>} playerTurnMap - Pre-built player turn map
  * @returns {{ percentage: number, label: string } | null} Score object or null if no hints
  */
-export function calculateScore(hintCells, playerDrawnCells, playerConnections, gridSize, solutionTurnMap, playerTurnMap) {
+export function calculateScore(hintCells, gridSize, solutionTurnMap, playerTurnMap) {
   // Return null if no hints (hide score display)
-  if (hintCells.size === 0) {
+  if (!hintCells || hintCells.size === 0) {
     return null;
   }
 
