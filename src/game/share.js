@@ -27,11 +27,19 @@ export function formatShareDate(date = new Date()) {
  * Build share text for completed puzzle
  * @param {string} difficulty - Difficulty level
  * @param {string} time - Formatted completion time
+ * @param {number} [score] - Score percentage (optional, for partial completion)
  * @returns {string} Share text
  */
-export function buildShareText(difficulty, time) {
+export function buildShareText(difficulty, time, score) {
   const dateStr = formatShareDate();
   const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+
+  // If score provided, use new format: "<difficulty> Loopy\n<score>% in <time>\n<date>"
+  if (score !== undefined && score !== null) {
+    return `${label} Loopy\n${score}% in ${time}\n${dateStr}`;
+  }
+
+  // Otherwise, use original format for perfect wins
   return `💫 ${label} Loopy ${time}\n${dateStr}`;
 }
 
@@ -65,9 +73,10 @@ function showButtonFeedback(button, text, duration = 2000) {
  * @param {HTMLButtonElement} button - The share button element
  * @param {string} difficulty - Current difficulty
  * @param {string} time - Formatted completion time
+ * @param {number} [score] - Score percentage (optional, for partial completion)
  */
-export async function handleShare(button, difficulty, time) {
-  const shareText = buildShareText(difficulty, time);
+export async function handleShare(button, difficulty, time, score) {
+  const shareText = buildShareText(difficulty, time, score);
 
   // Track share attempt
   trackShareAttempted(difficulty, time);

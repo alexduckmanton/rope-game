@@ -503,8 +503,8 @@ function showWinCelebration(finalTime) {
 /**
  * Handle share button click - delegates to share module
  */
-async function handleShare(buttonEl, finalTime) {
-  await handleShareUtil(buttonEl, currentGameDifficulty, finalTime);
+async function handleShare(buttonEl, finalTime, score) {
+  await handleShareUtil(buttonEl, currentGameDifficulty, finalTime, score);
 }
 
 function updateSegmentedControlState() {
@@ -712,8 +712,16 @@ function render(triggerSave = true, animationMode = 'auto') {
       // Valid structure but not winning - check for error modals
       // Check for wrong hints error
       if (!hintsValid && !hasShownPartialWinFeedback) {
-        // "Almost there!" error - hints don't match
+        // Partial win - show score and encourage improvement
         hasShownPartialWinFeedback = true;
+
+        // Stop timer while modal is visible
+        stopTimer();
+
+        // Capture current time and score for sharing
+        const currentTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
+        const scorePercentage = currentScore ? currentScore.percentage : 0;
+        const scoreLabel = currentScore ? currentScore.label : 'Okay';
 
         // Track validation error
         trackValidationError(currentGameDifficulty, isDailyMode ? 'daily' : 'unlimited');
@@ -723,11 +731,24 @@ function render(triggerSave = true, animationMode = 'auto') {
           activeGameSheet.destroy();
         }
         activeGameSheet = showBottomSheetAsync({
-          title: 'Almost there!',
-          content: '<div class="bottom-sheet-message"><p style="margin-bottom: 1em;">Some numbers are touching the wrong amount of bends in your loop.</p><p>Draw a loop that satisfies all numbers.</p></div>',
+          title: `${scoreLabel}!`,
+          content: `<div class="bottom-sheet-message"><p style="margin-bottom: 1em;">You got ${scorePercentage}% in ${currentTime}.</p><p>Can you get a perfect score?</p></div>`,
           icon: 'circle-off',
           colorScheme: 'error',
-          dismissLabel: 'Keep trying'
+          dismissLabel: 'Keep trying',
+          primaryButton: {
+            label: 'Share',
+            icon: 'share-2',
+            onClick: async (buttonEl) => {
+              await handleShare(buttonEl, currentTime, scorePercentage);
+            }
+          },
+          onClose: () => {
+            // Resume timer when modal is dismissed
+            if (gameTimer && !hasWon) {
+              gameTimer.start();
+            }
+          }
         });
       }
     } else {
