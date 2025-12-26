@@ -73,26 +73,18 @@ function updateThemeColor() {
 }
 
 /**
- * Initialize the application
+ * Initialize the application (called on DOMContentLoaded)
  */
 function init() {
   // Inject layout constants from config.js into CSS immediately
   // This must happen before any rendering to ensure CSS has correct values
   injectLayoutConstants();
 
-  // Reload color tokens from CSS now that DOM is ready
-  // This ensures colors are read after stylesheets are loaded
-  // (Initial module-level color load may happen before CSS is ready)
-  tokens.reloadColors();
-
   // Preload fonts first for fastest loading
   preloadFonts();
 
   // Clean up old saved games from previous days
   cleanupOldSaves();
-
-  // Set initial theme-color meta tag
-  updateThemeColor();
 
   // Listen for theme changes and update meta tag
   window.addEventListener('themeChanged', updateThemeColor);
@@ -133,14 +125,38 @@ function init() {
 
   // Initialize Lucide icons
   initIcons();
+}
 
-  // Initialize router
+/**
+ * Start the app after stylesheets are fully loaded
+ * This must happen AFTER CSS is ready to ensure color tokens load correctly
+ */
+function startApp() {
+  // Load color tokens from CSS now that stylesheets are guaranteed to be ready
+  // This eliminates the race condition where module-level color loading
+  // happens before CSS is fully loaded
+  tokens.reloadColors();
+
+  // Set initial theme-color meta tag (requires colors to be loaded)
+  updateThemeColor();
+
+  // Initialize router and start the app
   initRouter();
 }
 
-// Start the app when DOM is ready
+// Phase 1: Initialize app structure when DOM is ready (but stylesheets may still be loading)
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
   init();
+}
+
+// Phase 2: Load colors and start app AFTER all resources (including stylesheets) are loaded
+// This ensures colors are always read from fully-loaded CSS
+if (document.readyState === 'complete') {
+  // Already loaded, start immediately
+  startApp();
+} else {
+  // Wait for load event (fires after all stylesheets, images, etc. are loaded)
+  window.addEventListener('load', startApp);
 }
