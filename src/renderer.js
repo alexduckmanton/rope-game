@@ -219,7 +219,7 @@ export function renderPath(ctx, path, cellSize) {
 
   // Save context and apply opacity
   ctx.save();
-  ctx.globalAlpha = 0.5;
+  ctx.globalAlpha = 0.4;
 
   ctx.strokeStyle = CONFIG.COLORS.SOLUTION_PATH;
   ctx.lineWidth = CONFIG.RENDERING.SOLUTION_LINE_WIDTH;
