@@ -17,7 +17,7 @@ import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
-import { checkPartialStructuralWin, validateHints, computeStateKey } from '../game/validation.js';
+import { checkPartialStructuralWin, validateHints, computeStateKey, calculateScore } from '../game/validation.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
 import {
   trackGameStarted,
@@ -129,6 +129,9 @@ let cachedLastUnlimitedDifficulty = 'easy';
 // Undo functionality
 const UNDO_HISTORY_LIMIT = 50;
 let undoHistory = [];
+
+// Score tracking
+let currentScore = null;  // { percentage: number, label: string } | null
 
 /* ============================================================================
  * PERSISTENCE HELPERS
@@ -615,6 +618,15 @@ function render(triggerSave = true, animationMode = 'auto') {
 
   // Build player turn map ONCE per render for reuse
   const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
+
+  // Calculate score and update display
+  currentScore = calculateScore(hintCells, playerDrawnCells, playerConnections, gridSize, cachedSolutionTurnMap, playerTurnMap);
+
+  // Trigger timer display update to show score
+  // Skip only when solution has been viewed (shows "Viewed solution" text instead)
+  if (gameTimer && !hasViewedSolution) {
+    gameTimer.updateDisplay();
+  }
 
   clearCanvas(ctx, totalSize, totalSize);
   renderGrid(ctx, gridSize, cellSize);
@@ -1118,7 +1130,14 @@ export function initGame(difficulty) {
   // Create timer instance
   gameTimer = createGameTimer({
     onUpdate: (text) => {
-      if (gameTimerEl) gameTimerEl.textContent = text;
+      if (gameTimerEl) {
+        // Append score to timer display if available
+        if (currentScore) {
+          gameTimerEl.textContent = `${text} • ${currentScore.percentage}% (${currentScore.label})`;
+        } else {
+          gameTimerEl.textContent = text;
+        }
+      }
     },
     difficulty: currentGameDifficulty
   });
