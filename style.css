@@ -374,6 +374,53 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Canvas container - holds canvas and skeleton */
+.canvas-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Skeleton loader for canvas loading state */
+.canvas-skeleton {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-bg-elevated);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--color-shadow-sm);
+  animation: canvas-skeleton-pulse 1.5s ease-in-out infinite;
+  z-index: 1; /* Below canvas */
+}
+
+@keyframes canvas-skeleton-pulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Canvas fade-in effect */
+.canvas-container canvas {
+  position: relative;
+  z-index: 2; /* Above skeleton */
+  opacity: 0;
+  transition: opacity 300ms ease-in-out;
+}
+
+.canvas-container.canvas-ready canvas {
+  opacity: 1;
+}
+
+.canvas-container.canvas-ready .canvas-skeleton {
+  display: none;
+}
+
 /* ============================================================================
  * VIEW SYSTEM & TRANSITIONS
  * ========================================================================= */

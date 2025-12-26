@@ -60,6 +60,7 @@ let currentPuzzleId = null;
 
 // DOM elements
 let canvas;
+let canvasContainer;
 let ctx;
 let gameTitle;
 let gameTimerEl;
@@ -578,6 +579,12 @@ function resizeCanvas() {
   const totalSize = cellSize * gridSize;
   const dpr = window.devicePixelRatio || 1;
 
+  // Set container size to prevent layout shift during loading
+  if (canvasContainer) {
+    canvasContainer.style.width = totalSize + 'px';
+    canvasContainer.style.height = totalSize + 'px';
+  }
+
   canvas.width = totalSize * dpr;
   canvas.height = totalSize * dpr;
   canvas.style.width = totalSize + 'px';
@@ -907,6 +914,14 @@ function loadOrGeneratePuzzle() {
     // No saved state - generate fresh puzzle
     generateNewPuzzle();
   }
+
+  // Trigger canvas fade-in after rendering completes
+  // Use requestAnimationFrame to ensure render has painted
+  if (canvasContainer) {
+    requestAnimationFrame(() => {
+      canvasContainer.classList.add('canvas-ready');
+    });
+  }
 }
 
 /**
@@ -1067,6 +1082,7 @@ export function initGame(difficulty) {
 
   // Get DOM elements
   canvas = document.getElementById('game-canvas');
+  canvasContainer = document.getElementById('canvas-container');
   ctx = canvas.getContext('2d');
   gameTitle = document.getElementById('game-title');
   gameTimerEl = document.getElementById('game-timer');
@@ -1330,5 +1346,10 @@ export function cleanupGame() {
   // Reset drag state in core
   if (gameCore) {
     gameCore.resetDragState();
+  }
+
+  // Reset canvas loading state for next visit
+  if (canvasContainer) {
+    canvasContainer.classList.remove('canvas-ready');
   }
 }
