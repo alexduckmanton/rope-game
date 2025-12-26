@@ -826,10 +826,9 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color, currentTi
  * @param {boolean} hasWon - Whether the player has won (uses green color)
  * @param {string} animationMode - 'auto' to enable animations, 'none' to disable
  * @param {Object} pathAnimationState - Path animation state object from the view
- * @param {number} opacity - Opacity for the player path (0.0 to 1.0, default 1.0)
  * @returns {{hasActiveAnimations: boolean}} Animation status for requestAnimationFrame
  */
-export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false, animationMode = 'auto', pathAnimationState, opacity = 1.0) {
+export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon = false, animationMode = 'auto', pathAnimationState) {
   // Only use currentTime for animation calculations when animations are enabled
   // In 'none' mode, pass null to force static positions even if stale animation data exists
   const currentTime = animationMode === 'auto' ? Date.now() : null;
@@ -934,10 +933,6 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
 
   const PLAYER_COLOR = hasWon ? CONFIG.COLORS.PLAYER_PATH_WIN : CONFIG.COLORS.PLAYER_PATH;
 
-  // Save context and apply opacity
-  ctx.save();
-  ctx.globalAlpha = opacity;
-
   // Trace all continuous path segments
   const segments = tracePathSegments(connections);
 
@@ -972,9 +967,6 @@ export function renderPlayerPath(ctx, drawnCells, connections, cellSize, hasWon 
       }
     }
   }
-
-  // Restore context
-  ctx.restore();
 
   // Check if there are any active animations
   hasActiveAnimations = hasActiveAnimations || pathAnimationState.animatingCells.size > 0;
