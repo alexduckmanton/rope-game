@@ -381,18 +381,15 @@ button {
   justify-content: center;
   align-items: center;
 
-  /* Calculate default size before JavaScript loads (mirrors calculateCellSize logic) */
+  /* Fixed size before JavaScript loads - works on all browsers */
   /* This ensures skeleton is visible immediately during loading */
-  --available-width: calc(100vw - 40px);
-  --available-height: calc(100vh - 100px);
-  --cell-size-from-width: calc(var(--available-width) / 4);
-  --cell-size-from-height: calc(var(--available-height) / 4);
-  --cell-size-unclamped: min(var(--cell-size-from-width), var(--cell-size-from-height));
-  --cell-size: clamp(50px, var(--cell-size-unclamped), 100px);
-  --total-size: calc(var(--cell-size) * 4);
+  /* JavaScript will override with precise calculated size */
+  width: 320px;
+  height: 320px;
 
-  width: var(--total-size);
-  height: var(--total-size);
+  /* Responsive sizing for larger screens */
+  width: min(320px, calc(100vw - 40px));
+  height: min(320px, calc(100vh - 140px));
 }
 
 /* Skeleton loader for canvas loading state */
@@ -418,19 +415,19 @@ button {
   }
 }
 
-/* Canvas fade-in effect */
-.canvas-container canvas {
+/* Canvas fade-in effect - more specific selector to ensure it wins */
+#play-view .canvas-container canvas {
   position: relative;
   z-index: 2; /* Above skeleton */
-  opacity: 0;
+  opacity: 0 !important; /* Force hide until ready */
   transition: opacity 300ms ease-in-out;
 }
 
-.canvas-container.canvas-ready canvas {
-  opacity: 1;
+#play-view .canvas-container.canvas-ready canvas {
+  opacity: 1 !important;
 }
 
-.canvas-container.canvas-ready .canvas-skeleton {
+#play-view .canvas-container.canvas-ready .canvas-skeleton {
   display: none;
 }
 
