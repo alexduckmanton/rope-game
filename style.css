@@ -382,18 +382,16 @@ button {
   align-items: center;
 
   /* Calculate size before JavaScript loads (mirrors calculateCellSize logic) */
-  /* This matches the exact formula from canvasSetup.js */
-  /* availableWidth = 100vw - 40px (HORIZONTAL_PADDING) */
-  /* availableHeight = 100vh - 100px (TOP_BAR_HEIGHT) */
-  /* cellSize = min(availableWidth / 4, availableHeight / 4), clamped 50-100px */
+  /* Values injected from config.js via main.js for single source of truth */
+  /* cellSize = min(availableWidth / 4, availableHeight / 4), clamped between min/max */
   /* totalSize = cellSize * 4 */
 
-  --available-width: calc(100vw - 40px);
-  --available-height: calc(100vh - 100px);
+  --available-width: calc(100vw - var(--layout-horizontal-padding));
+  --available-height: calc(100vh - var(--layout-top-bar-height));
   --cell-size-from-width: calc(var(--available-width) / 4);
   --cell-size-from-height: calc(var(--available-height) / 4);
   --cell-size-unclamped: min(var(--cell-size-from-width), var(--cell-size-from-height));
-  --cell-size: clamp(50px, var(--cell-size-unclamped), 100px);
+  --cell-size: clamp(var(--cell-size-min), var(--cell-size-unclamped), var(--cell-size-max));
   --total-size: calc(var(--cell-size) * 4);
 
   width: var(--total-size);
@@ -423,19 +421,21 @@ button {
   }
 }
 
-/* Canvas fade-in effect - more specific selector to ensure it wins */
-#play-view .canvas-container canvas {
+/* Canvas fade-in effect - higher specificity selector to override .game-container canvas */
+/* Specificity: #play-view (1,0,0) + .game-container (0,1,0) + .canvas-container (0,1,0) + canvas (0,0,1) = (1,2,1) */
+/* Beats .game-container canvas which is (0,1,1) */
+#play-view .game-container .canvas-container canvas {
   position: relative;
   z-index: 2; /* Above skeleton */
-  opacity: 0 !important; /* Force hide until ready */
+  opacity: 0;
   transition: opacity 300ms ease-in-out;
 }
 
-#play-view .canvas-container.canvas-ready canvas {
-  opacity: 1 !important;
+#play-view .game-container .canvas-container.canvas-ready canvas {
+  opacity: 1;
 }
 
-#play-view .canvas-container.canvas-ready .canvas-skeleton {
+#play-view .game-container .canvas-container.canvas-ready .canvas-skeleton {
   display: none;
 }
 

@@ -10,6 +10,7 @@
 import { initRouter } from './router.js';
 import { initIcons } from './icons.js';
 import { cleanupOldSaves } from './persistence.js';
+import { CONFIG } from './config.js';
 
 // Preload critical fonts for faster loading
 // Using Vite's ?url import to get correct paths in dev and production
@@ -44,6 +45,18 @@ function preloadFonts() {
 }
 
 /**
+ * Inject layout constants from config.js into CSS custom properties
+ * This ensures CSS and JavaScript use the same values (single source of truth)
+ */
+function injectLayoutConstants() {
+  const root = document.documentElement;
+  root.style.setProperty('--layout-horizontal-padding', `${CONFIG.LAYOUT.HORIZONTAL_PADDING}px`);
+  root.style.setProperty('--layout-top-bar-height', `${CONFIG.LAYOUT.TOP_BAR_HEIGHT}px`);
+  root.style.setProperty('--cell-size-min', `${CONFIG.CELL_SIZE_MIN}px`);
+  root.style.setProperty('--cell-size-max', `${CONFIG.CELL_SIZE_MAX}px`);
+}
+
+/**
  * Update the theme-color meta tag based on current color scheme
  * This changes the browser chrome color on mobile devices
  */
@@ -62,6 +75,10 @@ function updateThemeColor() {
  * Initialize the application
  */
 function init() {
+  // Inject layout constants from config.js into CSS immediately
+  // This must happen before any rendering to ensure CSS has correct values
+  injectLayoutConstants();
+
   // Preload fonts first for fastest loading
   preloadFonts();
 
