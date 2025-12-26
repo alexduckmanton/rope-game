@@ -217,8 +217,12 @@ export function clearCanvas(ctx, width, height) {
 export function renderPath(ctx, path, cellSize) {
   if (!path || path.length === 0) return;
 
+  // Save context and apply opacity
+  ctx.save();
+  ctx.globalAlpha = 0.4;
+
   ctx.strokeStyle = CONFIG.COLORS.SOLUTION_PATH;
-  ctx.lineWidth = CONFIG.RENDERING.PATH_LINE_WIDTH;
+  ctx.lineWidth = CONFIG.RENDERING.SOLUTION_LINE_WIDTH;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
@@ -238,6 +242,9 @@ export function renderPath(ctx, path, cellSize) {
     drawSmoothCurve(ctx, points, radius, true);
     ctx.stroke();
   }
+
+  // Restore context
+  ctx.restore();
 }
 
 /**
