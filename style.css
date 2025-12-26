@@ -374,6 +374,71 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Canvas container - holds canvas and skeleton */
+.canvas-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  /* Calculate size before JavaScript loads (mirrors calculateCellSize logic) */
+  /* Values injected from config.js via main.js for single source of truth */
+  /* cellSize = min(availableWidth / 4, availableHeight / 4), clamped between min/max */
+  /* totalSize = cellSize * 4 */
+
+  --available-width: calc(100vw - var(--layout-horizontal-padding));
+  --available-height: calc(100vh - var(--layout-top-bar-height));
+  --cell-size-from-width: calc(var(--available-width) / 4);
+  --cell-size-from-height: calc(var(--available-height) / 4);
+  --cell-size-unclamped: min(var(--cell-size-from-width), var(--cell-size-from-height));
+  --cell-size: clamp(var(--cell-size-min), var(--cell-size-unclamped), var(--cell-size-max));
+  --total-size: calc(var(--cell-size) * 4);
+
+  width: var(--total-size);
+  height: var(--total-size);
+}
+
+/* Skeleton loader for canvas loading state */
+.canvas-skeleton {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-bg-elevated);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--color-shadow-sm);
+  animation: canvas-skeleton-pulse 1.5s ease-in-out infinite;
+  z-index: 1; /* Below canvas */
+}
+
+@keyframes canvas-skeleton-pulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Canvas fade-in effect - higher specificity selector to override .game-container canvas */
+/* Specificity: #play-view (1,0,0) + .game-container (0,1,0) + .canvas-container (0,1,0) + canvas (0,0,1) = (1,2,1) */
+/* Beats .game-container canvas which is (0,1,1) */
+#play-view .game-container .canvas-container canvas {
+  position: relative;
+  z-index: 2; /* Above skeleton */
+  opacity: 0;
+  transition: opacity 300ms ease-in-out;
+}
+
+#play-view .game-container .canvas-container.canvas-ready canvas {
+  opacity: 1;
+}
+
+#play-view .game-container .canvas-container.canvas-ready .canvas-skeleton {
+  display: none;
+}
+
 /* ============================================================================
  * VIEW SYSTEM & TRANSITIONS
  * ========================================================================= */
@@ -516,6 +581,16 @@ button {
 /* Timer-specific styling: use tabular numerals to prevent layout shift */
 #game-timer {
   font-variant-numeric: tabular-nums;
+}
+
+/* Hide "New" button by default to prevent flash during load */
+/* Only shown in unlimited mode via JavaScript */
+#new-btn {
+  display: none;
+}
+
+#play-view.unlimited-mode #new-btn {
+  display: flex;
 }
 
 /* ============================================================================

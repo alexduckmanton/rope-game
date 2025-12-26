@@ -60,6 +60,7 @@ let currentPuzzleId = null;
 
 // DOM elements
 let canvas;
+let canvasContainer;
 let ctx;
 let gameTitle;
 let gameTimerEl;
@@ -578,6 +579,12 @@ function resizeCanvas() {
   const totalSize = cellSize * gridSize;
   const dpr = window.devicePixelRatio || 1;
 
+  // Set container size to prevent layout shift during loading
+  if (canvasContainer) {
+    canvasContainer.style.width = totalSize + 'px';
+    canvasContainer.style.height = totalSize + 'px';
+  }
+
   canvas.width = totalSize * dpr;
   canvas.height = totalSize * dpr;
   canvas.style.width = totalSize + 'px';
@@ -907,6 +914,14 @@ function loadOrGeneratePuzzle() {
     // No saved state - generate fresh puzzle
     generateNewPuzzle();
   }
+
+  // Trigger canvas fade-in after rendering completes
+  // Use requestAnimationFrame to ensure render has painted
+  if (canvasContainer) {
+    requestAnimationFrame(() => {
+      canvasContainer.classList.add('canvas-ready');
+    });
+  }
 }
 
 /**
@@ -1067,6 +1082,7 @@ export function initGame(difficulty) {
 
   // Get DOM elements
   canvas = document.getElementById('game-canvas');
+  canvasContainer = document.getElementById('canvas-container');
   ctx = canvas.getContext('2d');
   gameTitle = document.getElementById('game-title');
   gameTimerEl = document.getElementById('game-timer');
@@ -1110,18 +1126,19 @@ export function initGame(difficulty) {
   // Clear title text (difficulty is shown in timer display)
   gameTitle.textContent = '';
 
+  // Add unlimited-mode class to play-view for CSS targeting
+  const playView = document.getElementById('play-view');
+  if (isUnlimitedMode && playView) {
+    playView.classList.add('unlimited-mode');
+  } else if (playView) {
+    playView.classList.remove('unlimited-mode');
+  }
+
   // Show/hide difficulty control based on mode
   if (isUnlimitedMode && difficultySettingsItem) {
     difficultySettingsItem.classList.add('visible');
   } else if (difficultySettingsItem) {
     difficultySettingsItem.classList.remove('visible');
-  }
-
-  // Hide "New" button in daily modes (only show in unlimited mode)
-  if (isDailyMode && newBtn) {
-    newBtn.style.display = 'none';
-  } else if (newBtn) {
-    newBtn.style.display = '';
   }
 
   // Apply saved settings (or defaults)
@@ -1330,5 +1347,16 @@ export function cleanupGame() {
   // Reset drag state in core
   if (gameCore) {
     gameCore.resetDragState();
+  }
+
+  // Reset canvas loading state for next visit
+  if (canvasContainer) {
+    canvasContainer.classList.remove('canvas-ready');
+  }
+
+  // Remove unlimited-mode class from play-view
+  const playView = document.getElementById('play-view');
+  if (playView) {
+    playView.classList.remove('unlimited-mode');
   }
 }
