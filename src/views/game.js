@@ -619,14 +619,8 @@ function render(triggerSave = true, animationMode = 'auto') {
   // Build player turn map ONCE per render for reuse
   const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
-  // Calculate score and update display
+  // Calculate score (but don't update display yet - wait until after rendering)
   currentScore = calculateScore(hintCells, gridSize, cachedSolutionTurnMap, playerTurnMap);
-
-  // Trigger timer display update to show score
-  // Skip only when solution has been viewed (shows "Viewed solution" text instead)
-  if (gameTimer && !hasViewedSolution) {
-    gameTimer.updateDisplay();
-  }
 
   clearCanvas(ctx, totalSize, totalSize);
   renderGrid(ctx, gridSize, cellSize);
@@ -669,6 +663,12 @@ function render(triggerSave = true, animationMode = 'auto') {
 
   // Render path with visual win state (green if currently winning OR officially won)
   const pathRenderResult = renderPlayerPath(ctx, playerDrawnCells, playerConnections, cellSize, isCurrentlyWinning || hasWon, animationMode, gamePathAnimationState);
+
+  // Now that all canvas rendering is complete, update timer display to show score
+  // Skip only when solution has been viewed (shows "Viewed solution" text instead)
+  if (gameTimer && !hasViewedSolution) {
+    gameTimer.updateDisplay();
+  }
 
   // PHASE 2: Modal validation (deferred - only runs when not dragging)
   // This shows modals and sets the official hasWon state
