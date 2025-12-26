@@ -381,15 +381,23 @@ button {
   justify-content: center;
   align-items: center;
 
-  /* Fixed size before JavaScript loads - works on all browsers */
-  /* This ensures skeleton is visible immediately during loading */
-  /* JavaScript will override with precise calculated size */
-  width: 320px;
-  height: 320px;
+  /* Calculate size before JavaScript loads (mirrors calculateCellSize logic) */
+  /* This matches the exact formula from canvasSetup.js */
+  /* availableWidth = 100vw - 40px (HORIZONTAL_PADDING) */
+  /* availableHeight = 100vh - 100px (TOP_BAR_HEIGHT) */
+  /* cellSize = min(availableWidth / 4, availableHeight / 4), clamped 50-100px */
+  /* totalSize = cellSize * 4 */
 
-  /* Responsive sizing for larger screens */
-  width: min(320px, calc(100vw - 40px));
-  height: min(320px, calc(100vh - 140px));
+  --available-width: calc(100vw - 40px);
+  --available-height: calc(100vh - 100px);
+  --cell-size-from-width: calc(var(--available-width) / 4);
+  --cell-size-from-height: calc(var(--available-height) / 4);
+  --cell-size-unclamped: min(var(--cell-size-from-width), var(--cell-size-from-height));
+  --cell-size: clamp(50px, var(--cell-size-unclamped), 100px);
+  --total-size: calc(var(--cell-size) * 4);
+
+  width: var(--total-size);
+  height: var(--total-size);
 }
 
 /* Skeleton loader for canvas loading state */
