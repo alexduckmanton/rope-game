@@ -1156,7 +1156,7 @@ export function initGame(difficulty) {
       if (gameTimerEl) {
         // Append score to timer display if available
         if (currentScore) {
-          gameTimerEl.textContent = `${text} • ${currentScore.percentage}% (${currentScore.label})`;
+          gameTimerEl.textContent = `${text} • ${currentScore.percentage}%`;
         } else {
           gameTimerEl.textContent = text;
         }
