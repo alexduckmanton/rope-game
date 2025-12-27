@@ -281,9 +281,9 @@ button {
 }
 
 .game-controls button:active {
-  background-color: var(--color-bg-elevated);
+  background-color: var(--color-bg-secondary);
   box-shadow: none;
-  transform: none;
+  transform: scale(0.97);
 }
 
 .game-controls button:focus {
