@@ -107,4 +107,13 @@ export const CONFIG = {
     // accidental destruction when their hand crosses over earlier parts of the path.
     BACKTRACK_THRESHOLD: 1,
   },
+
+  // Scoring system
+  SCORING: {
+    // Percentage bonus for visiting all cells (Hamiltonian cycle)
+    // Hints satisfaction: 0 to (100 - HAMILTONIAN_BONUS_PERCENT)%
+    // Cell coverage: 0 to HAMILTONIAN_BONUS_PERCENT% (proportional)
+    // Total score: hints% + coverage%
+    HAMILTONIAN_BONUS_PERCENT: 10,
+  },
 };

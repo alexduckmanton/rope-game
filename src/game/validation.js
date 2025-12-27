@@ -6,6 +6,7 @@
 
 import { checkStructuralLoop, checkPartialStructuralLoop, buildSolutionTurnMap, countTurnsInArea, parseCellKey } from '../utils.js';
 import { buildPlayerTurnMap } from '../renderer.js';
+import { CONFIG } from '../config.js';
 
 /**
  * Difficulty level constants
@@ -182,26 +183,33 @@ export function getScoreLabel(percentage) {
 }
 
 /**
- * Calculate progress score based on hint constraints
+ * Calculate progress score based on hint constraints and cell coverage
  *
- * Score represents how close the player is to satisfying all hint constraints:
- * - 100% = all hints satisfied (all remainingTurns = 0)
- * - 0% = no progress (all hints at starting values)
+ * Score has two components:
+ * - Hints: 0 to (100 - HAMILTONIAN_BONUS_PERCENT)% based on constraint satisfaction
+ * - Coverage: 0 to HAMILTONIAN_BONUS_PERCENT% based on cells visited (proportional)
  *
- * Uses absolute values so +1 and -1 are treated the same.
+ * Total score = hints% + coverage%
+ *
+ * Uses absolute values for hints so +1 and -1 are treated the same.
  *
  * @param {Set<string>} hintCells - Cells with hint numbers
+ * @param {Set<string>} playerDrawnCells - Cells drawn by player
  * @param {number} gridSize - Size of the grid
  * @param {Map<string, boolean>} solutionTurnMap - Pre-built solution turn map
  * @param {Map<string, boolean>} playerTurnMap - Pre-built player turn map
  * @returns {{ percentage: number, label: string } | null} Score object or null if no hints
  */
-export function calculateScore(hintCells, gridSize, solutionTurnMap, playerTurnMap) {
+export function calculateScore(hintCells, playerDrawnCells, gridSize, solutionTurnMap, playerTurnMap) {
   // Return null if no hints (hide score display)
   if (!hintCells || hintCells.size === 0) {
     return null;
   }
 
+  // Calculate hints score (weighted to 90% by default, configurable via 100 - bonus)
+  const hintsWeight = 100 - CONFIG.SCORING.HAMILTONIAN_BONUS_PERCENT;
+
+  let hintsScore = 0;
   let startingTotal = 0;
   let currentTotal = 0;
 
@@ -216,18 +224,23 @@ export function calculateScore(hintCells, gridSize, solutionTurnMap, playerTurnM
     currentTotal += Math.abs(remainingTurns);
   }
 
-  // Calculate percentage (clamp to 0% minimum)
-  let percentage;
+  // Calculate hints percentage (clamp to 0% minimum)
   if (startingTotal === 0) {
     // Edge case: all hints have expected value of 0
-    percentage = currentTotal === 0 ? 100 : 0;
+    hintsScore = currentTotal === 0 ? hintsWeight : 0;
   } else {
-    percentage = ((startingTotal - currentTotal) / startingTotal) * 100;
-    percentage = Math.max(0, percentage);
+    hintsScore = ((startingTotal - currentTotal) / startingTotal) * hintsWeight;
+    hintsScore = Math.max(0, hintsScore);
   }
 
-  // Round to nearest integer
-  percentage = Math.round(percentage);
+  // Calculate Hamiltonian bonus (10% by default, proportional to cell coverage)
+  const cellsVisited = playerDrawnCells ? playerDrawnCells.size : 0;
+  const totalCells = gridSize * gridSize;
+  const coverageScore = (cellsVisited / totalCells) * CONFIG.SCORING.HAMILTONIAN_BONUS_PERCENT;
+
+  // Total score (hints + coverage, clamped to 0-100 range)
+  const totalScore = hintsScore + coverageScore;
+  const percentage = Math.max(0, Math.min(100, Math.round(totalScore)));
 
   return {
     percentage,
