@@ -620,7 +620,7 @@ function render(triggerSave = true, animationMode = 'auto') {
   const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
 
   // Calculate score (but don't update display yet - wait until after rendering)
-  currentScore = calculateScore(hintCells, gridSize, cachedSolutionTurnMap, playerTurnMap);
+  currentScore = calculateScore(hintCells, playerDrawnCells, gridSize, cachedSolutionTurnMap, playerTurnMap);
 
   clearCanvas(ctx, totalSize, totalSize);
   renderGrid(ctx, gridSize, cellSize);
@@ -676,8 +676,12 @@ function render(triggerSave = true, animationMode = 'auto') {
     // Update last validated state now that we're checking for modals
     lastValidatedStateKey = currentStateKey;
 
-    if (isCurrentlyWinning) {
-      // WIN - set official win state and show modal
+    // Get current score percentage
+    const scorePercentage = currentScore ? currentScore.percentage : 0;
+    const scoreLabel = currentScore ? currentScore.label : 'Okay';
+
+    if (isCurrentlyWinning && scorePercentage === 100) {
+      // PERFECT WIN (100%) - all hints satisfied AND all cells visited
       hasWon = true;
       hasShownPartialWinFeedback = false;
       stopTimer();
@@ -709,9 +713,8 @@ function render(triggerSave = true, animationMode = 'auto') {
       // Show win celebration
       showWinCelebration(finalTime);
     } else if (hasValidStructure) {
-      // Valid structure but not winning - check for error modals
-      // Check for wrong hints error
-      if (!hintsValid && !hasShownPartialWinFeedback) {
+      // Valid structure but not perfect (< 100%) - show partial win modal
+      if (!hasShownPartialWinFeedback) {
         // Partial win - show score and encourage improvement
         hasShownPartialWinFeedback = true;
 
@@ -720,10 +723,8 @@ function render(triggerSave = true, animationMode = 'auto') {
           gameTimer.pause();
         }
 
-        // Capture current time and score for sharing
+        // Capture current time for sharing
         const currentTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
-        const scorePercentage = currentScore ? currentScore.percentage : 0;
-        const scoreLabel = currentScore ? currentScore.label : 'Okay';
 
         // Track validation error
         trackValidationError(currentGameDifficulty, isDailyMode ? 'daily' : 'unlimited');
@@ -733,9 +734,9 @@ function render(triggerSave = true, animationMode = 'auto') {
           activeGameSheet.destroy();
         }
         activeGameSheet = showBottomSheetAsync({
-          title: `${scoreLabel} loop!`,
-          content: `<div class="bottom-sheet-message"><p style="margin-bottom: 1em;">You scored ${scorePercentage}% in ${currentTime}.</p><p>Make all numbers zero for a perfect score.</p></div>`,
-          icon: 'circle-check-big',
+          title: `You got ${scorePercentage}% in ${currentTime}`,
+          content: `<div class="bottom-sheet-message">Loop through every square and make all numbers zero for a perfect score.</div>`,
+          icon: 'shell',
           colorScheme: 'partial',
           dismissLabel: 'Keep trying',
           primaryButton: {
