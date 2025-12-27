@@ -118,6 +118,15 @@ function easeOutCubic(t) {
 }
 
 /**
+ * Get the opacity for a border (instant, no animation)
+ * @param {boolean} isActive - Whether this hint is currently active (pointer in validation area)
+ * @returns {number} Opacity value: 1.0 if active, 0.1 if not
+ */
+function getBorderOpacity(isActive) {
+  return isActive ? 1.0 : 0.1;
+}
+
+/**
  * Get the animated position for a cell if it's currently animating
  * @param {string} cellKey - The cell key to check
  * @param {number} cellSize - Size of each cell in pixels
@@ -334,36 +343,41 @@ function rectanglesOverlap(bounds1, bounds2) {
 }
 
 /**
- * Draw collected hint borders with proper layering
+ * Draw collected hint borders with proper layering and dynamic opacity
  * @param {CanvasRenderingContext2D} ctx - Canvas context
- * @param {Array} bordersToDraw - Array of border info objects
+ * @param {Array} bordersToDraw - Array of border info objects (must include cellKey for opacity)
  * @param {number} cellSize - Size of each cell in pixels
  * @param {string} borderMode - Border display mode ('off' | 'center' | 'full')
+ * @param {Set<string>} [activeHintCells] - Optional set of currently active hint cells
  */
-function drawHintBorders(ctx, bordersToDraw, cellSize, borderMode) {
+function drawHintBorders(ctx, bordersToDraw, cellSize, borderMode, activeHintCells = null) {
   // Draw all borders in layer order (highest layer first for proper visual stacking)
   // This ensures inner borders appear on top of outer borders
   bordersToDraw.sort((a, b) => b.layer - a.layer);
 
   for (const border of bordersToDraw) {
-    const { minRow, maxRow, minCol, maxCol, hintColor, borderWidth, layer } = border;
+    const { minRow, maxRow, minCol, maxCol, hintColor, borderWidth, cellKey } = border;
 
-    // Calculate layer-based inset (only for full mode)
-    const layerInset = borderMode === 'full' ? (layer * CONFIG.BORDER.LAYER_OFFSET) : 0;
-    const totalInset = CONFIG.BORDER.INSET + layerInset;
+    // Calculate border position and dimensions (no insets - borders drawn at validation area edges)
+    const borderX = minCol * cellSize + borderWidth / 2;
+    const borderY = minRow * cellSize + borderWidth / 2;
+    const areaWidth = (maxCol - minCol + 1) * cellSize - borderWidth;
+    const areaHeight = (maxRow - minRow + 1) * cellSize - borderWidth;
 
-    // Calculate border position and dimensions with layer offset
-    const borderX = minCol * cellSize + totalInset + borderWidth / 2;
-    const borderY = minRow * cellSize + totalInset + borderWidth / 2;
-    const areaWidth = (maxCol - minCol + 1) * cellSize - 2 * totalInset - borderWidth;
-    const areaHeight = (maxRow - minRow + 1) * cellSize - 2 * totalInset - borderWidth;
-
-    // Safety check: only draw if the calculated area is large enough
-    if (areaWidth > 0 && areaHeight > 0) {
-      ctx.strokeStyle = hintColor;
-      ctx.lineWidth = borderWidth;
-      ctx.strokeRect(borderX, borderY, areaWidth, areaHeight);
+    // Calculate opacity (only for full mode with active hints)
+    let opacity = 1.0; // Default to full opacity
+    if (borderMode === 'full' && activeHintCells !== null) {
+      const isActive = activeHintCells.has(cellKey);
+      opacity = getBorderOpacity(isActive);
     }
+
+    // Save context and apply opacity
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.strokeStyle = hintColor;
+    ctx.lineWidth = borderWidth;
+    ctx.strokeRect(borderX, borderY, areaWidth, areaHeight);
+    ctx.restore();
   }
 }
 
@@ -521,9 +535,10 @@ function getColorByMagnitude(value, isValidated) {
  * @param {Map<string, number>} [prebuiltBorderLayers] - Optional pre-built border layers for performance
  * @param {string} [animationMode] - Animation mode: 'auto' (detect changes and animate) or 'none' (no animation)
  * @param {Object} numberAnimationState - Number animation state object from the view
+ * @param {Set<string>} [activeHintCells] - Optional set of currently active hint cells
  * @returns {{hasActiveAnimations: boolean}} Object indicating if there are active animations
  */
-export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null, animationMode = 'auto', numberAnimationState) {
+export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null, animationMode = 'auto', numberAnimationState, activeHintCells = null) {
   if (!solutionPath || solutionPath.length === 0) {
     return { hasActiveAnimations: false };
   }
@@ -605,7 +620,8 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
           maxCol,
           hintColor,
           borderWidth,
-          layer
+          layer,
+          cellKey  // Include cellKey for opacity animation tracking
         });
       }
 
@@ -652,8 +668,14 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
     }
   }
 
-  // Draw all collected borders with proper layering
-  drawHintBorders(ctx, bordersToDraw, cellSize, borderMode);
+  // Draw all collected borders with proper layering and dynamic opacity
+  drawHintBorders(
+    ctx,
+    bordersToDraw,
+    cellSize,
+    borderMode,
+    activeHintCells
+  );
 
   // Return whether there are active animations
   return { hasActiveAnimations: numberAnimationState.activeAnimations.size > 0 };

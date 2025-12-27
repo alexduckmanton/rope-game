@@ -33,7 +33,8 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     hasDragMoved: false,
     lastPointerX: 0,
     lastPointerY: 0,
-    canvasRect: null  // Cached canvas bounding rect during drag (avoids layout thrashing)
+    canvasRect: null,  // Cached canvas bounding rect during drag (avoids layout thrashing)
+    currentPointerCell: null  // Current cell under pointer {row, col} for border highlighting
   };
 
   // ============================================================================
@@ -228,6 +229,9 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     const cell = getCellFromCoords(x, y);
     if (!cell) return;
 
+    // Track current pointer cell for border highlighting
+    state.currentPointerCell = { row: cell.row, col: cell.col };
+
     canvas.setPointerCapture(event.pointerId);
     state.isDragging = true;
     state.hasDragMoved = false;
@@ -254,11 +258,25 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     const cell = getCellFromCoords(x, y);
     if (!cell) return;
 
+    // Track current pointer cell for border highlighting
+    const previousPointerCell = state.currentPointerCell;
+    state.currentPointerCell = { row: cell.row, col: cell.col };
+
+    // Check if pointer moved to a different grid cell
+    const pointerCellChanged = !previousPointerCell ||
+                                previousPointerCell.row !== cell.row ||
+                                previousPointerCell.col !== cell.col;
+
     const currentCell = state.dragPath[state.dragPath.length - 1];
     if (cell.key === currentCell) {
       // Update pointer position even if in same cell
       state.lastPointerX = x;
       state.lastPointerY = y;
+
+      // If pointer moved to a different grid cell, render to update borders
+      if (pointerCellChanged) {
+        onRender();
+      }
       return;
     }
 
@@ -341,6 +359,9 @@ export function createGameCore({ gridSize, canvas, onRender }) {
       }
     }
 
+    // Clear pointer cell tracking (borders fade back to 10%)
+    state.currentPointerCell = null;
+
     resetDragState();
     cleanupOrphanedCells();
     onRender();
@@ -348,6 +369,8 @@ export function createGameCore({ gridSize, canvas, onRender }) {
 
   function handlePointerCancel(event) {
     canvas.releasePointerCapture(event.pointerId);
+    // Clear pointer cell tracking (borders fade back to 10%)
+    state.currentPointerCell = null;
     resetDragState();
     cleanupOrphanedCells();
   }
