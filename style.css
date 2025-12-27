@@ -272,6 +272,7 @@ button {
   gap: 8px;
   background-color: var(--color-bg-elevated);
   box-shadow: 0 2px 4px var(--color-shadow-sm);
+  transition: all 100ms ease-in-out;
 }
 
 /* Override all interactive states - use theme-aware colors */
