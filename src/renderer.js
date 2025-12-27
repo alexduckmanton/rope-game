@@ -160,7 +160,8 @@ function getAnimatedBorderOpacity(cellKey, currentTime, borderOpacityState, isAc
         startOpacity: 0.1,
         targetOpacity: 1.0
       });
-      return 0.1; // Return starting value this frame
+      // Return slightly increased value on first frame for immediate visual feedback
+      return 0.3;
     }
     // Default state, no animation needed
     return 0.1;
