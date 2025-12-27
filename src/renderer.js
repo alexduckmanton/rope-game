@@ -648,9 +648,15 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         scale = getAnimationScale(cellKey, currentTime, numberAnimationState);
       }
 
-      // Set text color and opacity
+      // Set text color
       ctx.fillStyle = hintColor;
-      ctx.globalAlpha = 1.0;
+
+      // Calculate opacity (only for hint cells with active hints)
+      let numberOpacity = 1.0; // Default to full opacity
+      if (isInHintSet && activeHintCells !== null) {
+        const isActive = activeHintCells.has(cellKey);
+        numberOpacity = isActive ? 1.0 : 0.5;
+      }
 
       const x = col * cellSize + cellSize / 2;
       const y = row * cellSize + cellSize / 2;
@@ -658,12 +664,16 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Apply scale transform if animating
       if (scale !== 1.0) {
         ctx.save();
+        ctx.globalAlpha = numberOpacity;
         ctx.translate(x, y);        // Move origin to cell center
         ctx.scale(scale, scale);    // Scale around center
         ctx.fillText(displayValue.toString(), 0, 0); // Draw at origin (cell center)
         ctx.restore();
       } else {
+        ctx.save();
+        ctx.globalAlpha = numberOpacity;
         ctx.fillText(displayValue.toString(), x, y);
+        ctx.restore();
       }
     }
   }
