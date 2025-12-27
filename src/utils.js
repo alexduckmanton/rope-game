@@ -186,6 +186,38 @@ export function countTurnsInArea(row, col, gridSize, turnMap) {
 }
 
 /**
+ * Get all hint cells whose 3x3 validation areas contain a given position
+ * Used for highlighting borders when pointer enters a validation area
+ *
+ * @param {number} row - Row of the position to check
+ * @param {number} col - Column of the position to check
+ * @param {number} gridSize - Grid size for bounds checking
+ * @param {Set<string>} hintCells - Set of "row,col" strings for hint cells
+ * @returns {Set<string>} Set of hint cell keys whose validation areas contain (row, col)
+ */
+export function getHintCellsAffectedByPosition(row, col, gridSize, hintCells) {
+  const affected = new Set();
+
+  // Check each hint cell to see if the position is within its 3x3 validation area
+  for (const hintKey of hintCells) {
+    const { row: hintRow, col: hintCol } = parseCellKey(hintKey);
+
+    // Calculate validation area bounds (3x3 centered on hint, bounded by grid)
+    const minRow = Math.max(0, hintRow - 1);
+    const maxRow = Math.min(gridSize - 1, hintRow + 1);
+    const minCol = Math.max(0, hintCol - 1);
+    const maxCol = Math.min(gridSize - 1, hintCol + 1);
+
+    // Check if position is within this validation area
+    if (row >= minRow && row <= maxRow && col >= minCol && col <= maxCol) {
+      affected.add(hintKey);
+    }
+  }
+
+  return affected;
+}
+
+/**
  * Determine which connection to break based on drag path context
  * Prioritizes keeping the incoming connection from the drag path to ensure
  * connections remain consistent with the path the player has drawn

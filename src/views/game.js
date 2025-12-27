@@ -7,7 +7,7 @@
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
-import { buildSolutionTurnMap, countTurnsInArea, parseCellKey } from '../utils.js';
+import { buildSolutionTurnMap, countTurnsInArea, parseCellKey, getHintCellsAffectedByPosition } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
@@ -108,6 +108,10 @@ const gamePathAnimationState = {
 const gameNumberAnimationState = {
   activeAnimations: new Map(),   // Map<cellKey, { startTime: number }>
   previousState: new Map(),      // Map<cellKey, { displayValue: number, color: string }>
+};
+
+const gameBorderOpacityState = {
+  animations: new Map(),         // Map<cellKey, { startTime: number, startOpacity: number, targetOpacity: number }>
 };
 
 // Game core instance
@@ -607,7 +611,7 @@ function resizeCanvas() {
 }
 
 function render(triggerSave = true, animationMode = 'auto') {
-  const { playerDrawnCells, playerConnections } = gameCore.state;
+  const { playerDrawnCells, playerConnections, currentPointerCell } = gameCore.state;
   const totalSize = cellSize * gridSize;
   const dpr = window.devicePixelRatio || 1;
 
@@ -622,6 +626,17 @@ function render(triggerSave = true, animationMode = 'auto') {
   // Calculate score (but don't update display yet - wait until after rendering)
   currentScore = calculateScore(hintCells, playerDrawnCells, gridSize, cachedSolutionTurnMap, playerTurnMap);
 
+  // Calculate active hint cells for border opacity (only in full mode)
+  let activeHintCells = new Set();
+  if (borderMode === 'full' && currentPointerCell) {
+    activeHintCells = getHintCellsAffectedByPosition(
+      currentPointerCell.row,
+      currentPointerCell.col,
+      gridSize,
+      hintCells
+    );
+  }
+
   clearCanvas(ctx, totalSize, totalSize);
   renderGrid(ctx, gridSize, cellSize);
 
@@ -630,7 +645,7 @@ function render(triggerSave = true, animationMode = 'auto') {
     ctx, gridSize, cellSize, solutionPath, hintCells, hintMode,
     playerDrawnCells, playerConnections, borderMode, countdown,
     cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers, animationMode,
-    gameNumberAnimationState
+    gameNumberAnimationState, gameBorderOpacityState, activeHintCells
   );
 
   // Render solution path if player has viewed it
@@ -766,11 +781,12 @@ function render(triggerSave = true, animationMode = 'auto') {
     throttledSave(captureGameState());
   }
 
-  // Schedule next animation frame if there are active animations (numbers or path)
+  // Schedule next animation frame if there are active animations (numbers, path, or borders)
   const hasNumberAnimations = renderResult && renderResult.hasActiveAnimations;
+  const hasBorderAnimations = renderResult && renderResult.hasActiveBorderAnimations;
   const hasPathAnimations = pathRenderResult && pathRenderResult.hasActiveAnimations;
 
-  if (hasNumberAnimations || hasPathAnimations) {
+  if (hasNumberAnimations || hasPathAnimations || hasBorderAnimations) {
     if (animationFrameId === null) {
       animationFrameId = requestAnimationFrame(() => {
         animationFrameId = null;

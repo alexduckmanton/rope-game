@@ -118,6 +118,87 @@ function easeOutCubic(t) {
 }
 
 /**
+ * Border opacity animation timing constants
+ */
+const BORDER_OPACITY_ANIMATION_DURATION = 100; // 100ms for smooth, fast transitions
+
+/**
+ * Border opacity animation state is owned by each view (game.js, tutorial.js)
+ * and passed as a parameter to rendering functions.
+ *
+ * Expected structure:
+ * {
+ *   animations: Map<cellKey, { startTime: number, startOpacity: number, targetOpacity: number }>
+ * }
+ */
+
+/**
+ * Get the current animated opacity for a border
+ * @param {string} cellKey - The hint cell key
+ * @param {number} currentTime - Current timestamp in milliseconds
+ * @param {Object} borderOpacityState - Border opacity animation state
+ * @param {boolean} isActive - Whether this hint is currently active (pointer in validation area)
+ * @returns {number} Opacity value from 0.1 to 1.0
+ */
+function getAnimatedBorderOpacity(cellKey, currentTime, borderOpacityState, isActive) {
+  if (!borderOpacityState) {
+    // No animation state provided - return full opacity (tutorial mode)
+    return 1.0;
+  }
+
+  // Determine target opacity based on active state
+  const targetOpacity = isActive ? 1.0 : 0.1;
+
+  const animation = borderOpacityState.animations.get(cellKey);
+
+  if (!animation) {
+    // No animation in progress - start one if target differs from default
+    if (targetOpacity !== 0.1) {
+      // Starting a new animation from default (0.1) to active (1.0)
+      borderOpacityState.animations.set(cellKey, {
+        startTime: currentTime,
+        startOpacity: 0.1,
+        targetOpacity: 1.0
+      });
+      return 0.1; // Return starting value this frame
+    }
+    // Default state, no animation needed
+    return 0.1;
+  }
+
+  // Check if target changed mid-animation (direction reversal)
+  if (animation.targetOpacity !== targetOpacity) {
+    // Calculate current animated value before reversing
+    const elapsed = currentTime - animation.startTime;
+    const progress = Math.min(elapsed / BORDER_OPACITY_ANIMATION_DURATION, 1.0);
+    const easedProgress = easeOutCubic(progress);
+    const currentOpacity = animation.startOpacity + (animation.targetOpacity - animation.startOpacity) * easedProgress;
+
+    // Reverse direction: current becomes start, new target becomes target
+    borderOpacityState.animations.set(cellKey, {
+      startTime: currentTime,
+      startOpacity: currentOpacity,
+      targetOpacity: targetOpacity
+    });
+    return currentOpacity;
+  }
+
+  // Continue current animation
+  const elapsed = currentTime - animation.startTime;
+
+  if (elapsed >= BORDER_OPACITY_ANIMATION_DURATION) {
+    // Animation complete - clean up and return target value
+    borderOpacityState.animations.delete(cellKey);
+    return targetOpacity;
+  }
+
+  // Calculate animated opacity
+  const progress = elapsed / BORDER_OPACITY_ANIMATION_DURATION;
+  const easedProgress = easeOutCubic(progress);
+  return animation.startOpacity + (animation.targetOpacity - animation.startOpacity) * easedProgress;
+}
+
+/**
  * Get the animated position for a cell if it's currently animating
  * @param {string} cellKey - The cell key to check
  * @param {number} cellSize - Size of each cell in pixels
@@ -334,19 +415,25 @@ function rectanglesOverlap(bounds1, bounds2) {
 }
 
 /**
- * Draw collected hint borders with proper layering
+ * Draw collected hint borders with proper layering and optional opacity animation
  * @param {CanvasRenderingContext2D} ctx - Canvas context
- * @param {Array} bordersToDraw - Array of border info objects
+ * @param {Array} bordersToDraw - Array of border info objects (must include cellKey for opacity)
  * @param {number} cellSize - Size of each cell in pixels
  * @param {string} borderMode - Border display mode ('off' | 'center' | 'full')
+ * @param {Object} [borderOpacityState] - Optional border opacity animation state
+ * @param {number} [currentTime] - Optional current timestamp for animations
+ * @param {Set<string>} [activeHintCells] - Optional set of currently active hint cells
+ * @returns {boolean} True if there are active opacity animations
  */
-function drawHintBorders(ctx, bordersToDraw, cellSize, borderMode) {
+function drawHintBorders(ctx, bordersToDraw, cellSize, borderMode, borderOpacityState = null, currentTime = null, activeHintCells = null) {
   // Draw all borders in layer order (highest layer first for proper visual stacking)
   // This ensures inner borders appear on top of outer borders
   bordersToDraw.sort((a, b) => b.layer - a.layer);
 
+  let hasActiveAnimations = false;
+
   for (const border of bordersToDraw) {
-    const { minRow, maxRow, minCol, maxCol, hintColor, borderWidth, layer } = border;
+    const { minRow, maxRow, minCol, maxCol, hintColor, borderWidth, layer, cellKey } = border;
 
     // Calculate layer-based inset (only for full mode)
     const layerInset = borderMode === 'full' ? (layer * CONFIG.BORDER.LAYER_OFFSET) : 0;
@@ -360,11 +447,29 @@ function drawHintBorders(ctx, bordersToDraw, cellSize, borderMode) {
 
     // Safety check: only draw if the calculated area is large enough
     if (areaWidth > 0 && areaHeight > 0) {
+      // Calculate opacity (only for full mode with animation state)
+      let opacity = 1.0; // Default to full opacity
+      if (borderMode === 'full' && borderOpacityState && currentTime !== null && activeHintCells !== null) {
+        const isActive = activeHintCells.has(cellKey);
+        opacity = getAnimatedBorderOpacity(cellKey, currentTime, borderOpacityState, isActive);
+
+        // Track if this border has an active animation
+        if (borderOpacityState.animations.has(cellKey)) {
+          hasActiveAnimations = true;
+        }
+      }
+
+      // Save context and apply opacity
+      ctx.save();
+      ctx.globalAlpha = opacity;
       ctx.strokeStyle = hintColor;
       ctx.lineWidth = borderWidth;
       ctx.strokeRect(borderX, borderY, areaWidth, areaHeight);
+      ctx.restore();
     }
   }
+
+  return hasActiveAnimations;
 }
 
 /**
@@ -521,11 +626,13 @@ function getColorByMagnitude(value, isValidated) {
  * @param {Map<string, number>} [prebuiltBorderLayers] - Optional pre-built border layers for performance
  * @param {string} [animationMode] - Animation mode: 'auto' (detect changes and animate) or 'none' (no animation)
  * @param {Object} numberAnimationState - Number animation state object from the view
- * @returns {{hasActiveAnimations: boolean}} Object indicating if there are active animations
+ * @param {Object} [borderOpacityState] - Optional border opacity animation state
+ * @param {Set<string>} [activeHintCells] - Optional set of currently active hint cells
+ * @returns {{hasActiveAnimations: boolean, hasActiveBorderAnimations: boolean}} Object indicating if there are active animations
  */
-export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null, animationMode = 'auto', numberAnimationState) {
+export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null, animationMode = 'auto', numberAnimationState, borderOpacityState = null, activeHintCells = null) {
   if (!solutionPath || solutionPath.length === 0) {
-    return { hasActiveAnimations: false };
+    return { hasActiveAnimations: false, hasActiveBorderAnimations: false };
   }
 
   const currentTime = Date.now();
@@ -605,7 +712,8 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
           maxCol,
           hintColor,
           borderWidth,
-          layer
+          layer,
+          cellKey  // Include cellKey for opacity animation tracking
         });
       }
 
@@ -652,11 +760,22 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
     }
   }
 
-  // Draw all collected borders with proper layering
-  drawHintBorders(ctx, bordersToDraw, cellSize, borderMode);
+  // Draw all collected borders with proper layering and opacity animation
+  const hasActiveBorderAnimations = drawHintBorders(
+    ctx,
+    bordersToDraw,
+    cellSize,
+    borderMode,
+    borderOpacityState,
+    currentTime,
+    activeHintCells
+  );
 
-  // Return whether there are active animations
-  return { hasActiveAnimations: numberAnimationState.activeAnimations.size > 0 };
+  // Return whether there are active animations (number or border)
+  return {
+    hasActiveAnimations: numberAnimationState.activeAnimations.size > 0,
+    hasActiveBorderAnimations
+  };
 }
 
 /**
