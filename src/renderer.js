@@ -356,35 +356,28 @@ function drawHintBorders(ctx, bordersToDraw, cellSize, borderMode, activeHintCel
   bordersToDraw.sort((a, b) => b.layer - a.layer);
 
   for (const border of bordersToDraw) {
-    const { minRow, maxRow, minCol, maxCol, hintColor, borderWidth, layer, cellKey } = border;
+    const { minRow, maxRow, minCol, maxCol, hintColor, borderWidth, cellKey } = border;
 
-    // Calculate layer-based inset (only for full mode)
-    const layerInset = borderMode === 'full' ? (layer * CONFIG.BORDER.LAYER_OFFSET) : 0;
-    const totalInset = CONFIG.BORDER.INSET + layerInset;
+    // Calculate border position and dimensions (no insets - borders drawn at validation area edges)
+    const borderX = minCol * cellSize + borderWidth / 2;
+    const borderY = minRow * cellSize + borderWidth / 2;
+    const areaWidth = (maxCol - minCol + 1) * cellSize - borderWidth;
+    const areaHeight = (maxRow - minRow + 1) * cellSize - borderWidth;
 
-    // Calculate border position and dimensions with layer offset
-    const borderX = minCol * cellSize + totalInset + borderWidth / 2;
-    const borderY = minRow * cellSize + totalInset + borderWidth / 2;
-    const areaWidth = (maxCol - minCol + 1) * cellSize - 2 * totalInset - borderWidth;
-    const areaHeight = (maxRow - minRow + 1) * cellSize - 2 * totalInset - borderWidth;
-
-    // Safety check: only draw if the calculated area is large enough
-    if (areaWidth > 0 && areaHeight > 0) {
-      // Calculate opacity (only for full mode with active hints)
-      let opacity = 1.0; // Default to full opacity
-      if (borderMode === 'full' && activeHintCells !== null) {
-        const isActive = activeHintCells.has(cellKey);
-        opacity = getBorderOpacity(isActive);
-      }
-
-      // Save context and apply opacity
-      ctx.save();
-      ctx.globalAlpha = opacity;
-      ctx.strokeStyle = hintColor;
-      ctx.lineWidth = borderWidth;
-      ctx.strokeRect(borderX, borderY, areaWidth, areaHeight);
-      ctx.restore();
+    // Calculate opacity (only for full mode with active hints)
+    let opacity = 1.0; // Default to full opacity
+    if (borderMode === 'full' && activeHintCells !== null) {
+      const isActive = activeHintCells.has(cellKey);
+      opacity = getBorderOpacity(isActive);
     }
+
+    // Save context and apply opacity
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.strokeStyle = hintColor;
+    ctx.lineWidth = borderWidth;
+    ctx.strokeRect(borderX, borderY, areaWidth, areaHeight);
+    ctx.restore();
   }
 }
 
