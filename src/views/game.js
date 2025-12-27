@@ -734,7 +734,7 @@ function render(triggerSave = true, animationMode = 'auto') {
           activeGameSheet.destroy();
         }
         activeGameSheet = showBottomSheetAsync({
-          title: `${scorePercentage}% in ${currentTime}`,
+          title: `You got ${scorePercentage}% in ${currentTime}`,
           content: `<div class="bottom-sheet-message">Loop through every square and make all numbers zero for a perfect score.</div>`,
           icon: 'circle-check-big',
           colorScheme: 'partial',
