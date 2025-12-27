@@ -1219,8 +1219,14 @@ export function initGame(difficulty) {
     render(false);
   };
   const newBtnHandler = () => generateNewPuzzle();
-  const restartBtnHandler = () => restartPuzzle();
-  const undoBtnHandler = () => performUndo();
+  const restartBtnHandler = (e) => {
+    e.preventDefault(); // Prevent click event from also firing
+    restartPuzzle();
+  };
+  const undoBtnHandler = (e) => {
+    e.preventDefault(); // Prevent click event from also firing
+    performUndo();
+  };
   const hintsHandler = (e) => {
     e.preventDefault();
     cycleHintMode();
@@ -1284,8 +1290,8 @@ export function initGame(difficulty) {
   window.addEventListener('resize', resizeHandler);
   window.addEventListener('themeChanged', themeChangeHandler);
   newBtn.addEventListener('click', newBtnHandler);
-  restartBtn.addEventListener('click', restartBtnHandler);
-  undoBtn.addEventListener('click', undoBtnHandler);
+  restartBtn.addEventListener('pointerdown', restartBtnHandler);
+  undoBtn.addEventListener('pointerdown', undoBtnHandler);
   hintsCheckbox.addEventListener('click', hintsHandler);
   countdownCheckbox.addEventListener('change', countdownHandler);
   borderCheckbox.addEventListener('click', borderHandler);
@@ -1303,8 +1309,8 @@ export function initGame(difficulty) {
     { element: window, event: 'resize', handler: resizeHandler },
     { element: window, event: 'themeChanged', handler: themeChangeHandler },
     { element: newBtn, event: 'click', handler: newBtnHandler },
-    { element: restartBtn, event: 'click', handler: restartBtnHandler },
-    { element: undoBtn, event: 'click', handler: undoBtnHandler },
+    { element: restartBtn, event: 'pointerdown', handler: restartBtnHandler },
+    { element: undoBtn, event: 'pointerdown', handler: undoBtnHandler },
     { element: hintsCheckbox, event: 'click', handler: hintsHandler },
     { element: countdownCheckbox, event: 'change', handler: countdownHandler },
     { element: borderCheckbox, event: 'click', handler: borderHandler },

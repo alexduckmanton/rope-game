@@ -271,29 +271,37 @@ button {
   justify-content: center;
   gap: 8px;
   background-color: var(--color-bg-elevated);
-  box-shadow: none;
+  box-shadow: 0 2px 4px var(--color-shadow-sm);
+  transition: all 100ms ease-in-out;
 }
 
 /* Override all interactive states - use theme-aware colors */
 .game-controls button:hover {
   background-color: var(--color-bg-elevated);
-  box-shadow: none;
+  box-shadow: 0 2px 4px var(--color-shadow-sm);
 }
 
 .game-controls button:active {
   background-color: var(--color-bg-elevated);
-  box-shadow: none;
-  transform: none;
+  box-shadow: 0 1px 2px var(--color-shadow-sm);
+  transform: scale(0.95);
 }
 
 .game-controls button:focus {
   outline: none;
   background-color: var(--color-bg-elevated);
+  box-shadow: 0 2px 4px var(--color-shadow-sm);
 }
 
 .game-controls button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+.game-controls button:disabled:active {
+  transform: none;
+  box-shadow: none;
 }
 
 .game-controls button svg {
