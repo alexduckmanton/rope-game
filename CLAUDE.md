@@ -10,7 +10,7 @@
 | `router.js` | Client-side routing | `initRouter()` - History API navigation |
 | `tokens.css` | Color definitions | CSS custom properties for all colors, dark mode overrides via media query |
 | `tokens.js` | Color token exports | `colors`, `semantic` - Reads CSS variables, dispatches `themeChanged` event |
-| `config.js` | Configuration constants | `CONFIG` - Colors (from tokens.js), sizes, generation tuning, rendering params, interaction behavior |
+| `config.js` | Configuration constants | `CONFIG` - Colors (from tokens.js), sizes, generation tuning, rendering params, interaction behavior, scoring configuration |
 | `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
 | `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle (used for hint generation; players can make smaller loops) |
 | `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCells()`, `calculateBorderLayers()` |
@@ -64,9 +64,16 @@ Victory requirements are consistent across all difficulties:
 
 - Path forms a valid closed loop (any shape, any size)
 - All hint constraints are satisfied (turn counts match)
-- Loop does NOT need to visit every cell
+- Loop does NOT need to visit every cell to complete the puzzle
 
-This design allows for creative loop shapes and multiple valid solutions while maintaining challenging constraint satisfaction puzzles.
+**Scoring Distinction:**
+
+While players can complete a valid puzzle without visiting all cells, the scoring system rewards grid coverage:
+- Valid completion: Triggers win modal and marks puzzle as solved
+- Perfect score (100%): Requires both hint satisfaction (90%) AND visiting all cells (10% Hamiltonian bonus)
+- Partial scores: Players completing valid loops without full coverage receive 90% or less
+
+This design allows for creative loop shapes and multiple valid solutions while maintaining challenging constraint satisfaction puzzles, with additional rewards for completionists who achieve Hamiltonian cycles.
 
 ### Constraint Validation Algorithm
 
@@ -138,13 +145,32 @@ Setting is accessible via bottom sheet under Hints checkbox. Changes apply immed
 
 **Score Tracking System:**
 
-Players receive real-time progress feedback through a percentage-based scoring metric that tracks how close they are to satisfying all hint constraints.
+Players receive real-time progress feedback through a percentage-based scoring metric with two independent components: hint constraint satisfaction and grid coverage.
 
 **Score Calculation:**
-- Formula: `(startingTotal - currentTotal) / startingTotal × 100%`
+
+The scoring system has two components that are calculated independently and added together:
+
+**1. Hints Component (90% of total score):**
+- Measures progress toward satisfying all hint constraints
+- Formula: `(startingTotal - currentTotal) / startingTotal × 90%`
 - `startingTotal`: Sum of absolute values of all expected turn counts
 - `currentTotal`: Sum of absolute values of all remaining turns needed
 - Uses absolute values so positive and negative deviations are weighted equally
+- Maxes out at 90% when all hints are satisfied
+
+**2. Cell Coverage Component (10% of total score):**
+- Rewards players for visiting more cells with their loop
+- Formula: `(cellsVisited / totalCells) × 10%`
+- Proportional scoring: visiting half the grid gives 5%, three-quarters gives 7.5%, etc.
+- Achieves full 10% only when drawing a Hamiltonian cycle (visiting all cells)
+- Updates in real-time as player draws, even before loop is closed
+- Encourages exploration and complete solutions
+
+**Total Score:**
+- `finalScore = hintsScore + coverageScore`
+- Maximum 100% requires both all hints satisfied (90%) AND all cells visited (10%)
+- The 10% bonus percentage is configurable via `CONFIG.SCORING.HAMILTONIAN_BONUS_PERCENT`
 
 **Score Labels:**
 | Score Range | Label |
@@ -159,6 +185,7 @@ Players receive real-time progress feedback through a percentage-based scoring m
 **Display:**
 - Timer shows: "Difficulty • Time • Score%" (e.g., "Medium • 1:23 • 75%")
 - Score updates in real-time as player draws path
+- Both components update independently during drawing
 - Hidden when no hints exist or solution has been viewed
 
 **Validation Modals:**
@@ -167,8 +194,8 @@ When players complete a closed loop, contextual feedback modals appear based on 
 
 | Condition | Modal Title | Modal Body | Icon | Color |
 |-----------|-------------|------------|------|-------|
-| All hints satisfied (100%) | "Perfect loop!" | Completion time | party-popper | Gold/amber |
-| Partial completion (<100%) | "\<Score Label\> loop!" | "You scored \<score\>% in \<time\>. Make all numbers zero for a perfect score." | circle-check-big | Green |
+| All hints satisfied AND all cells visited (100%) | "Perfect loop!" | Completion time | party-popper | Gold/amber |
+| Valid loop but incomplete (<100%) | "\<Score Label\> loop!" | "You scored \<score\>% in \<time\>. Make all numbers zero for a perfect score." | circle-check-big | Green |
 
 **Partial Win Modal:**
 - Shows player's current score percentage and time
