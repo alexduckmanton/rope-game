@@ -295,6 +295,12 @@ button {
 .game-controls button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+.game-controls button:disabled:active {
+  transform: none;
+  box-shadow: none;
 }
 
 .game-controls button svg {
