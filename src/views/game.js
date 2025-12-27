@@ -110,10 +110,6 @@ const gameNumberAnimationState = {
   previousState: new Map(),      // Map<cellKey, { displayValue: number, color: string }>
 };
 
-const gameBorderOpacityState = {
-  animations: new Map(),         // Map<cellKey, { startTime: number, startOpacity: number, targetOpacity: number }>
-};
-
 // Game core instance
 let gameCore;
 
@@ -645,7 +641,7 @@ function render(triggerSave = true, animationMode = 'auto') {
     ctx, gridSize, cellSize, solutionPath, hintCells, hintMode,
     playerDrawnCells, playerConnections, borderMode, countdown,
     cachedSolutionTurnMap, playerTurnMap, cachedBorderLayers, animationMode,
-    gameNumberAnimationState, gameBorderOpacityState, activeHintCells
+    gameNumberAnimationState, activeHintCells
   );
 
   // Render solution path if player has viewed it
@@ -781,12 +777,11 @@ function render(triggerSave = true, animationMode = 'auto') {
     throttledSave(captureGameState());
   }
 
-  // Schedule next animation frame if there are active animations (numbers, path, or borders)
+  // Schedule next animation frame if there are active animations (numbers or path)
   const hasNumberAnimations = renderResult && renderResult.hasActiveAnimations;
-  const hasBorderAnimations = renderResult && renderResult.hasActiveBorderAnimations;
   const hasPathAnimations = pathRenderResult && pathRenderResult.hasActiveAnimations;
 
-  if (hasNumberAnimations || hasPathAnimations || hasBorderAnimations) {
+  if (hasNumberAnimations || hasPathAnimations) {
     if (animationFrameId === null) {
       animationFrameId = requestAnimationFrame(() => {
         animationFrameId = null;
