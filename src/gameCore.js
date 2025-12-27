@@ -259,13 +259,24 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     if (!cell) return;
 
     // Track current pointer cell for border highlighting
+    const previousPointerCell = state.currentPointerCell;
     state.currentPointerCell = { row: cell.row, col: cell.col };
+
+    // Check if pointer moved to a different grid cell
+    const pointerCellChanged = !previousPointerCell ||
+                                previousPointerCell.row !== cell.row ||
+                                previousPointerCell.col !== cell.col;
 
     const currentCell = state.dragPath[state.dragPath.length - 1];
     if (cell.key === currentCell) {
       // Update pointer position even if in same cell
       state.lastPointerX = x;
       state.lastPointerY = y;
+
+      // If pointer moved to a different grid cell, render to update borders
+      if (pointerCellChanged) {
+        onRender();
+      }
       return;
     }
 
