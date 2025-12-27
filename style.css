@@ -277,7 +277,7 @@ button {
 /* Override all interactive states - use theme-aware colors */
 .game-controls button:hover {
   background-color: var(--color-bg-elevated);
-  box-shadow: none;
+  box-shadow: 0 2px 4px var(--color-shadow-sm);
 }
 
 .game-controls button:active {
@@ -289,6 +289,7 @@ button {
 .game-controls button:focus {
   outline: none;
   background-color: var(--color-bg-elevated);
+  box-shadow: 0 2px 4px var(--color-shadow-sm);
 }
 
 .game-controls button:disabled {
