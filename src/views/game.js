@@ -1255,14 +1255,17 @@ export function initGame(difficulty) {
   };
   const newBtnHandler = () => generateNewPuzzle();
   const finishBtnHandler = (e) => {
+    if (finishBtn.disabled) return; // Ignore if button is disabled
     e.preventDefault(); // Prevent click event from also firing
     finishGame();
   };
   const restartBtnHandler = (e) => {
+    if (restartBtn.disabled) return; // Ignore if button is disabled
     e.preventDefault(); // Prevent click event from also firing
     restartPuzzle();
   };
   const undoBtnHandler = (e) => {
+    if (undoBtn.disabled) return; // Ignore if button is disabled
     e.preventDefault(); // Prevent click event from also firing
     performUndo();
   };
