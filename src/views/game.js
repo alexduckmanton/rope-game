@@ -900,7 +900,7 @@ function loadOrGeneratePuzzle() {
     // Update UI based on completion status
     if (hasViewedSolution) {
       setGameUIState(GAME_STATE.VIEWED_SOLUTION);
-    } else if (hasWon) {
+    } else if (hasWon || hasManuallyFinished) {
       setGameUIState(GAME_STATE.WON);
     } else {
       setGameUIState(GAME_STATE.IN_PROGRESS);
@@ -946,9 +946,9 @@ function restartPuzzle() {
 
   gameCore.restartPuzzle();
 
-  // Only restart timer if the game was already won (timer was stopped)
+  // Only restart timer if the game was already won or manually finished (timer was stopped)
   // If game is in progress, keep the timer running
-  if (hasWon) {
+  if (hasWon || hasManuallyFinished) {
     startTimer();
   }
 
