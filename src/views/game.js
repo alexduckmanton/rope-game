@@ -65,6 +65,7 @@ let ctx;
 let gameTitle;
 let gameTimerEl;
 let newBtn;
+let finishBtn;
 let restartBtn;
 let undoBtn;
 let hintsCheckbox;
@@ -90,6 +91,7 @@ let countdown = true;
 let hasWon = false;
 let hasShownPartialWinFeedback = false;
 let hasViewedSolution = false;
+let hasManuallyFinished = false;
 let lastValidatedStateKey = '';  // Track state to avoid redundant validation
 
 // Cached values for performance (recalculated when puzzle changes)
@@ -154,7 +156,8 @@ function captureGameState() {
     solutionPath,
     hintCells,
     hasWon,
-    hasViewedSolution
+    hasViewedSolution,
+    hasManuallyFinished
   };
 }
 
@@ -277,7 +280,7 @@ function performUndo() {
  */
 function updateUndoButton() {
   if (undoBtn) {
-    const canUndo = undoHistory.length > 0 && !hasWon && !hasViewedSolution;
+    const canUndo = undoHistory.length > 0 && !hasWon && !hasViewedSolution && !hasManuallyFinished;
     undoBtn.disabled = !canUndo;
   }
 }
@@ -313,7 +316,10 @@ function setGameUIState(state) {
   const viewSolutionBtn = getViewSolutionBtn();
 
   if (state === GAME_STATE.IN_PROGRESS || state === GAME_STATE.NEW) {
-    // Enable restart button and show view solution button
+    // Enable finish and restart buttons, show view solution button
+    if (finishBtn) {
+      finishBtn.disabled = false;
+    }
     if (restartBtn) {
       restartBtn.disabled = false;
     }
@@ -321,7 +327,10 @@ function setGameUIState(state) {
       viewSolutionBtn.style.display = '';
     }
   } else if (state === GAME_STATE.WON || state === GAME_STATE.VIEWED_SOLUTION) {
-    // Disable restart button and hide view solution button
+    // Disable finish and restart buttons, hide view solution button
+    if (finishBtn) {
+      finishBtn.disabled = true;
+    }
     if (restartBtn) {
       restartBtn.disabled = true;
     }
@@ -712,52 +721,8 @@ function render(triggerSave = true, animationMode = 'auto') {
 
       // Show win celebration
       showWinCelebration(finalTime);
-    } else if (hasValidStructure) {
-      // Valid structure but not perfect (< 100%) - show partial win modal
-      if (!hasShownPartialWinFeedback) {
-        // Partial win - show score and encourage improvement
-        hasShownPartialWinFeedback = true;
-
-        // Pause timer while modal is visible
-        if (gameTimer) {
-          gameTimer.pause();
-        }
-
-        // Capture current time for sharing
-        const currentTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
-
-        // Track validation error
-        trackValidationError(currentGameDifficulty, isDailyMode ? 'daily' : 'unlimited');
-
-        // Destroy any previous game sheet before showing new one
-        if (activeGameSheet) {
-          activeGameSheet.destroy();
-        }
-        activeGameSheet = showBottomSheetAsync({
-          title: `You got ${scorePercentage}% in ${currentTime}`,
-          content: `<div class="bottom-sheet-message">Loop through every square and make all numbers zero for a perfect score.</div>`,
-          icon: 'shell',
-          colorScheme: 'partial',
-          dismissLabel: 'Keep trying',
-          primaryButton: {
-            label: 'Share',
-            icon: 'share-2',
-            onClick: async (buttonEl) => {
-              await handleShare(buttonEl, currentTime, scorePercentage);
-            }
-          },
-          onClose: () => {
-            // Resume timer when modal is dismissed
-            if (gameTimer && !hasWon) {
-              gameTimer.resume();
-            }
-          }
-        });
-      }
-    } else {
-      // No valid structure - reset feedback flags
-      hasShownPartialWinFeedback = false;
     }
+    // Note: Automatic partial win modal removed - players must use Finish button to commit to ending
   }
 
   // Save game state (throttled to max once per 5 seconds)
@@ -820,6 +785,7 @@ function generateNewPuzzle() {
   hasWon = false;
   hasShownPartialWinFeedback = false;
   hasViewedSolution = false;
+  hasManuallyFinished = false;
   lastValidatedStateKey = '';
 
   // Update UI state for new puzzle
@@ -884,6 +850,7 @@ function restorePlayerProgress(savedState) {
   hasWon = savedState.hasWon;
   hasShownPartialWinFeedback = savedState.hasShownPartialWinFeedback || false;
   hasViewedSolution = savedState.hasViewedSolution || false;
+  hasManuallyFinished = savedState.hasManuallyFinished || false;
 }
 
 /**
@@ -987,6 +954,7 @@ function restartPuzzle() {
 
   hasWon = false;
   hasShownPartialWinFeedback = false;
+  hasManuallyFinished = false;
   lastValidatedStateKey = '';
 
   // Update UI state for in-progress game
@@ -1042,6 +1010,71 @@ function viewSolution() {
 
   // Render to show the solution path
   render();
+}
+
+/**
+ * Finish the current puzzle manually (player commits to ending with current score)
+ *
+ * This function:
+ * - Marks the puzzle as manually finished
+ * - Stops the timer permanently
+ * - Shows partial win modal with current score
+ * - Locks the game (prevents further drawing/erasing)
+ * - Disables finish and restart buttons
+ */
+function finishGame() {
+  // Set manually finished flag
+  hasManuallyFinished = true;
+
+  // Stop timer permanently
+  stopTimer();
+
+  // Update UI state to lock game
+  setGameUIState(GAME_STATE.WON); // Reuse WON state for locking behavior
+
+  // Disable undo button
+  updateUndoButton();
+
+  // Capture current score and time
+  const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
+  const scorePercentage = currentScore ? currentScore.percentage : 0;
+
+  // Show partial win modal with "Close" button (no timer resume)
+  // Destroy any previous game sheet before showing new one
+  if (activeGameSheet) {
+    activeGameSheet.destroy();
+  }
+
+  // Build bottom sheet options
+  const bottomSheetOptions = {
+    title: `You got ${scorePercentage}% in ${finalTime}`,
+    content: `<div class="bottom-sheet-message">Loop through every square and make all numbers zero for a perfect score.</div>`,
+    icon: 'shell',
+    colorScheme: 'partial',
+    dismissLabel: 'Close',
+    onClose: () => {
+      // Don't resume timer - game is finished
+    }
+  };
+
+  // Add Share button only for daily mode
+  if (isDailyMode) {
+    bottomSheetOptions.primaryButton = {
+      label: 'Share',
+      icon: 'share-2',
+      onClick: async (buttonEl) => {
+        await handleShare(buttonEl, finalTime, scorePercentage);
+      }
+    };
+  }
+
+  activeGameSheet = showBottomSheetAsync(bottomSheetOptions);
+
+  // Save game state
+  saveGameState(captureGameState());
+
+  // Re-render to ensure UI is correct
+  render(false);
 }
 
 /* ============================================================================
@@ -1127,6 +1160,7 @@ export function initGame(difficulty) {
   gameTitle = document.getElementById('game-title');
   gameTimerEl = document.getElementById('game-timer');
   newBtn = document.getElementById('new-btn');
+  finishBtn = document.getElementById('finish-btn');
   restartBtn = document.getElementById('restart-btn');
   undoBtn = document.getElementById('undo-btn');
   hintsCheckbox = document.getElementById('hints-checkbox');
@@ -1197,6 +1231,7 @@ export function initGame(difficulty) {
   hasWon = false;
   hasShownPartialWinFeedback = false;
   hasViewedSolution = false;
+  hasManuallyFinished = false;
   lastValidatedStateKey = '';
   eventListeners = [];
 
@@ -1219,6 +1254,10 @@ export function initGame(difficulty) {
     render(false);
   };
   const newBtnHandler = () => generateNewPuzzle();
+  const finishBtnHandler = (e) => {
+    e.preventDefault(); // Prevent click event from also firing
+    finishGame();
+  };
   const restartBtnHandler = (e) => {
     e.preventDefault(); // Prevent click event from also firing
     restartPuzzle();
@@ -1264,23 +1303,23 @@ export function initGame(difficulty) {
   };
 
   // Use gameCore methods for pointer events
-  // Prevent drawing if game is won or solution was viewed
+  // Prevent drawing if game is won, solution was viewed, or manually finished
   const pointerDownHandler = (e) => {
-    if (!hasWon && !hasViewedSolution) {
+    if (!hasWon && !hasViewedSolution && !hasManuallyFinished) {
       pushUndoState(); // Save state before drawing action starts
       gameCore.handlePointerDown(e);
     }
   };
   const pointerMoveHandler = (e) => {
-    if (!hasWon && !hasViewedSolution) gameCore.handlePointerMove(e);
+    if (!hasWon && !hasViewedSolution && !hasManuallyFinished) gameCore.handlePointerMove(e);
   };
   const pointerUpHandler = (e) => {
-    if (!hasWon && !hasViewedSolution) {
+    if (!hasWon && !hasViewedSolution && !hasManuallyFinished) {
       gameCore.handlePointerUp(e);
     }
   };
   const pointerCancelHandler = (e) => {
-    if (!hasWon && !hasViewedSolution) gameCore.handlePointerCancel(e);
+    if (!hasWon && !hasViewedSolution && !hasManuallyFinished) gameCore.handlePointerCancel(e);
   };
   const themeChangeHandler = () => {
     // Re-render canvas with updated colors when theme changes
@@ -1290,6 +1329,7 @@ export function initGame(difficulty) {
   window.addEventListener('resize', resizeHandler);
   window.addEventListener('themeChanged', themeChangeHandler);
   newBtn.addEventListener('click', newBtnHandler);
+  finishBtn.addEventListener('pointerdown', finishBtnHandler);
   restartBtn.addEventListener('pointerdown', restartBtnHandler);
   undoBtn.addEventListener('pointerdown', undoBtnHandler);
   hintsCheckbox.addEventListener('click', hintsHandler);
@@ -1309,6 +1349,7 @@ export function initGame(difficulty) {
     { element: window, event: 'resize', handler: resizeHandler },
     { element: window, event: 'themeChanged', handler: themeChangeHandler },
     { element: newBtn, event: 'click', handler: newBtnHandler },
+    { element: finishBtn, event: 'pointerdown', handler: finishBtnHandler },
     { element: restartBtn, event: 'pointerdown', handler: restartBtnHandler },
     { element: undoBtn, event: 'pointerdown', handler: undoBtnHandler },
     { element: hintsCheckbox, event: 'click', handler: hintsHandler },

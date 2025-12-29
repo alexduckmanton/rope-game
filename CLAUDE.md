@@ -1172,6 +1172,8 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 
 ### Game Mode Comparison
 
+**Note:** The game has only two playable modes: Daily Mode and Unlimited Mode. Tutorial is not a game mode—it's a video-based bottom sheet component accessible from any view via button click. Tutorial does not have puzzles, timers, or game state.
+
 | Aspect | Daily Mode (Easy/Medium/Hard) | Unlimited Mode |
 |--------|-------------------------------|----------------|
 | **Puzzle Source** | Deterministic from date seed | True random generation |
