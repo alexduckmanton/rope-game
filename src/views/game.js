@@ -868,7 +868,7 @@ function restoreTimerState(savedState) {
     if (gameTimerEl) {
       gameTimerEl.textContent = 'Viewed solution';
     }
-  } else if (hasWon) {
+  } else if (hasWon || hasManuallyFinished) {
     // Show final completion time (but don't resume timer)
     stopTimer();
     if (gameTimer) {
