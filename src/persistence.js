@@ -133,7 +133,8 @@ function serializeGameState(state) {
     solutionPath,
     hintCells,
     hasWon,
-    hasViewedSolution
+    hasViewedSolution,
+    hasManuallyFinished
   } = state;
 
   // Convert Set to Array
@@ -158,6 +159,7 @@ function serializeGameState(state) {
     elapsedSeconds,
     hasWon: hasWon || false,
     hasViewedSolution: hasViewedSolution || false,
+    hasManuallyFinished: hasManuallyFinished || false,
     savedAt: Date.now()
   };
 
@@ -187,7 +189,8 @@ function deserializeGameState(saved) {
     solutionPath,
     hintCells,
     hasWon,
-    hasViewedSolution
+    hasViewedSolution,
+    hasManuallyFinished
   } = saved;
 
   // Convert Array to Set
@@ -210,7 +213,8 @@ function deserializeGameState(saved) {
     playerConnections: deserializedConnections,
     elapsedSeconds,
     hasWon: hasWon || false,
-    hasViewedSolution: hasViewedSolution || false
+    hasViewedSolution: hasViewedSolution || false,
+    hasManuallyFinished: hasManuallyFinished || false
   };
 
   // For unlimited mode, restore the puzzle data
