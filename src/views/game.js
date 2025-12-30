@@ -7,7 +7,7 @@
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
-import { buildSolutionTurnMap, countTurnsInArea, parseCellKey, checkStructuralLoop } from '../utils.js';
+import { buildSolutionTurnMap, countTurnsInArea, parseCellKey, checkPartialStructuralLoop } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
@@ -290,27 +290,11 @@ function updateUndoButton() {
  * Returns true only when:
  * - At least one cell is drawn
  * - Every drawn cell has exactly 2 connections (no branches, no dead ends)
- * - All cells form a closed loop
+ * - All drawn cells form a single connected loop
  * @returns {boolean} Whether there's a valid single closed loop
  */
 function hasValidSingleLoop() {
-  // Must have at least one cell drawn
-  if (playerDrawnCells.size === 0) {
-    return false;
-  }
-
-  // All cells must have exactly 2 connections (no branches, no dead ends)
-  for (const cellKey of playerDrawnCells) {
-    const connections = playerConnections.get(cellKey);
-    if (!connections || connections.size !== 2) {
-      return false;
-    }
-  }
-
-  // Must form a closed loop
-  const firstCell = Array.from(playerDrawnCells)[0];
-  const [row, col] = parseCellKey(firstCell);
-  return checkStructuralLoop(playerDrawnCells, playerConnections, row, col);
+  return checkPartialStructuralLoop(playerDrawnCells, playerConnections);
 }
 
 /**
