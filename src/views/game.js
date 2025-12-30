@@ -294,6 +294,8 @@ function updateUndoButton() {
  * @returns {boolean} Whether there's a valid single closed loop
  */
 function hasValidSingleLoop() {
+  if (!gameCore) return false;
+  const { playerDrawnCells, playerConnections } = gameCore.state;
   return checkPartialStructuralLoop(playerDrawnCells, playerConnections);
 }
 
