@@ -275,7 +275,11 @@ button {
   transition: all 100ms ease-in-out;
 }
 
-/* Undo button fills remaining space */
+/* Restart and Undo buttons fill remaining space */
+.game-controls #restart-btn {
+  flex: 1;
+}
+
 .game-controls #undo-btn {
   flex: 1;
 }
