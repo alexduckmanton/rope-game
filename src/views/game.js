@@ -7,7 +7,7 @@
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
-import { buildSolutionTurnMap, countTurnsInArea, parseCellKey } from '../utils.js';
+import { buildSolutionTurnMap, countTurnsInArea, parseCellKey, checkStructuralLoop } from '../utils.js';
 import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
@@ -283,6 +283,51 @@ function updateUndoButton() {
     const canUndo = undoHistory.length > 0 && !hasWon && !hasViewedSolution && !hasManuallyFinished;
     undoBtn.disabled = !canUndo;
   }
+}
+
+/**
+ * Check if all drawn cells form a single valid closed loop
+ * Returns true only when:
+ * - At least one cell is drawn
+ * - Every drawn cell has exactly 2 connections (no branches, no dead ends)
+ * - All cells form a closed loop
+ * @returns {boolean} Whether there's a valid single closed loop
+ */
+function hasValidSingleLoop() {
+  // Must have at least one cell drawn
+  if (playerDrawnCells.size === 0) {
+    return false;
+  }
+
+  // All cells must have exactly 2 connections (no branches, no dead ends)
+  for (const cellKey of playerDrawnCells) {
+    const connections = playerConnections.get(cellKey);
+    if (!connections || connections.size !== 2) {
+      return false;
+    }
+  }
+
+  // Must form a closed loop
+  const firstCell = Array.from(playerDrawnCells)[0];
+  const [row, col] = parseCellKey(firstCell);
+  return checkStructuralLoop(playerDrawnCells, playerConnections, row, col);
+}
+
+/**
+ * Update finish button enabled/disabled state
+ * Button is enabled only when there's a valid single closed loop AND game is not completed
+ */
+function updateFinishButton() {
+  if (!finishBtn) return;
+
+  // Always disable if game is already completed
+  if (hasWon || hasViewedSolution || hasManuallyFinished) {
+    finishBtn.disabled = true;
+    return;
+  }
+
+  // Enable only when there's a valid single closed loop
+  finishBtn.disabled = !hasValidSingleLoop();
 }
 
 /**
@@ -698,6 +743,7 @@ function render(triggerSave = true, animationMode = 'auto') {
       // Update UI state for completed game
       setGameUIState(GAME_STATE.WON);
       updateUndoButton();
+      updateFinishButton();
 
       // Mark daily puzzle as completed (not for unlimited mode)
       if (isDailyMode) {
@@ -724,6 +770,9 @@ function render(triggerSave = true, animationMode = 'auto') {
     }
     // Note: Automatic partial win modal removed - players must use Finish button to commit to ending
   }
+
+  // Update finish button state based on current loop validity
+  updateFinishButton();
 
   // Save game state (throttled to max once per 5 seconds)
   // Only save if triggered by user interaction, not by restore/display changes
@@ -995,6 +1044,7 @@ function restartPuzzle() {
   setGameUIState(GAME_STATE.IN_PROGRESS);
 
   updateUndoButton(); // Button becomes enabled after hasWon reset
+  updateFinishButton(); // Button becomes disabled after restart
 
   render();
 }
@@ -1028,8 +1078,9 @@ function viewSolution() {
   // Update UI state for viewed solution
   setGameUIState(GAME_STATE.VIEWED_SOLUTION);
 
-  // Disable undo button
+  // Disable undo and finish buttons
   updateUndoButton();
+  updateFinishButton();
 
   // For daily puzzles, mark as completed with viewed solution (skull icon)
   if (isDailyMode) {
@@ -1066,8 +1117,9 @@ function finishGame() {
   // Update UI state to lock game
   setGameUIState(GAME_STATE.WON); // Reuse WON state for locking behavior
 
-  // Disable undo button
+  // Disable undo and finish buttons
   updateUndoButton();
+  updateFinishButton();
 
   // Mark as manually finished for daily puzzles
   if (isDailyMode) {
