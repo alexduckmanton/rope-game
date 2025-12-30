@@ -989,7 +989,7 @@ function loadOrGeneratePuzzle() {
       // Build bottom sheet options
       const bottomSheetOptions = {
         title: `You got ${scorePercentage}% in ${finalTime}`,
-        content: `<div class="bottom-sheet-message">Loop through every square and make all numbers zero for a perfect score.</div>`,
+        content: `<div class="bottom-sheet-message">Make a loop where all numbers are zero for a perfect score. Try again tomorrow!</div>`,
         icon: 'shell',
         colorScheme: 'partial',
         dismissLabel: 'Close',
@@ -1153,7 +1153,7 @@ function finishGame() {
   // Build bottom sheet options
   const bottomSheetOptions = {
     title: `You got ${scorePercentage}% in ${finalTime}`,
-    content: `<div class="bottom-sheet-message">Loop through every square and make all numbers zero for a perfect score.</div>`,
+    content: `<div class="bottom-sheet-message">Make a loop where all numbers are zero for a perfect score. Try again tomorrow!</div>`,
     icon: 'shell',
     colorScheme: 'partial',
     dismissLabel: 'Close',
