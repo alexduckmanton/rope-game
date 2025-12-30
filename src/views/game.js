@@ -317,6 +317,29 @@ function updateFinishButton() {
 }
 
 /**
+ * Update restart/clear button enabled/disabled state
+ * Button is enabled only when there are cells drawn AND game is not completed
+ */
+function updateRestartButton() {
+  if (!restartBtn) return;
+
+  // Always disable if game is already completed
+  if (hasWon || hasViewedSolution || hasManuallyFinished) {
+    restartBtn.disabled = true;
+    return;
+  }
+
+  // Enable only when there are cells drawn
+  if (!gameCore) {
+    restartBtn.disabled = true;
+    return;
+  }
+
+  const { playerDrawnCells } = gameCore.state;
+  restartBtn.disabled = playerDrawnCells.size === 0;
+}
+
+/**
  * Clear undo history
  * Called on new puzzle, difficulty change, or puzzle load
  */
@@ -730,6 +753,7 @@ function render(triggerSave = true, animationMode = 'auto') {
       setGameUIState(GAME_STATE.WON);
       updateUndoButton();
       updateFinishButton();
+      updateRestartButton();
 
       // Mark daily puzzle as completed (not for unlimited mode)
       if (isDailyMode) {
@@ -757,8 +781,9 @@ function render(triggerSave = true, animationMode = 'auto') {
     // Note: Automatic partial win modal removed - players must use Finish button to commit to ending
   }
 
-  // Update finish button state based on current loop validity
+  // Update finish and restart button states based on current path
   updateFinishButton();
+  updateRestartButton();
 
   // Save game state (throttled to max once per 5 seconds)
   // Only save if triggered by user interaction, not by restore/display changes
@@ -1031,6 +1056,7 @@ function restartPuzzle() {
 
   updateUndoButton(); // Button becomes enabled after hasWon reset
   updateFinishButton(); // Button becomes disabled after restart
+  updateRestartButton(); // Button becomes disabled after restart (no cells drawn)
 
   render();
 }
@@ -1064,9 +1090,10 @@ function viewSolution() {
   // Update UI state for viewed solution
   setGameUIState(GAME_STATE.VIEWED_SOLUTION);
 
-  // Disable undo and finish buttons
+  // Disable undo, finish, and restart buttons
   updateUndoButton();
   updateFinishButton();
+  updateRestartButton();
 
   // For daily puzzles, mark as completed with viewed solution (skull icon)
   if (isDailyMode) {
@@ -1103,9 +1130,10 @@ function finishGame() {
   // Update UI state to lock game
   setGameUIState(GAME_STATE.WON); // Reuse WON state for locking behavior
 
-  // Disable undo and finish buttons
+  // Disable undo, finish, and restart buttons
   updateUndoButton();
   updateFinishButton();
+  updateRestartButton();
 
   // Mark as manually finished for daily puzzles
   if (isDailyMode) {
