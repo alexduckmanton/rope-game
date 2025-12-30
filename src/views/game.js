@@ -1111,6 +1111,53 @@ function viewSolution() {
 }
 
 /**
+ * Show confirmation modal before ending the game
+ * Prevents accidental game endings by requiring confirmation
+ */
+function showFinishConfirmation() {
+  // Capitalize first letter of difficulty for display
+  const difficultyCapitalized = currentGameDifficulty.charAt(0).toUpperCase() + currentGameDifficulty.slice(1);
+
+  // Build confirmation message - only show "until tomorrow" for daily mode
+  let bodyMessage = '';
+  if (isDailyMode) {
+    bodyMessage = `You won't be able to play the ${difficultyCapitalized} loopy until tomorrow.`;
+  }
+
+  // Destroy any previous game sheet before showing new one
+  if (activeGameSheet) {
+    activeGameSheet.destroy();
+  }
+
+  // Build bottom sheet options for confirmation
+  const confirmationOptions = {
+    title: 'End this game?',
+    content: bodyMessage ? `<div class="bottom-sheet-message">${bodyMessage}</div>` : '',
+    icon: 'check',
+    colorScheme: 'error',
+    dismissLabel: 'Keep playing',
+    dismissVariant: 'secondary',
+    primaryButton: {
+      label: 'End game',
+      variant: 'destructive',
+      onClick: () => {
+        // Close confirmation modal and end the game
+        if (activeGameSheet) {
+          activeGameSheet.destroy();
+          activeGameSheet = null;
+        }
+        finishGame();
+      }
+    },
+    onClose: () => {
+      // Just dismiss the modal, don't do anything else
+    }
+  };
+
+  activeGameSheet = showBottomSheetAsync(confirmationOptions);
+}
+
+/**
  * Finish the current puzzle manually (player commits to ending with current score)
  *
  * This function:
@@ -1362,7 +1409,7 @@ export function initGame(difficulty) {
   const finishBtnHandler = (e) => {
     if (finishBtn.disabled) return; // Ignore if button is disabled
     e.preventDefault(); // Prevent click event from also firing
-    finishGame();
+    showFinishConfirmation();
   };
   const restartBtnHandler = (e) => {
     if (restartBtn.disabled) return; // Ignore if button is disabled
