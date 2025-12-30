@@ -114,6 +114,6 @@ export const CONFIG = {
     // Hints satisfaction: 0 to (100 - HAMILTONIAN_BONUS_PERCENT)%
     // Cell coverage: 0 to HAMILTONIAN_BONUS_PERCENT% (proportional)
     // Total score: hints% + coverage%
-    HAMILTONIAN_BONUS_PERCENT: 10,
+    HAMILTONIAN_BONUS_PERCENT: 0,
   },
 };
