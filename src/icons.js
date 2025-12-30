@@ -21,9 +21,10 @@
  * - Eye: View solution button icon in settings
  * - GraduationCap: Tutorial lesson intro bottom sheets
  * - CircleHelp: Help button in tutorial navigation to re-open lesson sheet
+ * - CircleCheckBig: End/Finish button in game view
  */
 
-import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -54,7 +55,8 @@ export function initIcons() {
       Skull,
       Eye,
       GraduationCap,
-      CircleHelp
+      CircleHelp,
+      CircleCheckBig
     },
     attrs: {
       'stroke-width': '2',
