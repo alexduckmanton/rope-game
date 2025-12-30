@@ -367,7 +367,7 @@ export function createGameCore({ gridSize, canvas, onRender }) {
     handlePointerCancel,
 
     // Utility methods
-    restartPuzzle: () => {
+    clearPuzzle: () => {
       state.playerDrawnCells.clear();
       state.playerConnections.clear();
     },

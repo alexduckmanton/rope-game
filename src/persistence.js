@@ -102,6 +102,49 @@ function parseStorageKey(key) {
 }
 
 /**
+ * Get storage key for daily completion tracking
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {string} localStorage key
+ */
+function getCompletedKey(difficulty) {
+  return `${STORAGE_PREFIX}:completed:${difficulty}`;
+}
+
+/**
+ * Get storage key for viewed solution tracking
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {string} localStorage key
+ */
+function getViewedSolutionKey(difficulty) {
+  return `${STORAGE_PREFIX}:completed-viewed-solution:${difficulty}`;
+}
+
+/**
+ * Get storage key for manual finish tracking
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {string} localStorage key
+ */
+function getManuallyFinishedKey(difficulty) {
+  return `${STORAGE_PREFIX}:manually-finished:${difficulty}`;
+}
+
+/**
+ * Get storage key for settings
+ * @returns {string} localStorage key
+ */
+function getSettingsKey() {
+  return `${STORAGE_PREFIX}:settings`;
+}
+
+/**
+ * Get storage key for tutorial completion
+ * @returns {string} localStorage key
+ */
+function getTutorialCompletedKey() {
+  return `${STORAGE_PREFIX}:tutorial-completed`;
+}
+
+/**
  * Get today's date in YYYY-MM-DD format
  */
 function getTodayDateString() {
@@ -133,7 +176,8 @@ function serializeGameState(state) {
     solutionPath,
     hintCells,
     hasWon,
-    hasViewedSolution
+    hasViewedSolution,
+    hasManuallyFinished
   } = state;
 
   // Convert Set to Array
@@ -158,6 +202,7 @@ function serializeGameState(state) {
     elapsedSeconds,
     hasWon: hasWon || false,
     hasViewedSolution: hasViewedSolution || false,
+    hasManuallyFinished: hasManuallyFinished || false,
     savedAt: Date.now()
   };
 
@@ -187,7 +232,8 @@ function deserializeGameState(saved) {
     solutionPath,
     hintCells,
     hasWon,
-    hasViewedSolution
+    hasViewedSolution,
+    hasManuallyFinished
   } = saved;
 
   // Convert Array to Set
@@ -210,7 +256,8 @@ function deserializeGameState(saved) {
     playerConnections: deserializedConnections,
     elapsedSeconds,
     hasWon: hasWon || false,
-    hasViewedSolution: hasViewedSolution || false
+    hasViewedSolution: hasViewedSolution || false,
+    hasManuallyFinished: hasManuallyFinished || false
   };
 
   // For unlimited mode, restore the puzzle data
@@ -482,7 +529,7 @@ export function createThrottledSave(cooldownMs = SAVE_COOLDOWN_MS) {
  */
 export function markDailyCompleted(difficulty) {
   const today = getTodayDateString();
-  const key = `${STORAGE_PREFIX}:completed:${difficulty}`;
+  const key = getCompletedKey(difficulty);
 
   try {
     localStorage.setItem(key, today);
@@ -500,7 +547,7 @@ export function markDailyCompleted(difficulty) {
  */
 export function isDailyCompleted(difficulty) {
   const today = getTodayDateString();
-  const key = `${STORAGE_PREFIX}:completed:${difficulty}`;
+  const key = getCompletedKey(difficulty);
 
   try {
     const completedDate = localStorage.getItem(key);
@@ -517,7 +564,7 @@ export function isDailyCompleted(difficulty) {
  */
 export function markTutorialCompleted() {
   try {
-    localStorage.setItem(`${STORAGE_PREFIX}:tutorial-completed`, 'true');
+    localStorage.setItem(getTutorialCompletedKey(), 'true');
     return true;
   } catch (error) {
     console.warn('Failed to save tutorial completion:', error);
@@ -531,7 +578,7 @@ export function markTutorialCompleted() {
  */
 export function isTutorialCompleted() {
   try {
-    return localStorage.getItem(`${STORAGE_PREFIX}:tutorial-completed`) === 'true';
+    return localStorage.getItem(getTutorialCompletedKey()) === 'true';
   } catch (error) {
     console.warn('Failed to check tutorial completion:', error);
     return false;
@@ -546,7 +593,7 @@ export function isTutorialCompleted() {
  */
 export function markDailyCompletedWithViewedSolution(difficulty) {
   const today = getTodayDateString();
-  const key = `${STORAGE_PREFIX}:completed-viewed-solution:${difficulty}`;
+  const key = getViewedSolutionKey(difficulty);
 
   try {
     localStorage.setItem(key, today);
@@ -564,13 +611,50 @@ export function markDailyCompletedWithViewedSolution(difficulty) {
  */
 export function isDailyCompletedWithViewedSolution(difficulty) {
   const today = getTodayDateString();
-  const key = `${STORAGE_PREFIX}:completed-viewed-solution:${difficulty}`;
+  const key = getViewedSolutionKey(difficulty);
 
   try {
     const completedDate = localStorage.getItem(key);
     return completedDate === today;
   } catch (error) {
     console.warn('Failed to check viewed solution completion:', error);
+    return false;
+  }
+}
+
+/**
+ * Mark a daily puzzle as manually finished (ended via End button)
+ * Stores the completion date, which automatically becomes stale the next day
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {boolean} Whether save was successful
+ */
+export function markDailyManuallyFinished(difficulty) {
+  const today = getTodayDateString();
+  const key = getManuallyFinishedKey(difficulty);
+
+  try {
+    localStorage.setItem(key, today);
+    return true;
+  } catch (error) {
+    console.warn('Failed to save manually finished state:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if a daily puzzle was manually finished (ended via End button)
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {boolean} Whether the difficulty was manually finished today
+ */
+export function isDailyManuallyFinished(difficulty) {
+  const today = getTodayDateString();
+  const key = getManuallyFinishedKey(difficulty);
+
+  try {
+    const completedDate = localStorage.getItem(key);
+    return completedDate === today;
+  } catch (error) {
+    console.warn('Failed to check manually finished state:', error);
     return false;
   }
 }
@@ -593,7 +677,7 @@ const DEFAULT_SETTINGS = {
  */
 export function saveSettings(settings) {
   try {
-    const key = `${STORAGE_PREFIX}:settings`;
+    const key = getSettingsKey();
     localStorage.setItem(key, JSON.stringify(settings));
     return true;
   } catch (error) {
@@ -608,7 +692,7 @@ export function saveSettings(settings) {
  */
 export function loadSettings() {
   try {
-    const key = `${STORAGE_PREFIX}:settings`;
+    const key = getSettingsKey();
     const json = localStorage.getItem(key);
 
     if (!json) {
