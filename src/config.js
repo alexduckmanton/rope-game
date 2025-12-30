@@ -108,6 +108,17 @@ export const CONFIG = {
     BACKTRACK_THRESHOLD: 1,
   },
 
+  // Difficulty settings
+  DIFFICULTY: {
+    // Maximum number of hints per difficulty level
+    // null = unlimited hints
+    MAX_HINTS: {
+      easy: 2,      // Limited to 2 hints to reduce complexity
+      medium: 6,    // Limited to 6 hints for moderate challenge
+      hard: null,   // Unlimited hints on larger grid
+    },
+  },
+
   // Scoring system
   SCORING: {
     // Percentage bonus for visiting all cells (Hamiltonian cycle)

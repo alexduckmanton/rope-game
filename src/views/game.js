@@ -1249,9 +1249,9 @@ function getGridSizeFromDifficulty(difficulty) {
  * @returns {number|null} Maximum hints (null for unlimited)
  */
 function getMaxHintsForDifficulty(difficulty, isDailyMode) {
-  // Easy puzzles (both daily and unlimited) are capped at 2 hints to make them easier
-  // Medium and hard have unlimited hints
-  return (difficulty === 'easy') ? 2 : null;
+  // Read max hints from centralized config
+  // Returns null for unlimited hints (used by hard difficulty)
+  return CONFIG.DIFFICULTY.MAX_HINTS[difficulty] ?? null;
 }
 
 /**
@@ -1260,7 +1260,7 @@ function getMaxHintsForDifficulty(difficulty, isDailyMode) {
  * @returns {number} Probability value between 0 and 1
  *
  * Easy: 30% (0.3) - higher chance but capped at 2 hints
- * Medium: 20% (0.2) - lower probability, unlimited hints
+ * Medium: 20% (0.2) - lower probability, capped at 6 hints
  * Hard: 30% (0.3) - same as easy but unlimited hints on larger grid
  */
 function getHintProbabilityForDifficulty(difficulty) {
