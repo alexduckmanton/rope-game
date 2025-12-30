@@ -45,6 +45,16 @@ const GAME_STATE = {
   NEW: 'new'
 };
 
+/**
+ * Display names for difficulty levels
+ * Maps internal lowercase difficulty strings to user-facing capitalized names
+ */
+const DIFFICULTY_DISPLAY_NAMES = {
+  easy: 'Easy',
+  medium: 'Medium',
+  hard: 'Hard'
+};
+
 /* ============================================================================
  * STATE VARIABLES
  * ========================================================================= */
@@ -275,14 +285,29 @@ function performUndo() {
 }
 
 /**
+ * Helper to update button state with automatic completion check
+ * @param {HTMLButtonElement} button - Button element to update
+ * @param {Function} enabledCondition - Function that returns true if button should be enabled
+ */
+function updateButtonState(button, enabledCondition) {
+  if (!button) return;
+
+  // Always disable if game is already completed
+  if (hasWon || hasViewedSolution || hasManuallyFinished) {
+    button.disabled = true;
+    return;
+  }
+
+  // Otherwise, evaluate the specific condition
+  button.disabled = !enabledCondition();
+}
+
+/**
  * Update undo button enabled/disabled state
  * Button is enabled only if there's history AND game is not completed
  */
 function updateUndoButton() {
-  if (undoBtn) {
-    const canUndo = undoHistory.length > 0 && !hasWon && !hasViewedSolution && !hasManuallyFinished;
-    undoBtn.disabled = !canUndo;
-  }
+  updateButtonState(undoBtn, () => undoHistory.length > 0);
 }
 
 /**
@@ -304,16 +329,7 @@ function hasValidSingleLoop() {
  * Button is enabled only when there's a valid single closed loop AND game is not completed
  */
 function updateFinishButton() {
-  if (!finishBtn) return;
-
-  // Always disable if game is already completed
-  if (hasWon || hasViewedSolution || hasManuallyFinished) {
-    finishBtn.disabled = true;
-    return;
-  }
-
-  // Enable only when there's a valid single closed loop
-  finishBtn.disabled = !hasValidSingleLoop();
+  updateButtonState(finishBtn, hasValidSingleLoop);
 }
 
 /**
@@ -321,22 +337,10 @@ function updateFinishButton() {
  * Button is enabled only when there are cells drawn AND game is not completed
  */
 function updateClearButton() {
-  if (!clearBtn) return;
-
-  // Always disable if game is already completed
-  if (hasWon || hasViewedSolution || hasManuallyFinished) {
-    clearBtn.disabled = true;
-    return;
-  }
-
-  // Enable only when there are cells drawn
-  if (!gameCore) {
-    clearBtn.disabled = true;
-    return;
-  }
-
-  const { playerDrawnCells } = gameCore.state;
-  clearBtn.disabled = playerDrawnCells.size === 0;
+  updateButtonState(clearBtn, () => {
+    if (!gameCore) return false;
+    return gameCore.state.playerDrawnCells.size > 0;
+  });
 }
 
 /**
@@ -1115,13 +1119,13 @@ function viewSolution() {
  * Prevents accidental game endings by requiring confirmation
  */
 function showFinishConfirmation() {
-  // Capitalize first letter of difficulty for display
-  const difficultyCapitalized = currentGameDifficulty.charAt(0).toUpperCase() + currentGameDifficulty.slice(1);
+  // Get display name for difficulty
+  const difficultyName = DIFFICULTY_DISPLAY_NAMES[currentGameDifficulty];
 
   // Build confirmation message - only show "until tomorrow" for daily mode
   let bodyMessage = '';
   if (isDailyMode) {
-    bodyMessage = `You won't be able to play the ${difficultyCapitalized} Loopy until tomorrow.`;
+    bodyMessage = `You won't be able to play the ${difficultyName} Loopy until tomorrow.`;
   }
 
   // Destroy any previous game sheet before showing new one
@@ -1141,16 +1145,9 @@ function showFinishConfirmation() {
       label: 'End game',
       variant: 'destructive',
       onClick: () => {
-        // Close confirmation modal and end the game
-        if (activeGameSheet) {
-          activeGameSheet.destroy();
-          activeGameSheet = null;
-        }
+        // finishGame() will handle closing this modal and showing the result modal
         finishGame();
       }
-    },
-    onClose: () => {
-      // Just dismiss the modal, don't do anything else
     }
   };
 
