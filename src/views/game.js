@@ -1322,6 +1322,11 @@ export function initGame(difficulty) {
   segmentedControl = document.getElementById('difficulty-segmented-control');
   segmentButtons = segmentedControl ? segmentedControl.querySelectorAll('.segment-btn') : [];
 
+  // Hide End button if early game ending feature is disabled
+  if (!CONFIG.FEATURES.ENABLE_EARLY_GAME_ENDING && finishBtn) {
+    finishBtn.style.display = 'none';
+  }
+
   // Create settings bottom sheet with the settings content and view solution button
   const settingsContent = document.getElementById('settings-content');
   settingsSheet = createBottomSheet({
@@ -1342,8 +1347,8 @@ export function initGame(difficulty) {
   gameTimer = createGameTimer({
     onUpdate: (text) => {
       if (gameTimerEl) {
-        // Append score to timer display if available
-        if (currentScore) {
+        // Append score to timer display if available and feature is enabled
+        if (CONFIG.FEATURES.ENABLE_EARLY_GAME_ENDING && currentScore) {
           gameTimerEl.textContent = `${text} • ${currentScore.percentage}%`;
         } else {
           gameTimerEl.textContent = text;
