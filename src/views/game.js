@@ -916,6 +916,40 @@ function loadOrGeneratePuzzle() {
     if (hasWon && !hasViewedSolution) {
       const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
       showWinCelebration(finalTime);
+    } else if (hasManuallyFinished) {
+      // Show partial win modal for manually finished games
+      const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
+      const scorePercentage = currentScore ? currentScore.percentage : 0;
+
+      // Destroy any previous game sheet before showing new one
+      if (activeGameSheet) {
+        activeGameSheet.destroy();
+      }
+
+      // Build bottom sheet options
+      const bottomSheetOptions = {
+        title: `You got ${scorePercentage}% in ${finalTime}`,
+        content: `<div class="bottom-sheet-message">Loop through every square and make all numbers zero for a perfect score.</div>`,
+        icon: 'shell',
+        colorScheme: 'partial',
+        dismissLabel: 'Close',
+        onClose: () => {
+          // Don't resume timer - game is finished
+        }
+      };
+
+      // Add Share button only for daily mode
+      if (isDailyMode) {
+        bottomSheetOptions.primaryButton = {
+          label: 'Share',
+          icon: 'share-2',
+          onClick: async (buttonEl) => {
+            await handleShare(buttonEl, finalTime, scorePercentage);
+          }
+        };
+      }
+
+      activeGameSheet = showBottomSheetAsync(bottomSheetOptions);
     }
   } else {
     // No saved state - generate fresh puzzle
