@@ -1071,11 +1071,7 @@ function finishGame() {
 
   // Mark as manually finished for daily puzzles
   if (isDailyMode) {
-    console.log('[DEBUG] Marking as manually finished:', currentGameDifficulty);
-    const result = markDailyManuallyFinished(currentGameDifficulty);
-    console.log('[DEBUG] markDailyManuallyFinished returned:', result);
-  } else {
-    console.log('[DEBUG] Not daily mode, skipping mark');
+    markDailyManuallyFinished(currentGameDifficulty);
   }
 
   // Capture current score and time

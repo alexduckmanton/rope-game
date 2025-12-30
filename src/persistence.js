@@ -589,13 +589,8 @@ export function markDailyManuallyFinished(difficulty) {
   const today = getTodayDateString();
   const key = `${STORAGE_PREFIX}:manually-finished:${difficulty}`;
 
-  console.log('[DEBUG] markDailyManuallyFinished - difficulty:', difficulty);
-  console.log('[DEBUG] markDailyManuallyFinished - key:', key);
-  console.log('[DEBUG] markDailyManuallyFinished - today:', today);
-
   try {
     localStorage.setItem(key, today);
-    console.log('[DEBUG] localStorage.setItem succeeded');
     return true;
   } catch (error) {
     console.warn('Failed to save manually finished state:', error);
@@ -612,16 +607,9 @@ export function isDailyManuallyFinished(difficulty) {
   const today = getTodayDateString();
   const key = `${STORAGE_PREFIX}:manually-finished:${difficulty}`;
 
-  console.log('[DEBUG] isDailyManuallyFinished - difficulty:', difficulty);
-  console.log('[DEBUG] isDailyManuallyFinished - key:', key);
-  console.log('[DEBUG] isDailyManuallyFinished - today:', today);
-
   try {
     const completedDate = localStorage.getItem(key);
-    console.log('[DEBUG] isDailyManuallyFinished - completedDate from localStorage:', completedDate);
-    const result = completedDate === today;
-    console.log('[DEBUG] isDailyManuallyFinished - returning:', result);
-    return result;
+    return completedDate === today;
   } catch (error) {
     console.warn('Failed to check manually finished state:', error);
     return false;

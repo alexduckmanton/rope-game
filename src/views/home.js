@@ -47,11 +47,9 @@ function updateCompletedState(button, isCompleted, icon = 'trophy') {
  * @param {string} difficulty - Difficulty level ('easy', 'medium', 'hard')
  */
 function updateDailyButtonState(button, difficulty) {
-  console.log('[DEBUG HOME] updateDailyButtonState for difficulty:', difficulty);
   const won = isDailyCompleted(difficulty);
   const manuallyFinished = isDailyManuallyFinished(difficulty);
   const viewedSolution = isDailyCompletedWithViewedSolution(difficulty);
-  console.log('[DEBUG HOME] won:', won, 'manuallyFinished:', manuallyFinished, 'viewedSolution:', viewedSolution);
   const isCompleted = won || manuallyFinished || viewedSolution;
 
   // Priority: trophy > check > skull
@@ -62,7 +60,6 @@ function updateDailyButtonState(button, difficulty) {
     icon = 'check';
   }
 
-  console.log('[DEBUG HOME] isCompleted:', isCompleted, 'icon:', icon);
   updateCompletedState(button, isCompleted, icon);
 }
 
@@ -77,12 +74,6 @@ export function initHome() {
   if (tagline) {
     tagline.textContent = getFormattedDate();
   }
-
-  // TEMPORARY DEBUG: Check manually finished status and display in page title
-  const easyManuallyFinished = isDailyManuallyFinished('easy');
-  const mediumManuallyFinished = isDailyManuallyFinished('medium');
-  const hardManuallyFinished = isDailyManuallyFinished('hard');
-  document.title = `Loopy [E:${easyManuallyFinished?'✓':'✗'} M:${mediumManuallyFinished?'✓':'✗'} H:${hardManuallyFinished?'✓':'✗'}]`;
 
   // Get button elements
   const tutorialBtn = document.getElementById('tutorial-btn');
