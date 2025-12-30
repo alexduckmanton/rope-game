@@ -66,7 +66,7 @@ let gameTitle;
 let gameTimerEl;
 let newBtn;
 let finishBtn;
-let restartBtn;
+let clearBtn;
 let undoBtn;
 let hintsCheckbox;
 let countdownCheckbox;
@@ -317,26 +317,26 @@ function updateFinishButton() {
 }
 
 /**
- * Update restart/clear button enabled/disabled state
+ * Update Clear button enabled/disabled state
  * Button is enabled only when there are cells drawn AND game is not completed
  */
-function updateRestartButton() {
-  if (!restartBtn) return;
+function updateClearButton() {
+  if (!clearBtn) return;
 
   // Always disable if game is already completed
   if (hasWon || hasViewedSolution || hasManuallyFinished) {
-    restartBtn.disabled = true;
+    clearBtn.disabled = true;
     return;
   }
 
   // Enable only when there are cells drawn
   if (!gameCore) {
-    restartBtn.disabled = true;
+    clearBtn.disabled = true;
     return;
   }
 
   const { playerDrawnCells } = gameCore.state;
-  restartBtn.disabled = playerDrawnCells.size === 0;
+  clearBtn.disabled = playerDrawnCells.size === 0;
 }
 
 /**
@@ -370,23 +370,23 @@ function setGameUIState(state) {
   const viewSolutionBtn = getViewSolutionBtn();
 
   if (state === GAME_STATE.IN_PROGRESS || state === GAME_STATE.NEW) {
-    // Enable finish and restart buttons, show view solution button
+    // Enable finish and Clear buttons, show view solution button
     if (finishBtn) {
       finishBtn.disabled = false;
     }
-    if (restartBtn) {
-      restartBtn.disabled = false;
+    if (clearBtn) {
+      clearBtn.disabled = false;
     }
     if (viewSolutionBtn) {
       viewSolutionBtn.style.display = '';
     }
   } else if (state === GAME_STATE.WON || state === GAME_STATE.VIEWED_SOLUTION) {
-    // Disable finish and restart buttons, hide view solution button
+    // Disable finish and Clear buttons, hide view solution button
     if (finishBtn) {
       finishBtn.disabled = true;
     }
-    if (restartBtn) {
-      restartBtn.disabled = true;
+    if (clearBtn) {
+      clearBtn.disabled = true;
     }
     if (viewSolutionBtn) {
       viewSolutionBtn.style.display = 'none';
@@ -753,7 +753,7 @@ function render(triggerSave = true, animationMode = 'auto') {
       setGameUIState(GAME_STATE.WON);
       updateUndoButton();
       updateFinishButton();
-      updateRestartButton();
+      updateClearButton();
 
       // Mark daily puzzle as completed (not for unlimited mode)
       if (isDailyMode) {
@@ -781,9 +781,9 @@ function render(triggerSave = true, animationMode = 'auto') {
     // Note: Automatic partial win modal removed - players must use Finish button to commit to ending
   }
 
-  // Update finish and restart button states based on current path
+  // Update finish and Clear button states based on current path
   updateFinishButton();
-  updateRestartButton();
+  updateClearButton();
 
   // Save game state (throttled to max once per 5 seconds)
   // Only save if triggered by user interaction, not by restore/display changes
@@ -841,7 +841,7 @@ function generateNewPuzzle() {
   cachedSolutionTurnMap = buildSolutionTurnMap(solutionPath);
   cachedBorderLayers = calculateBorderLayers(hintCells, gridSize);
 
-  gameCore.restartPuzzle();
+  gameCore.clearPuzzle();
   hasWon = false;
   hasShownPartialWinFeedback = false;
   hasViewedSolution = false;
@@ -1032,13 +1032,13 @@ function loadOrGeneratePuzzle() {
  * and restarts the timer (if game was won) or keeps it running.
  * Does not generate a new puzzle - same solution path and hint cells.
  */
-function restartPuzzle() {
+function clearPuzzle() {
   // Track game restart
   trackGameRestarted(currentGameDifficulty, isDailyMode ? 'daily' : 'unlimited');
 
   pushUndoState(); // Save state before restart (enables undoing the restart)
 
-  gameCore.restartPuzzle();
+  gameCore.clearPuzzle();
 
   // Only restart timer if the game was already won or manually finished (timer was stopped)
   // If game is in progress, keep the timer running
@@ -1055,8 +1055,8 @@ function restartPuzzle() {
   setGameUIState(GAME_STATE.IN_PROGRESS);
 
   updateUndoButton(); // Button becomes enabled after hasWon reset
-  updateFinishButton(); // Button becomes disabled after restart
-  updateRestartButton(); // Button becomes disabled after restart (no cells drawn)
+  updateFinishButton(); // Button becomes disabled after clearing
+  updateClearButton(); // Button becomes disabled after clearing (no cells drawn)
 
   render();
 }
@@ -1067,7 +1067,7 @@ function restartPuzzle() {
  * This function:
  * - Marks the puzzle as viewed (shows skull icon for daily puzzles)
  * - Stops the timer and displays "Viewed solution"
- * - Disables restart button and hides view solution button
+ * - Disables Clear button and hides view solution button
  * - Renders the solution path overlay on the canvas
  * - Saves the disqualified state to localStorage
  * - Closes the settings sheet
@@ -1090,10 +1090,10 @@ function viewSolution() {
   // Update UI state for viewed solution
   setGameUIState(GAME_STATE.VIEWED_SOLUTION);
 
-  // Disable undo, finish, and restart buttons
+  // Disable undo, finish, and Clear buttons
   updateUndoButton();
   updateFinishButton();
-  updateRestartButton();
+  updateClearButton();
 
   // For daily puzzles, mark as completed with viewed solution (skull icon)
   if (isDailyMode) {
@@ -1165,7 +1165,7 @@ function showFinishConfirmation() {
  * - Stops the timer permanently
  * - Shows partial win modal with current score
  * - Locks the game (prevents further drawing/erasing)
- * - Disables finish and restart buttons
+ * - Disables finish and Clear buttons
  */
 function finishGame() {
   // Set manually finished flag
@@ -1177,10 +1177,10 @@ function finishGame() {
   // Update UI state to lock game
   setGameUIState(GAME_STATE.WON); // Reuse WON state for locking behavior
 
-  // Disable undo, finish, and restart buttons
+  // Disable undo, finish, and Clear buttons
   updateUndoButton();
   updateFinishButton();
-  updateRestartButton();
+  updateClearButton();
 
   // Mark as manually finished for daily puzzles
   if (isDailyMode) {
@@ -1313,7 +1313,7 @@ export function initGame(difficulty) {
   gameTimerEl = document.getElementById('game-timer');
   newBtn = document.getElementById('new-btn');
   finishBtn = document.getElementById('finish-btn');
-  restartBtn = document.getElementById('restart-btn');
+  clearBtn = document.getElementById('restart-btn');
   undoBtn = document.getElementById('undo-btn');
   hintsCheckbox = document.getElementById('hints-checkbox');
   countdownCheckbox = document.getElementById('countdown-checkbox');
@@ -1411,10 +1411,10 @@ export function initGame(difficulty) {
     e.preventDefault(); // Prevent click event from also firing
     showFinishConfirmation();
   };
-  const restartBtnHandler = (e) => {
-    if (restartBtn.disabled) return; // Ignore if button is disabled
+  const clearBtnHandler = (e) => {
+    if (clearBtn.disabled) return; // Ignore if button is disabled
     e.preventDefault(); // Prevent click event from also firing
-    restartPuzzle();
+    clearPuzzle();
   };
   const undoBtnHandler = (e) => {
     if (undoBtn.disabled) return; // Ignore if button is disabled
@@ -1485,7 +1485,7 @@ export function initGame(difficulty) {
   window.addEventListener('themeChanged', themeChangeHandler);
   newBtn.addEventListener('click', newBtnHandler);
   finishBtn.addEventListener('pointerdown', finishBtnHandler);
-  restartBtn.addEventListener('pointerdown', restartBtnHandler);
+  clearBtn.addEventListener('pointerdown', clearBtnHandler);
   undoBtn.addEventListener('pointerdown', undoBtnHandler);
   hintsCheckbox.addEventListener('click', hintsHandler);
   countdownCheckbox.addEventListener('change', countdownHandler);
@@ -1505,7 +1505,7 @@ export function initGame(difficulty) {
     { element: window, event: 'themeChanged', handler: themeChangeHandler },
     { element: newBtn, event: 'click', handler: newBtnHandler },
     { element: finishBtn, event: 'pointerdown', handler: finishBtnHandler },
-    { element: restartBtn, event: 'pointerdown', handler: restartBtnHandler },
+    { element: clearBtn, event: 'pointerdown', handler: clearBtnHandler },
     { element: undoBtn, event: 'pointerdown', handler: undoBtnHandler },
     { element: hintsCheckbox, event: 'click', handler: hintsHandler },
     { element: countdownCheckbox, event: 'change', handler: countdownHandler },
