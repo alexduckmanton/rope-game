@@ -1071,7 +1071,7 @@ function finishGame() {
 
   // Mark as manually finished for daily puzzles
   if (isDailyMode) {
-    markDailyManuallyFinished(currentDifficulty);
+    markDailyManuallyFinished(currentGameDifficulty);
   }
 
   // Capture current score and time
