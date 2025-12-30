@@ -12,7 +12,7 @@ import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
-import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution } from '../persistence.js';
+import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished } from '../persistence.js';
 import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
@@ -1068,6 +1068,11 @@ function finishGame() {
 
   // Disable undo button
   updateUndoButton();
+
+  // Mark as manually finished for daily puzzles
+  if (isDailyMode) {
+    markDailyManuallyFinished(currentDifficulty);
+  }
 
   // Capture current score and time
   const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';

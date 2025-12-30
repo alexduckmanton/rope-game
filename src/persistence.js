@@ -579,6 +579,43 @@ export function isDailyCompletedWithViewedSolution(difficulty) {
   }
 }
 
+/**
+ * Mark a daily puzzle as manually finished (ended via End button)
+ * Stores the completion date, which automatically becomes stale the next day
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {boolean} Whether save was successful
+ */
+export function markDailyManuallyFinished(difficulty) {
+  const today = getTodayDateString();
+  const key = `${STORAGE_PREFIX}:manually-finished:${difficulty}`;
+
+  try {
+    localStorage.setItem(key, today);
+    return true;
+  } catch (error) {
+    console.warn('Failed to save manually finished state:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if a daily puzzle was manually finished (ended via End button)
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {boolean} Whether the difficulty was manually finished today
+ */
+export function isDailyManuallyFinished(difficulty) {
+  const today = getTodayDateString();
+  const key = `${STORAGE_PREFIX}:manually-finished:${difficulty}`;
+
+  try {
+    const completedDate = localStorage.getItem(key);
+    return completedDate === today;
+  } catch (error) {
+    console.warn('Failed to check manually finished state:', error);
+    return false;
+  }
+}
+
 /* ============================================================================
  * SETTINGS PERSISTENCE
  * ========================================================================= */
