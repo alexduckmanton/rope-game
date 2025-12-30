@@ -1121,7 +1121,7 @@ function showFinishConfirmation() {
   // Build confirmation message - only show "until tomorrow" for daily mode
   let bodyMessage = '';
   if (isDailyMode) {
-    bodyMessage = `You won't be able to play the ${difficultyCapitalized} loopy until tomorrow.`;
+    bodyMessage = `You won't be able to play the ${difficultyCapitalized} Loopy until tomorrow.`;
   }
 
   // Destroy any previous game sheet before showing new one
