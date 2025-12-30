@@ -1249,9 +1249,9 @@ function getGridSizeFromDifficulty(difficulty) {
  * @returns {number|null} Maximum hints (null for unlimited)
  */
 function getMaxHintsForDifficulty(difficulty, isDailyMode) {
-  // Easy puzzles (both daily and unlimited) are capped at 2 hints to make them easier
-  // Medium and hard have unlimited hints
-  return (difficulty === 'easy') ? 2 : null;
+  // Read max hints from centralized config
+  // Returns null for unlimited hints (used by hard difficulty)
+  return CONFIG.DIFFICULTY.MAX_HINTS[difficulty] ?? null;
 }
 
 /**

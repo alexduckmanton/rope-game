@@ -38,7 +38,7 @@
 | Difficulty | Grid Size | Total Cells | Max Hints | Hint Probability | Win Requirement | Warnsdorff Attempts |
 |------------|-----------|-------------|-----------|------------------|-----------------|---------------------|
 | Easy       | 4x4       | 16          | 2         | 30%              | Any valid loop  | 20                  |
-| Medium     | 6x6       | 36          | Unlimited | 20%              | Any valid loop  | 50                  |
+| Medium     | 6x6       | 36          | 6         | 20%              | Any valid loop  | 50                  |
 | Hard       | 8x8       | 64          | Unlimited | 30%              | Any valid loop  | 100                 |
 
 ### Storage Keys
@@ -1092,7 +1092,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 3. Consider impact on puzzle generation difficulty and solvability
 
 **Modify Maximum Hints by Difficulty:**
-1. **Change max hints**: Update `getMaxHintsForDifficulty()` in `game.js` (currently returns 2 for easy, null for medium/hard)
+1. **Change max hints**: Update `CONFIG.DIFFICULTY.MAX_HINTS` in `config.js` (currently: easy=2, medium=6, hard=null/unlimited)
 2. **Affects all modes**: Change applies to new daily puzzles, restored daily puzzles, and new unlimited puzzles
 3. **Saved unlimited puzzles**: Will retain their original hint count when restored (no automatic migration)
 
