@@ -22,10 +22,11 @@
  * - GraduationCap: Tutorial lesson intro bottom sheets
  * - CircleHelp: Help button in tutorial navigation to re-open lesson sheet
  * - CircleCheckBig: End/Finish button in game view (legacy)
- * - HeartCrack: End/Finish button in game view
+ * - HeartCrack: End/Finish button in game view (legacy)
+ * - OctagonAlert: End game confirmation modal icon
  */
 
-import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig, HeartCrack } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig, HeartCrack, OctagonAlert } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -58,7 +59,8 @@ export function initIcons() {
       GraduationCap,
       CircleHelp,
       CircleCheckBig,
-      HeartCrack
+      HeartCrack,
+      OctagonAlert
     },
     attrs: {
       'stroke-width': '2',

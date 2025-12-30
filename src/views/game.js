@@ -1133,7 +1133,7 @@ function showFinishConfirmation() {
   const confirmationOptions = {
     title: 'End this game?',
     content: bodyMessage ? `<div class="bottom-sheet-message">${bodyMessage}</div>` : '',
-    icon: 'check',
+    icon: 'octagon-alert',
     colorScheme: 'error',
     dismissLabel: 'Keep playing',
     dismissVariant: 'secondary',
