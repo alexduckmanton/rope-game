@@ -1322,9 +1322,9 @@ export function initGame(difficulty) {
   segmentedControl = document.getElementById('difficulty-segmented-control');
   segmentButtons = segmentedControl ? segmentedControl.querySelectorAll('.segment-btn') : [];
 
-  // Hide End button if early game ending feature is disabled
-  if (!CONFIG.FEATURES.ENABLE_EARLY_GAME_ENDING && finishBtn) {
-    finishBtn.style.display = 'none';
+  // Show End button only if early game ending feature is enabled
+  if (CONFIG.FEATURES.ENABLE_EARLY_GAME_ENDING && finishBtn) {
+    finishBtn.style.display = '';
   }
 
   // Create settings bottom sheet with the settings content and view solution button
