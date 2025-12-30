@@ -47,9 +47,11 @@ function updateCompletedState(button, isCompleted, icon = 'trophy') {
  * @param {string} difficulty - Difficulty level ('easy', 'medium', 'hard')
  */
 function updateDailyButtonState(button, difficulty) {
+  console.log('[DEBUG HOME] updateDailyButtonState for difficulty:', difficulty);
   const won = isDailyCompleted(difficulty);
   const manuallyFinished = isDailyManuallyFinished(difficulty);
   const viewedSolution = isDailyCompletedWithViewedSolution(difficulty);
+  console.log('[DEBUG HOME] won:', won, 'manuallyFinished:', manuallyFinished, 'viewedSolution:', viewedSolution);
   const isCompleted = won || manuallyFinished || viewedSolution;
 
   // Priority: trophy > check > skull
@@ -60,6 +62,7 @@ function updateDailyButtonState(button, difficulty) {
     icon = 'check';
   }
 
+  console.log('[DEBUG HOME] isCompleted:', isCompleted, 'icon:', icon);
   updateCompletedState(button, isCompleted, icon);
 }
 
