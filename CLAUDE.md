@@ -29,6 +29,7 @@
 - **Turn**: Path changes direction within a cell. Corner = 1 turn, straight = 0 turns.
 - **Constraint (Hint)**: Number showing expected turn count in surrounding 3x3 area (includes diagonals + self).
 - **Victory**: Closed loop satisfying all constraints.
+- **Manual Finish**: Players can end a daily puzzle early using the End button when they've drawn any single closed loop, receiving partial completion status.
 - **Daily Puzzle**: Deterministic generation using date-based seed (YYYYMMDD + difficulty offset 0/1/2).
 - **Unlimited Mode**: True random generation (not date-based), allows infinite practice with difficulty switching.
 
@@ -45,6 +46,7 @@
 - Daily puzzles: `loop-game:daily:2025-11-30-easy`
 - Unlimited mode: `loop-game:unlimited:medium` (one slot per difficulty)
 - Settings: `loop-game:settings` (global, shared across all modes)
+- Manual finish tracking: `loop-game:manually-finished:easy` (tracks early game endings by difficulty, date-based expiration)
 
 -----
 
@@ -74,6 +76,38 @@ While players can complete a valid puzzle without visiting all cells, the scorin
 - Partial scores: Players completing valid loops without full coverage receive 90% or less
 
 This design allows for creative loop shapes and multiple valid solutions while maintaining challenging constraint satisfaction puzzles, with additional rewards for completionists who achieve Hamiltonian cycles.
+
+### Early Game Ending
+
+Players can voluntarily end a game early using the End button, available in both daily and unlimited modes.
+
+**End Button Behavior:**
+
+- **Enable condition**: Button activates only when player has drawn exactly one closed loop (no extra cells, no open paths)
+- **Confirmation required**: Pressing End shows a warning modal to prevent accidental activation
+- **Daily mode warning**: "You won't be able to play the [Difficulty] Loopy until tomorrow."
+- **Unlimited mode**: No restriction warning (players can generate new puzzles anytime)
+- **Outcome**: Shows partial win modal with current score and elapsed time
+- **State locking**: Game becomes uneditable after manual finish (same as automatic win)
+
+**Daily Puzzle Tracking:**
+
+Manual finishes are tracked separately from automatic wins for daily puzzles:
+- **Trophy icon**: Displayed for perfect 100% completions (all hints satisfied)
+- **Check icon**: Displayed for manual finishes via End button (any closed loop, incomplete solution)
+- **Skull icon**: Displayed for games where solution was viewed
+- **Icon priority**: Trophy > Check > Skull (only highest achievement shown)
+- **Date-based expiration**: Manual finish status resets at local midnight with new daily puzzle
+
+**Design Rationale:**
+
+The End button serves players who want to move on without completing the full puzzle:
+- **Time-constrained players**: Can finish quickly when unable to continue
+- **Stuck players**: Can end session without viewing solution (preserving challenge for return)
+- **Casual completion**: Acknowledges effort without requiring perfect solution
+- **Progress tracking**: Check icon on home screen distinguishes partial completions from perfect wins
+
+The confirmation modal prevents accidental endings that would lock players out of daily puzzles until midnight. The single-loop requirement ensures players have made meaningful progress before ending early.
 
 ### Constraint Validation Algorithm
 
@@ -208,6 +242,23 @@ When players complete a closed loop, contextual feedback modals appear based on 
 - Celebrates complete puzzle solution
 - Daily mode includes Share button for social features
 - Timer stops permanently on perfect completion
+
+**Manual Finish Modal:**
+- Triggered when player uses End button to voluntarily finish game early
+- Shows current score percentage and elapsed time
+- Body text: "Make a loop where all numbers are zero for a perfect score. Try again tomorrow!"
+- Dismiss button labeled "Close" (not "Keep trying" since game is ended)
+- Daily mode includes Share button for social sharing
+- Game locks after dismissal (no further editing allowed)
+
+**End Game Confirmation Modal:**
+- Appears before manual finish to prevent accidental endings
+- Icon: Octagon-alert (red warning icon using error color scheme)
+- Title: "End this game?"
+- Body (daily mode only): "You won't be able to play the [Difficulty] Loopy until tomorrow."
+- Primary button: "End game" (destructive red styling)
+- Dismiss button: "Keep playing" (secondary styling)
+- Pressing "End game" proceeds with manual finish flow
 
 **Share Text Format:**
 
@@ -466,6 +517,7 @@ Auto-saves game state to localStorage (client-side, no backend).
    - Daily: One slot per date+difficulty (e.g., `loop-game:daily:2025-11-30-easy`). Old saves auto-cleaned on app init.
    - Unlimited: One slot per difficulty (e.g., `loop-game:unlimited:medium`). Switching difficulties saves current state, loads target difficulty state (or generates new if none exists).
    - Settings: Global singleton (`loop-game:settings`) shared across all modes.
+   - Manual finish: Date-based tracking per difficulty (e.g., `loop-game:manually-finished:easy`). Stores completion date, auto-expires at local midnight.
 
 3. **State vs Settings**: Game state (player path, connections, timer, win status, partial win feedback) is per-puzzle. Unlimited mode includes puzzle data (solution path, hint cells) since it's not deterministic. Settings (hint mode, border mode, show solution, last unlimited difficulty) are global.
 
@@ -854,8 +906,8 @@ For implementation details, see Color Token System in Key Systems section.
 |     Timer: Easy • 1:23    | ← Timer display (format: "Difficulty • MM:SS")
 |                           | ← 16px spacing
 |       [GRID 5x5]          | ← Canvas (fixed size across all difficulties)
-|                           | ← 16px spacing
-|  [Restart]  [Undo]        | ← Control buttons (equal width, elevated bg)
+|                           | ← 8px spacing
+| [End] [Clear]    [Undo]   | ← Control buttons (End hugs, Clear/Undo fill, elevated bg)
 +---------------------------+
 ```
 
@@ -867,7 +919,7 @@ For implementation details, see Color Token System in Key Systems section.
 - **Library**: Lucide icons (tree-shakeable, ~2-3KB for current icons)
 - **Sizing**: 18px inline (button labels), 20px standalone, 24px header buttons
 - **Color**: Inherit via `currentColor`
-- **Usage**: Arrow-left (back), Circle-help (help), Settings (gear), Dices (new puzzle), Refresh-ccw (restart), Undo2 (undo), Party-popper (win), Circle-off (error), Share2 (share), Trophy/Skull (completion icons)
+- **Usage**: Arrow-left (back), Circle-help (help), Settings (gear), Dices (new puzzle), Refresh-ccw (Clear), Undo2 (undo), Check (End, home completion), Party-popper (win), Octagon-alert (confirmation warning), Circle-off (error), Share2 (share), Trophy/Skull (home completion icons)
 
 **Settings Bottom Sheet:**
 
@@ -885,10 +937,15 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 
 **Game Control Buttons:**
 
-Restart and Undo buttons appear below the canvas in a horizontal layout.
+Three control buttons appear below the canvas in a horizontal layout: End, Clear, and Undo.
 
-- **Positioning**: Centered below canvas with 16px top spacing
-- **Layout**: Flex container with equal-width buttons (flex: 1), 16px gap between
+- **Positioning**: Centered below canvas with 8px top spacing
+- **Layout**: Flex container with 8px gap between buttons
+- **Button sizing**:
+  - End button: Hugs content (flex: 0 0 auto)
+  - Clear button: Fills available space (flex: 1)
+  - Undo button: Fills available space (flex: 1)
+- **Horizontal padding**: 20px per button
 - **Max width**: 400px to prevent oversizing on large screens
 - **Styling**: Elevated background matching canvas (theme-aware), no drop shadow, no transform on interaction
 - **States**:
@@ -897,8 +954,26 @@ Restart and Undo buttons appear below the canvas in a horizontal layout.
   - Active: No visual change (prevents stuck states on touch devices)
   - Disabled: 30% opacity, not-allowed cursor
   - Focus: No outline (removes persistent grey background after tap)
-- **Restart button**: Always enabled unless puzzle is won or solution viewed
-- **Undo button**: Enabled only when undo history exists and puzzle not completed
+
+**Button-Specific Behavior:**
+
+- **End button**:
+  - Enabled only when player has drawn exactly one closed loop (no extra cells)
+  - Disabled when game completed or solution viewed
+  - Shows confirmation modal on press (prevents accidental endings)
+  - Icon: Check
+
+- **Clear button** (formerly Restart):
+  - Enabled when at least one cell is drawn and game not completed
+  - Disabled when no cells drawn, game won, or solution viewed
+  - Clears all drawn cells, resets game state
+  - Icon: Refresh-ccw
+
+- **Undo button**:
+  - Enabled only when undo history exists and puzzle not completed
+  - Disabled when history empty, game won, or solution viewed
+  - Reverts last drawing action (up to 50 actions)
+  - Icon: Undo2
 
 ### Animations
 
@@ -1197,7 +1272,9 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 | **Tap existing cell** | Cell is erased (along with orphaned cells) |
 | **Drag** | Blue path extends smoothly, auto-breaks connections when crossing |
 | **Drag backward** | Recent path is undone (backtracking) |
-| **Restart button** | Clears path, keeps timer running (unless already won) |
+| **End button** | Shows confirmation modal, then ends game early with partial win modal (only enabled when single closed loop drawn) |
+| **Clear button** | Clears all drawn cells, resets game state (only enabled when cells exist) |
+| **Undo button** | Reverts last drawing action (only enabled when undo history exists) |
 | **Back button** | Returns to home page |
 | **Settings button** | Opens bottom sheet with toggles |
 | **Tab blur** | Timer pauses automatically |
