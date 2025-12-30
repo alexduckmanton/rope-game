@@ -78,6 +78,12 @@ export function initHome() {
     tagline.textContent = getFormattedDate();
   }
 
+  // TEMPORARY DEBUG: Check manually finished status and display in page title
+  const easyManuallyFinished = isDailyManuallyFinished('easy');
+  const mediumManuallyFinished = isDailyManuallyFinished('medium');
+  const hardManuallyFinished = isDailyManuallyFinished('hard');
+  document.title = `Loopy [E:${easyManuallyFinished?'✓':'✗'} M:${mediumManuallyFinished?'✓':'✗'} H:${hardManuallyFinished?'✓':'✗'}]`;
+
   // Get button elements
   const tutorialBtn = document.getElementById('tutorial-btn');
   const easyBtn = document.getElementById('easy-btn');
