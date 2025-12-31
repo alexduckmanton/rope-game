@@ -5,6 +5,7 @@
  * with clipboard fallback.
  */
 
+import { CONFIG } from '../config.js';
 import {
   trackShareAttempted,
   trackShareCompleted,
@@ -34,8 +35,13 @@ export function buildShareText(difficulty, time, score = 100) {
   const dateStr = formatShareDate();
   const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
 
-  // Use consistent format: "💫 <difficulty> Loopy\n<score>% in <time>\n<date>"
-  return `💫 ${label} Loopy\n${score}% in ${time}\n${dateStr}`;
+  // When early game ending is enabled, include score percentage
+  // When disabled, use simpler format without score
+  if (CONFIG.FEATURES.ENABLE_EARLY_GAME_ENDING) {
+    return `💫 ${label} Loopy\n${score}% in ${time}\n${dateStr}`;
+  } else {
+    return `💫 ${label} Loopy\n${time}\n${dateStr}`;
+  }
 }
 
 /**
