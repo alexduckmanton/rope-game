@@ -40,7 +40,7 @@ export function buildShareText(difficulty, time, score = 100) {
   if (CONFIG.FEATURES.ENABLE_EARLY_GAME_ENDING) {
     return `💫 ${label} Loopy\n${score}% in ${time}\n${dateStr}`;
   } else {
-    return `💫 ${label} Loopy\n${time}\n${dateStr}`;
+    return `💫 ${label} Loopy ${time}\n${dateStr}`;
   }
 }
 
