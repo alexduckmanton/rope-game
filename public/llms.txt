@@ -1,0 +1,39 @@
+# Loopy
+
+> A daily path-drawing puzzle game with constraint satisfaction mechanics. Draw continuous loops where numbered cells indicate how many corners (turns) your path must make in the surrounding 3x3 area.
+
+## Game Overview
+
+Loopy is a free browser-based puzzle game available at https://loopy.wtf. Players draw a single continuous path that forms a closed loop, satisfying numbered constraint hints placed throughout the grid.
+
+## Core Mechanics
+
+- **Objective**: Draw one continuous path forming a closed loop
+- **Movement**: Path can only move up, down, left, right (no diagonals)
+- **Constraints**: Numbered cells show how many turns (corners) the path must make in the surrounding 3×3 area
+- **Victory**: Complete a valid loop satisfying all constraints (does not need to visit every cell)
+- **Turn Definition**: A corner/bend in the path (straight = 0 turns, corner = 1 turn)
+
+## Game Modes
+
+- **Daily Puzzles**: Three difficulty levels (Easy 4×4, Medium 6×6, Hard 8×8) with deterministic generation - everyone gets the same puzzle each day
+
+## Features
+
+- No registration required - play instantly
+- Progress auto-saves to browser
+- Timer with auto-pause on tab blur
+- Undo functionality
+- Dark mode support (follows system preference)
+- Progressive Web App (install to home screen)
+
+## Technology
+
+Built as a lightweight single-page application using vanilla JavaScript, HTML5 Canvas, and CSS3.
+
+## Links
+
+- Play Game: https://loopy.wtf
+- Easy Daily Puzzle: https://loopy.wtf/play?difficulty=easy
+- Medium Daily Puzzle: https://loopy.wtf/play?difficulty=medium
+- Hard Daily Puzzle: https://loopy.wtf/play?difficulty=hard
