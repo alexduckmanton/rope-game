@@ -1,0 +1,16 @@
+# Loopy - Path Drawing Puzzle Game
+# https://loopy.wtf
+
+User-agent: *
+Allow: /
+
+# Allow crawling of critical assets
+Allow: /src/
+Allow: /manifest.json
+Allow: /*.js$
+Allow: /*.css$
+
+# Block unnecessary files that waste crawl budget
+Disallow: /videos/
+Disallow: /*.webm$
+Disallow: /*.mp4$
