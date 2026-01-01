@@ -1,0 +1,72 @@
+{
+  "name": "Loopy",
+  "short_name": "Loopy",
+  "description": "A path-drawing puzzle",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F3F4F6",
+  "theme_color": "#F3F4F6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/android-chrome-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/android-chrome-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/maskable-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "shortcuts": [
+    {
+      "name": "Easy Loopy",
+      "short_name": "Easy",
+      "description": "Play today's easy Loopy (4×4 grid)",
+      "url": "/play?difficulty=easy",
+      "icons": [
+        {
+          "src": "/android-chrome-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Medium Loopy",
+      "short_name": "Medium",
+      "description": "Play today's medium Loopy (6×6 grid)",
+      "url": "/play?difficulty=medium",
+      "icons": [
+        {
+          "src": "/android-chrome-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Hard Loopy",
+      "short_name": "Hard",
+      "description": "Play today's hard Loopy (8×8 grid)",
+      "url": "/play?difficulty=hard",
+      "icons": [
+        {
+          "src": "/android-chrome-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}
