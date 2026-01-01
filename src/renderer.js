@@ -748,7 +748,7 @@ function drawSmoothSegment(ctx, segment, connections, cellSize, color, currentTi
   if (orderedPath.length === 1) {
     // Single isolated cell - draw a dot (with animation if applicable)
     const animatedPos = currentTime !== null
-      ? getAnimatedCellPosition(orderedPath[0], cellSize, currentTime)
+      ? getAnimatedCellPosition(orderedPath[0], cellSize, currentTime, pathAnimationState)
       : null;
 
     if (animatedPos) {
