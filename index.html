@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Preconnect for faster third-party resources -->
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+
   <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-9BFMVX4CLE"></script>
   <script>
@@ -17,7 +21,10 @@
   <title>Loopy</title>
   <meta name="title" content="Loopy">
   <meta name="description" content="A path-drawing puzzle">
-  <meta name="theme-color" content="#F3F4F6">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#F3F4F6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#242424" media="(prefers-color-scheme: dark)">
 
   <!-- Favicons -->
   <!-- SVG favicon with dark mode support -->
@@ -30,17 +37,22 @@
   <!-- Apple Touch Icon -->
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://loopy.wtf/">
+
   <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.json">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://loopy.wtf/">
   <meta property="og:title" content="Loopy">
   <meta property="og:description" content="A path-drawing puzzle">
   <meta property="og:site_name" content="Loopy">
 
   <!-- Twitter -->
-  <meta name="twitter:card" content="summary">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://loopy.wtf/">
   <meta name="twitter:title" content="Loopy">
   <meta name="twitter:description" content="A path-drawing puzzle">
 
