@@ -115,10 +115,10 @@ export const CONFIG = {
     HINT_CONFIG: {
       easy: {
         count: 2,         // 2 hints on 4x4 grid
-        minDistance: 2,   // Hints must be at least 2 cells apart
+        minDistance: 3,   // Hints must be at least 3 cells apart
       },
       medium: {
-        count: 6,         // 6 hints on 6x6 grid
+        count: 5,         // 5 hints on 6x6 grid
         minDistance: 2,   // Hints must be at least 2 cells apart
       },
       hard: {

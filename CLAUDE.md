@@ -37,8 +37,8 @@
 
 | Difficulty | Grid Size | Total Cells | Hint Count | Min Distance | Win Requirement | Warnsdorff Attempts |
 |------------|-----------|-------------|------------|--------------|-----------------|---------------------|
-| Easy       | 4x4       | 16          | 2          | 2 cells      | Any valid loop  | 20                  |
-| Medium     | 6x6       | 36          | 6          | 2 cells      | Any valid loop  | 50                  |
+| Easy       | 4x4       | 16          | 2          | 3 cells      | Any valid loop  | 20                  |
+| Medium     | 6x6       | 36          | 5          | 2 cells      | Any valid loop  | 50                  |
 | Hard       | 8x8       | 64          | 16         | None (0)     | Any valid loop  | 100                 |
 
 ### Storage Keys
@@ -428,7 +428,7 @@ Generates Hamiltonian cycles (paths visiting all cells exactly once forming a lo
 
 **Warnsdorff's Rule:** Always move to the neighbor with the fewest unvisited neighbors. This greedy strategy avoids dead ends by saving well-connected cells for later.
 
-**Hint Cell Selection:** After generating solution path, `generateHintCellsWithMinDistance()` deterministically selects a fixed number of hints with spatial distribution constraints. The function uses a greedy selection algorithm: shuffles all grid cells using the seeded random function, then iterates through the shuffled pool, selecting cells that are at least `minDistance` away from all previously selected hints (using Chebyshev distance). Easy places 2 hints with minimum distance 2 cells to ensure spread on the small 4x4 grid. Medium places 6 hints with minimum distance 2 cells for balanced distribution on the 6x6 grid. Hard places 16 hints with no distance constraint (minDistance=0) on the 8x8 grid, providing ample guidance. If distance constraints are too tight, the algorithm gracefully returns fewer hints. Hint configurations are defined in the centralized DIFFICULTY configuration and apply consistently across both daily puzzles (seeded random) and unlimited mode (true random).
+**Hint Cell Selection:** After generating solution path, `generateHintCellsWithMinDistance()` deterministically selects a fixed number of hints with spatial distribution constraints. The function uses a greedy selection algorithm: shuffles all grid cells using the seeded random function, then iterates through the shuffled pool, selecting cells that are at least `minDistance` away from all previously selected hints (using Chebyshev distance). Easy places 2 hints with minimum distance 3 cells to ensure maximum spread on the small 4x4 grid. Medium places 5 hints with minimum distance 2 cells for balanced distribution on the 6x6 grid. Hard places 16 hints with no distance constraint (minDistance=0) on the 8x8 grid, providing ample guidance. If distance constraints are too tight, the algorithm gracefully returns fewer hints. Hint configurations are defined in the centralized DIFFICULTY configuration and apply consistently across both daily puzzles (seeded random) and unlimited mode (true random).
 
 **Performance:** ~50ms average for 8x8, >99.99% success rate
 
@@ -1094,7 +1094,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 **Modify Hint Generation Configuration:**
 1. **Change hint counts or minimum distances**: Update `CONFIG.DIFFICULTY.HINT_CONFIG` in `config.js`
    - Each difficulty has `count` (number of hints) and `minDistance` (Chebyshev distance constraint)
-   - Currently: easy={count:2, minDistance:2}, medium={count:6, minDistance:2}, hard={count:16, minDistance:0}
+   - Currently: easy={count:2, minDistance:3}, medium={count:5, minDistance:2}, hard={count:16, minDistance:0}
 2. **Affects all modes**: Changes apply to new daily puzzles, restored daily puzzles, and new unlimited puzzles
 3. **Saved unlimited puzzles**: Will retain their original hint placement when restored (no automatic migration)
 4. **Distance constraint**: Set `minDistance=0` to disable spatial constraints (any cell valid)
