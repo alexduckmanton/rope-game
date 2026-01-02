@@ -248,30 +248,79 @@ export function renderPath(ctx, path, cellSize) {
 }
 
 /**
- * Generate hint cells with random selection
- * @param {number} gridSize - Grid size (e.g., 6 for 6x6)
- * @param {number} probability - Probability (0-1) that each cell shows its hint
- * @param {function(): number} randomFn - Optional random function (defaults to Math.random)
- * @param {number|null} maxHints - Optional maximum number of hints (null for unlimited)
- * @returns {Set<string>} Set of "row,col" strings for cells that should show hints
+ * Check if a cell placement is valid (far enough from existing hints)
+ * @param {string} cellKey - Cell key to check
+ * @param {Set<string>} existingHints - Set of already placed hint cell keys
+ * @param {number} minDistance - Minimum Chebyshev distance required
+ * @returns {boolean} True if placement is valid
  */
-export function generateHintCells(gridSize, probability = 0.3, randomFn = Math.random, maxHints = null) {
-  const hintCells = new Set();
+function isValidHintPlacement(cellKey, existingHints, minDistance) {
+  // If no minimum distance required, all placements are valid
+  if (minDistance === 0) return true;
 
+  const { row, col } = parseCellKey(cellKey);
+
+  for (const hintKey of existingHints) {
+    const { row: hintRow, col: hintCol } = parseCellKey(hintKey);
+
+    // Chebyshev distance (max of row/col difference)
+    // This matches grid topology: cell (0,0) to (2,1) has distance 2
+    const distance = Math.max(Math.abs(row - hintRow), Math.abs(col - hintCol));
+
+    if (distance < minDistance) {
+      return false; // Too close to existing hint
+    }
+  }
+
+  return true; // Far enough from all existing hints
+}
+
+/**
+ * Generate hint cells with fixed count and minimum distance constraint
+ * Uses greedy selection from shuffled candidate pool to ensure spatial distribution
+ *
+ * @param {number} gridSize - Grid size (e.g., 6 for 6x6)
+ * @param {number} count - Target number of hints to place
+ * @param {number} minDistance - Minimum Chebyshev distance between hints (0 for no constraint)
+ * @param {function(): number} randomFn - Random function for shuffling (defaults to Math.random)
+ * @returns {Set<string>} Set of "row,col" strings for cells that should show hints
+ *
+ * Note: May return fewer than `count` hints if minimum distance constraints are too tight.
+ * Guaranteed to terminate (finite candidate pool).
+ */
+export function generateHintCellsWithMinDistance(gridSize, count, minDistance, randomFn = Math.random) {
+  // 1. Create pool of all grid cells
+  const allCells = [];
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
-      if (randomFn() < probability) {
-        hintCells.add(createCellKey(row, col));
-        // Early return if we've reached the max hint limit
-        if (maxHints !== null && hintCells.size >= maxHints) {
-          return hintCells;
-        }
+      allCells.push(createCellKey(row, col));
+    }
+  }
+
+  // 2. Shuffle using Fisher-Yates with provided randomFn (preserves determinism for seeded random)
+  for (let i = allCells.length - 1; i > 0; i--) {
+    const j = Math.floor(randomFn() * (i + 1));
+    [allCells[i], allCells[j]] = [allCells[j], allCells[i]];
+  }
+
+  // 3. Greedily select hints from shuffled pool
+  const hints = new Set();
+
+  for (const cellKey of allCells) {
+    // Check if this cell is far enough from all existing hints
+    if (isValidHintPlacement(cellKey, hints, minDistance)) {
+      hints.add(cellKey);
+
+      // Early exit once we've reached target count
+      if (hints.size >= count) {
+        break;
       }
     }
   }
 
-  return hintCells;
+  return hints;
 }
+
 
 /**
  * Build a map of which cells are turns based on player's drawn path

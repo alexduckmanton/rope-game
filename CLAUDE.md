@@ -13,7 +13,7 @@
 | `config.js` | Configuration constants | `CONFIG` - Colors (from tokens.js), sizes, generation tuning, rendering params, interaction behavior, scoring configuration |
 | `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
 | `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle (used for hint generation; players can make smaller loops) |
-| `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCells()`, `calculateBorderLayers()` |
+| `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCellsWithMinDistance()`, `calculateBorderLayers()` |
 | `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()` |
 | `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles |
 | `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `parseCellKey()`, `createCellKey()`, `getCellsAlongLine()` - Bresenham with 4-connected enforcement |
@@ -35,11 +35,11 @@
 
 ### Grid Sizes
 
-| Difficulty | Grid Size | Total Cells | Max Hints | Hint Probability | Win Requirement | Warnsdorff Attempts |
-|------------|-----------|-------------|-----------|------------------|-----------------|---------------------|
-| Easy       | 4x4       | 16          | 2         | 30%              | Any valid loop  | 20                  |
-| Medium     | 6x6       | 36          | 6         | 20%              | Any valid loop  | 50                  |
-| Hard       | 8x8       | 64          | Unlimited | 30%              | Any valid loop  | 100                 |
+| Difficulty | Grid Size | Total Cells | Hint Count | Min Distance | Win Requirement | Warnsdorff Attempts |
+|------------|-----------|-------------|------------|--------------|-----------------|---------------------|
+| Easy       | 4x4       | 16          | 2          | 2 cells      | Any valid loop  | 20                  |
+| Medium     | 6x6       | 36          | 6          | 2 cells      | Any valid loop  | 50                  |
+| Hard       | 8x8       | 64          | 16         | None (0)     | Any valid loop  | 100                 |
 
 ### Storage Keys
 
@@ -428,7 +428,7 @@ Generates Hamiltonian cycles (paths visiting all cells exactly once forming a lo
 
 **Warnsdorff's Rule:** Always move to the neighbor with the fewest unvisited neighbors. This greedy strategy avoids dead ends by saving well-connected cells for later.
 
-**Hint Cell Selection:** After generating solution path, `generateHintCells()` probabilistically selects cells to show hints using difficulty-specific probabilities and maximum hint limits. Each cell has a chance of becoming a hint based on the configured probability for that difficulty level, but the total number of hints is capped per difficulty. Easy uses 30% probability and caps at 2 hints maximum to reduce complexity. Medium uses 20% probability and caps at 6 hints maximum, balancing challenge with guidance. Hard uses 30% probability with unlimited hints, providing more clues across the larger grid. Maximum hint limits are configured in the centralized DIFFICULTY configuration and apply consistently across both daily puzzles (seeded random) and unlimited mode (true random).
+**Hint Cell Selection:** After generating solution path, `generateHintCellsWithMinDistance()` deterministically selects a fixed number of hints with spatial distribution constraints. The function uses a greedy selection algorithm: shuffles all grid cells using the seeded random function, then iterates through the shuffled pool, selecting cells that are at least `minDistance` away from all previously selected hints (using Chebyshev distance). Easy places 2 hints with minimum distance 2 cells to ensure spread on the small 4x4 grid. Medium places 6 hints with minimum distance 2 cells for balanced distribution on the 6x6 grid. Hard places 16 hints with no distance constraint (minDistance=0) on the 8x8 grid, providing ample guidance. If distance constraints are too tight, the algorithm gracefully returns fewer hints. Hint configurations are defined in the centralized DIFFICULTY configuration and apply consistently across both daily puzzles (seeded random) and unlimited mode (true random).
 
 **Performance:** ~50ms average for 8x8, >99.99% success rate
 
@@ -1091,17 +1091,20 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 2. Update validation rendering in `renderer.js:renderCellNumbers()` to display new constraint type
 3. Consider impact on puzzle generation difficulty and solvability
 
-**Modify Maximum Hints by Difficulty:**
-1. **Change max hints**: Update `CONFIG.DIFFICULTY.MAX_HINTS` in `config.js` (currently: easy=2, medium=6, hard=null/unlimited)
-2. **Affects all modes**: Change applies to new daily puzzles, restored daily puzzles, and new unlimited puzzles
-3. **Saved unlimited puzzles**: Will retain their original hint count when restored (no automatic migration)
+**Modify Hint Generation Configuration:**
+1. **Change hint counts or minimum distances**: Update `CONFIG.DIFFICULTY.HINT_CONFIG` in `config.js`
+   - Each difficulty has `count` (number of hints) and `minDistance` (Chebyshev distance constraint)
+   - Currently: easy={count:2, minDistance:2}, medium={count:6, minDistance:2}, hard={count:16, minDistance:0}
+2. **Affects all modes**: Changes apply to new daily puzzles, restored daily puzzles, and new unlimited puzzles
+3. **Saved unlimited puzzles**: Will retain their original hint placement when restored (no automatic migration)
+4. **Distance constraint**: Set `minDistance=0` to disable spatial constraints (any cell valid)
+5. **Graceful degradation**: If constraints are too tight, fewer hints will be placed (no error)
 
 **Modify Hint Display:**
 1. **Hint number colors**: Modify hint gradient colors in `tokens.css` (both light and dark mode blocks). The 9-color gradient is defined as `--color-hint-1` through `--color-hint-9` and automatically flows to `CONFIG.COLORS.HINT_COLORS`
 2. **Hint pulsing background color**: Modify color assignment in `renderHintPulse()` function in `renderer.js` (currently uses blue for unvalidated, green for validated)
-3. **Hint probability per difficulty**: Modify `getHintProbabilityForDifficulty()` function in `game.js` to change probability values for each difficulty level. Changes apply to both daily and unlimited modes automatically since both use the same difficulty-based function. Note: Easy caps at 2 hints and medium caps at 6 hints regardless of probability, while hard has unlimited hints. Maximum hint limits are configured separately in DIFFICULTY configuration.
-4. **Border rendering**: Modify `drawHintBorders()` in `renderer.js` (width, inset, layer offset)
-5. **Pulse animation timing**: Adjust `CONFIG.HINT.PULSE_DURATION` and `CONFIG.HINT.PULSE_MAX_OPACITY`
+3. **Border rendering**: Modify `drawHintBorders()` in `renderer.js` (width, inset, layer offset)
+4. **Pulse animation timing**: Adjust `CONFIG.HINT.PULSE_DURATION` and `CONFIG.HINT.PULSE_MAX_OPACITY`
 
 **Modify Player Feedback (Countdown Feature):**
 1. **Change default**: Update `countdown: true` in `DEFAULT_SETTINGS` object in `persistence.js`

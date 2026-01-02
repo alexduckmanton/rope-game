@@ -63,7 +63,6 @@ export const CONFIG = {
 
   // Hint system
   HINT: {
-    PROBABILITY: 0.3,            // Probability of showing a hint (0-1)
     FONT_SIZE_FACTOR: 0.75,      // Multiplier for cellSize to get font size
     PULSE_DURATION: 2000,        // Full pulse cycle duration in milliseconds (1s fade in + 1s fade out)
     PULSE_MAX_OPACITY: 0.2,      // Maximum opacity during pulse (20%)
@@ -110,12 +109,22 @@ export const CONFIG = {
 
   // Difficulty settings
   DIFFICULTY: {
-    // Maximum number of hints per difficulty level
-    // null = unlimited hints
-    MAX_HINTS: {
-      easy: 2,      // Limited to 2 hints to reduce complexity
-      medium: 6,    // Limited to 6 hints for moderate challenge
-      hard: null,   // Unlimited hints on larger grid
+    // Hint generation configuration per difficulty level
+    // count: fixed number of hints to place
+    // minDistance: minimum Chebyshev distance between hints (0 = no constraint)
+    HINT_CONFIG: {
+      easy: {
+        count: 2,         // 2 hints on 4x4 grid
+        minDistance: 2,   // Hints must be at least 2 cells apart
+      },
+      medium: {
+        count: 6,         // 6 hints on 6x6 grid
+        minDistance: 2,   // Hints must be at least 2 cells apart
+      },
+      hard: {
+        count: 16,        // 16 hints on 8x8 grid
+        minDistance: 0,   // No distance constraint
+      },
     },
   },
 
