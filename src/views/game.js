@@ -5,7 +5,7 @@
  * for use in a multi-view SPA
  */
 
-import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCells, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers } from '../renderer.js';
+import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCellsWithMinDistance, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
 import { buildSolutionTurnMap, countTurnsInArea, parseCellKey, checkPartialStructuralLoop } from '../utils.js';
 import { CONFIG } from '../config.js';
@@ -830,15 +830,13 @@ function generateNewPuzzle() {
     const random = createSeededRandom(seed);
 
     solutionPath = generateSolutionPath(gridSize, random);
-    const maxHints = getMaxHintsForDifficulty(currentGameDifficulty, isDailyMode);
-    const probability = getHintProbabilityForDifficulty(currentGameDifficulty);
-    hintCells = generateHintCells(gridSize, probability, random, maxHints);
+    const hintConfig = CONFIG.DIFFICULTY.HINT_CONFIG[currentGameDifficulty];
+    hintCells = generateHintCellsWithMinDistance(gridSize, hintConfig.count, hintConfig.minDistance, random);
   } else {
-    // Unlimited mode - truly random puzzles (no hint limit)
+    // Unlimited mode - truly random puzzles
     solutionPath = generateSolutionPath(gridSize);
-    const maxHints = getMaxHintsForDifficulty(currentUnlimitedDifficulty, isDailyMode);
-    const probability = getHintProbabilityForDifficulty(currentUnlimitedDifficulty);
-    hintCells = generateHintCells(gridSize, probability, Math.random, maxHints);
+    const hintConfig = CONFIG.DIFFICULTY.HINT_CONFIG[currentUnlimitedDifficulty];
+    hintCells = generateHintCellsWithMinDistance(gridSize, hintConfig.count, hintConfig.minDistance, Math.random);
   }
 
   // Cache values that don't change during gameplay for performance
@@ -882,9 +880,8 @@ function restorePuzzleData(savedState) {
     const seed = getDailySeed(currentGameDifficulty);
     const random = createSeededRandom(seed);
     solutionPath = generateSolutionPath(gridSize, random);
-    const maxHints = getMaxHintsForDifficulty(currentGameDifficulty, isDailyMode);
-    const probability = getHintProbabilityForDifficulty(currentGameDifficulty);
-    hintCells = generateHintCells(gridSize, probability, random, maxHints);
+    const hintConfig = CONFIG.DIFFICULTY.HINT_CONFIG[currentGameDifficulty];
+    hintCells = generateHintCellsWithMinDistance(gridSize, hintConfig.count, hintConfig.minDistance, random);
   } else if (savedState) {
     // For unlimited mode, restore saved puzzle data (was truly random)
     solutionPath = savedState.solutionPath;
@@ -1242,35 +1239,6 @@ function getGridSizeFromDifficulty(difficulty) {
   return difficultyMap[difficulty] || 6; // Default to medium
 }
 
-/**
- * Get maximum hint count for a difficulty level
- * @param {string} difficulty - 'easy', 'medium', or 'hard'
- * @param {boolean} isDailyMode - Whether this is a daily puzzle (unused, kept for API consistency)
- * @returns {number|null} Maximum hints (null for unlimited)
- */
-function getMaxHintsForDifficulty(difficulty, isDailyMode) {
-  // Read max hints from centralized config
-  // Returns null for unlimited hints (used by hard difficulty)
-  return CONFIG.DIFFICULTY.MAX_HINTS[difficulty] ?? null;
-}
-
-/**
- * Get hint probability for a difficulty level
- * @param {string} difficulty - 'easy', 'medium', or 'hard'
- * @returns {number} Probability value between 0 and 1
- *
- * Easy: 30% (0.3) - higher chance but capped at 2 hints
- * Medium: 20% (0.2) - lower probability, capped at 6 hints
- * Hard: 30% (0.3) - same as easy but unlimited hints on larger grid
- */
-function getHintProbabilityForDifficulty(difficulty) {
-  const probabilityMap = {
-    'easy': 0.3,
-    'medium': 0.2,
-    'hard': 0.3
-  };
-  return probabilityMap[difficulty] || 0.3; // Default to 30%
-}
 
 /**
  * Initialize the game view
