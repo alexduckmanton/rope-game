@@ -17,7 +17,7 @@ import {
 // Tutorial lesson content
 const LESSON_SECTIONS = [
   {
-    body: 'Drag to draw a closed loop of any shape. Tap to erase parts of your loop.',
+    body: 'Drag to draw a closed loop of any shape or size. Tap to erase.',
     name: 'Drawing loops'
   },
   {
