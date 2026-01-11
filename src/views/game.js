@@ -547,7 +547,8 @@ function showWinCelebration(finalTime) {
     icon: 'party-popper',
     colorScheme: 'success',
     dismissLabel: isDailyMode ? 'Close' : 'Yay!',
-    dismissVariant: isDailyMode ? 'secondary' : 'primary'
+    dismissVariant: isDailyMode ? 'secondary' : 'primary',
+    showCloseIcon: true
   };
 
   // Add Share button only for daily mode (not unlimited or tutorial)
@@ -994,6 +995,7 @@ function loadOrGeneratePuzzle() {
         icon: 'shell',
         colorScheme: 'partial',
         dismissLabel: 'Close',
+        showCloseIcon: true,
         onClose: () => {
           // Don't resume timer - game is finished
         }
@@ -1198,6 +1200,7 @@ function finishGame() {
     icon: 'shell',
     colorScheme: 'partial',
     dismissLabel: 'Close',
+    showCloseIcon: true,
     onClose: () => {
       // Don't resume timer - game is finished
     }
