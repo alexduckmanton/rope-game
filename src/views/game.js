@@ -12,7 +12,7 @@ import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
-import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished } from '../persistence.js';
+import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished, isDailyCompleted } from '../persistence.js';
 import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
@@ -531,10 +531,42 @@ function hideSettings() {
 }
 
 /**
+ * Find the next incomplete daily difficulty to play
+ *
+ * Searches in order:
+ * 1. Next highest difficulties (e.g., medium -> hard)
+ * 2. Next lowest difficulties (e.g., medium -> easy)
+ *
+ * @param {string} currentDifficulty - Current difficulty ('easy', 'medium', 'hard')
+ * @returns {string|null} Next incomplete difficulty, or null if all complete
+ */
+function getNextIncompleteDifficulty(currentDifficulty) {
+  const difficulties = ['easy', 'medium', 'hard'];
+  const currentIndex = difficulties.indexOf(currentDifficulty);
+
+  // Check higher difficulties first
+  for (let i = currentIndex + 1; i < difficulties.length; i++) {
+    if (!isDailyCompleted(difficulties[i])) {
+      return difficulties[i];
+    }
+  }
+
+  // Then check lower difficulties
+  for (let i = currentIndex - 1; i >= 0; i--) {
+    if (!isDailyCompleted(difficulties[i])) {
+      return difficulties[i];
+    }
+  }
+
+  // All difficulties complete
+  return null;
+}
+
+/**
  * Show win celebration bottom sheet with completion time
  *
  * Displays different UI based on game mode:
- * - Daily mode: Shows "Close" button (secondary) + "Share" button (primary)
+ * - Daily mode: Shows "Play another" or "Close" button (secondary) + "Share" button (primary)
  * - Unlimited/Tutorial: Shows "Yay!" button (primary), no share option
  *
  * @param {string} finalTime - Formatted completion time (e.g., "Easy • 2:34")
@@ -546,10 +578,24 @@ function showWinCelebration(finalTime) {
     content: `<div class="bottom-sheet-message">You finished in ${finalTime}.</div>`,
     icon: 'party-popper',
     colorScheme: 'success',
-    dismissLabel: isDailyMode ? 'Close' : 'Yay!',
     dismissVariant: isDailyMode ? 'secondary' : 'primary',
     showCloseIcon: true
   };
+
+  // Determine dismiss button behavior based on mode
+  if (isDailyMode) {
+    const nextDifficulty = getNextIncompleteDifficulty(currentGameDifficulty);
+    if (nextDifficulty) {
+      bottomSheetOptions.dismissLabel = 'Play another';
+      bottomSheetOptions.onClose = () => {
+        navigate(`/play?difficulty=${nextDifficulty}`);
+      };
+    } else {
+      bottomSheetOptions.dismissLabel = 'Close';
+    }
+  } else {
+    bottomSheetOptions.dismissLabel = 'Yay!';
+  }
 
   // Add Share button only for daily mode (not unlimited or tutorial)
   if (isDailyMode) {
