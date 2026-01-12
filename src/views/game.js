@@ -1354,6 +1354,17 @@ export function initGame(difficulty) {
 
   // Create settings bottom sheet with the settings content and view solution button
   const settingsContent = document.getElementById('settings-content');
+
+  // DEFENSIVE: Ensure settingsContent is in its correct original location (play-view)
+  // before creating the new sheet. This handles the timing issue where the old sheet's
+  // destroy() callback (300ms delayed) hasn't restored the content yet when navigating
+  // between game views (e.g., Play Another button).
+  const playView = document.getElementById('play-view');
+  if (settingsContent && playView && settingsContent.parentNode !== playView) {
+    settingsContent.style.display = 'none';
+    playView.appendChild(settingsContent);
+  }
+
   settingsSheet = createBottomSheet({
     title: 'Settings',
     content: settingsContent,
@@ -1387,7 +1398,7 @@ export function initGame(difficulty) {
   gameTitle.textContent = '';
 
   // Add unlimited-mode class to play-view for CSS targeting
-  const playView = document.getElementById('play-view');
+  // (playView already declared above for settingsContent fix)
   if (isUnlimitedMode && playView) {
     playView.classList.add('unlimited-mode');
   } else if (playView) {
