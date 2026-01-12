@@ -1298,6 +1298,10 @@ function getGridSizeFromDifficulty(difficulty) {
  * @param {string} difficulty - 'easy', 'medium', 'hard', or 'unlimited'
  */
 export function initGame(difficulty) {
+  // Recreate throttled save (may have been destroyed by previous cleanup)
+  throttledSaveObj = createThrottledSave();
+  throttledSave = throttledSaveObj.save;
+
   // Detect unlimited mode
   isUnlimitedMode = (difficulty === 'unlimited');
 
@@ -1581,10 +1585,15 @@ export function cleanupGame() {
   // Save current state immediately before cleanup
   // This ensures we don't lose timer state or recent draws when navigating away
   // Bypasses throttle for immediate save
-  saveGameState(captureGameState());
+  // Guard against undefined gameCore (shouldn't happen, but defensive)
+  if (gameCore) {
+    saveGameState(captureGameState());
+  }
 
   // Clean up throttle timer to prevent memory leak
-  throttledSaveObj.destroy();
+  if (throttledSaveObj) {
+    throttledSaveObj.destroy();
+  }
 
   // Stop timer
   stopTimer();
@@ -1592,6 +1601,7 @@ export function cleanupGame() {
   // Clean up bottom sheets
   if (settingsSheet) {
     settingsSheet.destroy();
+    settingsSheet = null;
   }
   if (activeGameSheet) {
     activeGameSheet.destroy();
