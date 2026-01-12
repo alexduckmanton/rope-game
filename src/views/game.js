@@ -588,7 +588,11 @@ function showWinCelebration(finalTime) {
     if (nextDifficulty) {
       bottomSheetOptions.dismissLabel = 'Play another';
       bottomSheetOptions.onClose = () => {
-        navigate(`/play?difficulty=${nextDifficulty}`);
+        // Defer navigation to next tick to avoid timing issues with cleanup
+        // (cleanup destroys the sheet we're currently inside)
+        setTimeout(() => {
+          navigate(`/play?difficulty=${nextDifficulty}`);
+        }, 0);
       };
     } else {
       bottomSheetOptions.dismissLabel = 'Close';

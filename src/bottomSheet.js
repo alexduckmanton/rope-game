@@ -200,6 +200,7 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
 
   // Event handlers
   const handleClose = () => hide();
+  const handleCloseIconClick = () => hide(true); // Close icon dismisses only, doesn't trigger onClose
   const handleOverlayClick = (e) => {
     // Close if clicking on the overlay backdrop (not the sheet itself)
     if (e.target === overlay) {
@@ -209,7 +210,7 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   const handlePrimaryClick = primaryButton ? () => primaryButton.onClick(primaryBtn) : null;
 
   if (closeIconBtn) {
-    closeIconBtn.addEventListener('click', handleClose);
+    closeIconBtn.addEventListener('click', handleCloseIconClick);
   }
   if (dismissBtn) {
     dismissBtn.addEventListener('click', handleClose);
@@ -270,7 +271,7 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
 
     // Clean up event listeners
     if (closeIconBtn) {
-      closeIconBtn.removeEventListener('click', handleClose);
+      closeIconBtn.removeEventListener('click', handleCloseIconClick);
     }
     if (dismissBtn) {
       dismissBtn.removeEventListener('click', handleClose);
