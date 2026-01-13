@@ -1337,6 +1337,11 @@ export function initGame(difficulty) {
   finishBtn = document.getElementById('finish-btn');
   clearBtn = document.getElementById('restart-btn');
   undoBtn = document.getElementById('undo-btn');
+
+  // Get settings content and play-view elements
+  const settingsContent = document.getElementById('settings-content');
+  const playView = document.getElementById('play-view');
+
   hintsCheckbox = document.getElementById('hints-checkbox');
   countdownCheckbox = document.getElementById('countdown-checkbox');
   borderCheckbox = document.getElementById('border-checkbox');
@@ -1353,18 +1358,6 @@ export function initGame(difficulty) {
   }
 
   // Create settings bottom sheet with the settings content and view solution button
-  const settingsContent = document.getElementById('settings-content');
-
-  // DEFENSIVE: Ensure settingsContent is in its correct original location (play-view)
-  // before creating the new sheet. This handles the timing issue where the old sheet's
-  // destroy() callback (300ms delayed) hasn't restored the content yet when navigating
-  // between game views (e.g., Play Another button).
-  const playView = document.getElementById('play-view');
-  if (settingsContent && playView && settingsContent.parentNode !== playView) {
-    settingsContent.style.display = 'none';
-    playView.appendChild(settingsContent);
-  }
-
   settingsSheet = createBottomSheet({
     title: 'Settings',
     content: settingsContent,

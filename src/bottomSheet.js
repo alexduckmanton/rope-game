@@ -281,21 +281,25 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
       primaryBtn.removeEventListener('click', handlePrimaryClick);
     }
 
-    // Restore HTMLElement content to its original location before removing overlay
-    setTimeout(() => {
-      if (contentElement && originalParent) {
-        // Hide the content before moving it back
-        contentElement.style.display = 'none';
+    // IMPORTANT: Restore HTMLElement content IMMEDIATELY (synchronously) so it's
+    // available for the next initGame call. Only the overlay removal is delayed
+    // for the animation. This fixes the "Play another" navigation bug where
+    // initGame couldn't find settings-content because it was still in the
+    // destroyed overlay waiting for the delayed restore.
+    if (contentElement && originalParent) {
+      // Hide the content before moving it back
+      contentElement.style.display = 'none';
 
-        // Restore to original location
-        if (originalNextSibling) {
-          originalParent.insertBefore(contentElement, originalNextSibling);
-        } else {
-          originalParent.appendChild(contentElement);
-        }
+      // Restore to original location
+      if (originalNextSibling) {
+        originalParent.insertBefore(contentElement, originalNextSibling);
+      } else {
+        originalParent.appendChild(contentElement);
       }
+    }
 
-      // Remove overlay from DOM
+    // Remove overlay from DOM after animation completes
+    setTimeout(() => {
       if (overlay.parentNode) {
         overlay.parentNode.removeChild(overlay);
       }
