@@ -54,6 +54,7 @@ const COLOR_SCHEMES = {
  * @param {string} [options.colorScheme='neutral'] - Color scheme: 'neutral', 'success', 'partial', 'error', 'info', 'warning'
  * @param {string|null} [options.dismissLabel='Close'] - Label for the dismiss button at bottom. Pass null to hide the dismiss button.
  * @param {string} [options.dismissVariant='secondary'] - Dismiss button variant: 'primary' or 'secondary'
+ * @param {boolean} [options.showCloseIcon=false] - Show X icon button at top-right corner
  * @param {Object} [options.primaryButton] - Optional primary action button above dismiss
  * @param {string} options.primaryButton.label - Button text
  * @param {string} [options.primaryButton.icon] - Optional Lucide icon name for the button
@@ -62,7 +63,7 @@ const COLOR_SCHEMES = {
  * @param {Function} [options.onClose] - Optional callback when sheet is closed (via dismiss button or click-outside)
  * @returns {Object} - Object with show(), hide(), destroy() methods
  */
-export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = 'Close', dismissVariant = 'secondary', primaryButton, onClose }) {
+export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = 'Close', dismissVariant = 'secondary', showCloseIcon = false, primaryButton, onClose }) {
   // Create overlay (backdrop + container)
   const overlay = document.createElement('div');
   overlay.className = 'bottom-sheet-overlay';
@@ -81,6 +82,15 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
     iconContainer.className = 'bottom-sheet-icon-container';
     iconContainer.style.backgroundColor = colors.backgroundColor;
     iconContainer.innerHTML = `<i data-lucide="${icon}" width="40" height="40" style="color: ${colors.iconColor}"></i>`;
+  }
+
+  // Create optional close icon button (top-right corner)
+  let closeIconBtn = null;
+  if (showCloseIcon) {
+    closeIconBtn = document.createElement('button');
+    closeIconBtn.className = 'bottom-sheet-close-icon';
+    closeIconBtn.setAttribute('aria-label', 'Close');
+    closeIconBtn.innerHTML = '<i data-lucide="x" width="24" height="24"></i>';
   }
 
   // Create header with centered title (no close button)
@@ -173,6 +183,9 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   }
 
   // Assemble the sheet
+  if (closeIconBtn) {
+    sheet.appendChild(closeIconBtn);
+  }
   if (iconContainer) {
     sheet.appendChild(iconContainer);
   }
@@ -187,6 +200,7 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
 
   // Event handlers
   const handleClose = () => hide();
+  const handleCloseIconClick = () => hide(true); // Close icon dismisses only, doesn't trigger onClose
   const handleOverlayClick = (e) => {
     // Close if clicking on the overlay backdrop (not the sheet itself)
     if (e.target === overlay) {
@@ -195,6 +209,9 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   };
   const handlePrimaryClick = primaryButton ? () => primaryButton.onClick(primaryBtn) : null;
 
+  if (closeIconBtn) {
+    closeIconBtn.addEventListener('click', handleCloseIconClick);
+  }
   if (dismissBtn) {
     dismissBtn.addEventListener('click', handleClose);
   }
@@ -253,6 +270,9 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
     hide(true);
 
     // Clean up event listeners
+    if (closeIconBtn) {
+      closeIconBtn.removeEventListener('click', handleCloseIconClick);
+    }
     if (dismissBtn) {
       dismissBtn.removeEventListener('click', handleClose);
     }
@@ -261,21 +281,25 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
       primaryBtn.removeEventListener('click', handlePrimaryClick);
     }
 
-    // Restore HTMLElement content to its original location before removing overlay
-    setTimeout(() => {
-      if (contentElement && originalParent) {
-        // Hide the content before moving it back
-        contentElement.style.display = 'none';
+    // IMPORTANT: Restore HTMLElement content IMMEDIATELY (synchronously) so it's
+    // available for the next initGame call. Only the overlay removal is delayed
+    // for the animation. This fixes the "Play another" navigation bug where
+    // initGame couldn't find settings-content because it was still in the
+    // destroyed overlay waiting for the delayed restore.
+    if (contentElement && originalParent) {
+      // Hide the content before moving it back
+      contentElement.style.display = 'none';
 
-        // Restore to original location
-        if (originalNextSibling) {
-          originalParent.insertBefore(contentElement, originalNextSibling);
-        } else {
-          originalParent.appendChild(contentElement);
-        }
+      // Restore to original location
+      if (originalNextSibling) {
+        originalParent.insertBefore(contentElement, originalNextSibling);
+      } else {
+        originalParent.appendChild(contentElement);
       }
+    }
 
-      // Remove overlay from DOM
+    // Remove overlay from DOM after animation completes
+    setTimeout(() => {
       if (overlay.parentNode) {
         overlay.parentNode.removeChild(overlay);
       }

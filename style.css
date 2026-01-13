@@ -669,6 +669,44 @@ button {
   display: block;
 }
 
+/* Close icon button - positioned at top-right corner */
+.bottom-sheet-close-icon {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+  z-index: 1; /* Above icon container */
+}
+
+.bottom-sheet-close-icon:hover {
+  background-color: var(--color-neutral-200);
+  color: var(--color-text-secondary);
+}
+
+.bottom-sheet-close-icon:focus {
+  outline: none;
+  background-color: var(--color-neutral-200);
+}
+
+.bottom-sheet-close-icon:active {
+  background-color: var(--color-neutral-300);
+}
+
+.bottom-sheet-close-icon svg {
+  display: block;
+}
+
 /* Header with centered title (no close button) */
 .bottom-sheet-header {
   display: flex;

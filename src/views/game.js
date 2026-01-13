@@ -12,7 +12,7 @@ import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
-import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished } from '../persistence.js';
+import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished, isDailyCompleted } from '../persistence.js';
 import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
@@ -531,10 +531,42 @@ function hideSettings() {
 }
 
 /**
+ * Find the next incomplete daily difficulty to play
+ *
+ * Searches in order:
+ * 1. Next highest difficulties (e.g., medium -> hard)
+ * 2. Next lowest difficulties (e.g., medium -> easy)
+ *
+ * @param {string} currentDifficulty - Current difficulty ('easy', 'medium', 'hard')
+ * @returns {string|null} Next incomplete difficulty, or null if all complete
+ */
+function getNextIncompleteDifficulty(currentDifficulty) {
+  const difficulties = ['easy', 'medium', 'hard'];
+  const currentIndex = difficulties.indexOf(currentDifficulty);
+
+  // Check higher difficulties first
+  for (let i = currentIndex + 1; i < difficulties.length; i++) {
+    if (!isDailyCompleted(difficulties[i])) {
+      return difficulties[i];
+    }
+  }
+
+  // Then check lower difficulties
+  for (let i = currentIndex - 1; i >= 0; i--) {
+    if (!isDailyCompleted(difficulties[i])) {
+      return difficulties[i];
+    }
+  }
+
+  // All difficulties complete
+  return null;
+}
+
+/**
  * Show win celebration bottom sheet with completion time
  *
  * Displays different UI based on game mode:
- * - Daily mode: Shows "Close" button (secondary) + "Share" button (primary)
+ * - Daily mode: Shows "Play another" or "Close" button (secondary) + "Share" button (primary)
  * - Unlimited/Tutorial: Shows "Yay!" button (primary), no share option
  *
  * @param {string} finalTime - Formatted completion time (e.g., "Easy • 2:34")
@@ -546,9 +578,28 @@ function showWinCelebration(finalTime) {
     content: `<div class="bottom-sheet-message">You finished in ${finalTime}.</div>`,
     icon: 'party-popper',
     colorScheme: 'success',
-    dismissLabel: isDailyMode ? 'Close' : 'Yay!',
-    dismissVariant: isDailyMode ? 'secondary' : 'primary'
+    dismissVariant: isDailyMode ? 'secondary' : 'primary',
+    showCloseIcon: true
   };
+
+  // Determine dismiss button behavior based on mode
+  if (isDailyMode) {
+    const nextDifficulty = getNextIncompleteDifficulty(currentGameDifficulty);
+    if (nextDifficulty) {
+      bottomSheetOptions.dismissLabel = 'Play another';
+      bottomSheetOptions.onClose = () => {
+        // Defer navigation to next tick to avoid timing issues with cleanup
+        // (cleanup destroys the sheet we're currently inside)
+        setTimeout(() => {
+          navigate(`/play?difficulty=${nextDifficulty}`);
+        }, 0);
+      };
+    } else {
+      bottomSheetOptions.dismissLabel = 'Close';
+    }
+  } else {
+    bottomSheetOptions.dismissLabel = 'Yay!';
+  }
 
   // Add Share button only for daily mode (not unlimited or tutorial)
   if (isDailyMode) {
@@ -994,6 +1045,7 @@ function loadOrGeneratePuzzle() {
         icon: 'shell',
         colorScheme: 'partial',
         dismissLabel: 'Close',
+        showCloseIcon: true,
         onClose: () => {
           // Don't resume timer - game is finished
         }
@@ -1198,6 +1250,7 @@ function finishGame() {
     icon: 'shell',
     colorScheme: 'partial',
     dismissLabel: 'Close',
+    showCloseIcon: true,
     onClose: () => {
       // Don't resume timer - game is finished
     }
@@ -1245,6 +1298,10 @@ function getGridSizeFromDifficulty(difficulty) {
  * @param {string} difficulty - 'easy', 'medium', 'hard', or 'unlimited'
  */
 export function initGame(difficulty) {
+  // Recreate throttled save (may have been destroyed by previous cleanup)
+  throttledSaveObj = createThrottledSave();
+  throttledSave = throttledSaveObj.save;
+
   // Detect unlimited mode
   isUnlimitedMode = (difficulty === 'unlimited');
 
@@ -1280,6 +1337,11 @@ export function initGame(difficulty) {
   finishBtn = document.getElementById('finish-btn');
   clearBtn = document.getElementById('restart-btn');
   undoBtn = document.getElementById('undo-btn');
+
+  // Get settings content and play-view elements
+  const settingsContent = document.getElementById('settings-content');
+  const playView = document.getElementById('play-view');
+
   hintsCheckbox = document.getElementById('hints-checkbox');
   countdownCheckbox = document.getElementById('countdown-checkbox');
   borderCheckbox = document.getElementById('border-checkbox');
@@ -1296,7 +1358,6 @@ export function initGame(difficulty) {
   }
 
   // Create settings bottom sheet with the settings content and view solution button
-  const settingsContent = document.getElementById('settings-content');
   settingsSheet = createBottomSheet({
     title: 'Settings',
     content: settingsContent,
@@ -1330,7 +1391,7 @@ export function initGame(difficulty) {
   gameTitle.textContent = '';
 
   // Add unlimited-mode class to play-view for CSS targeting
-  const playView = document.getElementById('play-view');
+  // (playView already declared above for settingsContent fix)
   if (isUnlimitedMode && playView) {
     playView.classList.add('unlimited-mode');
   } else if (playView) {
@@ -1528,10 +1589,15 @@ export function cleanupGame() {
   // Save current state immediately before cleanup
   // This ensures we don't lose timer state or recent draws when navigating away
   // Bypasses throttle for immediate save
-  saveGameState(captureGameState());
+  // Guard against undefined gameCore (shouldn't happen, but defensive)
+  if (gameCore) {
+    saveGameState(captureGameState());
+  }
 
   // Clean up throttle timer to prevent memory leak
-  throttledSaveObj.destroy();
+  if (throttledSaveObj) {
+    throttledSaveObj.destroy();
+  }
 
   // Stop timer
   stopTimer();
@@ -1539,6 +1605,7 @@ export function cleanupGame() {
   // Clean up bottom sheets
   if (settingsSheet) {
     settingsSheet.destroy();
+    settingsSheet = null;
   }
   if (activeGameSheet) {
     activeGameSheet.destroy();
