@@ -19,6 +19,17 @@ const DEBUG_ANALYTICS =
   (typeof localStorage !== 'undefined' && localStorage.getItem('analytics-debug') === 'true');
 
 /**
+ * Referrer tracking for SPA
+ *
+ * In SPAs, document.referrer is only set on initial page load and never updates
+ * during client-side navigation. We need to:
+ * 1. Capture the original external referrer on first load (for attribution)
+ * 2. Track internal page URLs for subsequent navigation (for user journey)
+ */
+const originalReferrer = document.referrer || '';
+let lastPageUrl = '';
+
+/**
  * Safe wrapper for gtag calls with error handling
  * @param {string} command - The gtag command ('event', 'config', etc.)
  * @param {string} eventName - The event/config name
@@ -47,14 +58,30 @@ function safeGtag(command, eventName, params = {}) {
 /**
  * Track a page view for SPA navigation
  * Call this when the route changes to track virtual page views
+ *
+ * IMPORTANT: Since we use send_page_view: false in the gtag config,
+ * we must manually provide page_referrer for proper attribution.
+ * - First page view: Uses document.referrer (external traffic source)
+ * - Subsequent views: Uses the previous internal page URL
+ *
  * @param {string} path - The page path (e.g., '/', '/play', '/tutorial')
  * @param {string} [title] - Optional page title
  */
 export function trackPageView(path, title) {
+  const currentPageUrl = window.location.origin + path;
+
+  // For the first page view, use the original external referrer
+  // For subsequent views, use the last internal page URL
+  const referrer = lastPageUrl || originalReferrer;
+
   safeGtag('event', 'page_view', {
-    page_location: window.location.origin + path,
+    page_location: currentPageUrl,
     page_title: title || document.title,
+    page_referrer: referrer,
   });
+
+  // Update last page URL for next navigation
+  lastPageUrl = currentPageUrl;
 }
 
 /**
