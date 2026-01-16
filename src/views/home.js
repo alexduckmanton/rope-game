@@ -5,7 +5,6 @@
  */
 
 import { navigate } from '../router.js';
-import { getFormattedDate } from '../seededRandom.js';
 import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished } from '../persistence.js';
 import { initIcons } from '../icons.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
@@ -69,10 +68,10 @@ function updateDailyButtonState(button, difficulty) {
  * @returns {Function|null} Cleanup function (none needed for home view)
  */
 export function initHome() {
-  // Update tagline with current date
+  // Update tagline
   const tagline = document.querySelector('.game-tagline');
   if (tagline) {
-    tagline.textContent = getFormattedDate();
+    tagline.textContent = 'A daily path-drawing puzzle';
   }
 
   // Get button elements
