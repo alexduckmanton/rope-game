@@ -465,7 +465,7 @@ function updateHintsSelectState() {
     hintsSelect.value = hintMode;
   }
   if (hintsValue) {
-    hintsValue.textContent = hintMode === 'partial' ? 'Some hints' : 'All hints';
+    hintsValue.textContent = hintMode === 'partial' ? 'Required only' : 'Show all';
   }
 }
 
@@ -504,7 +504,7 @@ function updateCountdownSelectState() {
     countdownSelect.value = countdown ? 'on' : 'off';
   }
   if (countdownValue) {
-    countdownValue.textContent = countdown ? 'On' : 'Off';
+    countdownValue.textContent = countdown ? 'Count down' : 'Show total';
   }
 }
 
