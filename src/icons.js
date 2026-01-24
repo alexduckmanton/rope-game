@@ -24,9 +24,10 @@
  * - CircleCheckBig: End/Finish button in game view (legacy)
  * - HeartCrack: End/Finish button in game view (legacy)
  * - OctagonAlert: End game confirmation modal icon
+ * - ChevronDown: Settings select dropdown indicator
  */
 
-import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig, HeartCrack, OctagonAlert } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig, HeartCrack, OctagonAlert, ChevronDown } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -60,7 +61,8 @@ export function initIcons() {
       CircleHelp,
       CircleCheckBig,
       HeartCrack,
-      OctagonAlert
+      OctagonAlert,
+      ChevronDown
     },
     attrs: {
       'stroke-width': '2',

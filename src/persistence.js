@@ -38,7 +38,7 @@
  * @property {string} hintMode - Hint display mode: "partial" or "all"
  * @property {string} borderMode - Border display mode: "off", "center", or "full"
  * @property {boolean} showSolution - Whether to show the solution path
- * @property {boolean} countdown - Whether numbers show remaining (true) or total required (false) corners
+ * @property {string} countdown - Number display mode: 'on' (countdown), 'off' (total), or 'both' (countdown with small total)
  * @property {string} lastUnlimitedDifficulty - Last selected unlimited difficulty
  */
 
@@ -666,7 +666,7 @@ export function isDailyManuallyFinished(difficulty) {
 const DEFAULT_SETTINGS = {
   hintMode: 'partial',
   borderMode: 'off',
-  countdown: true,
+  countdown: 'on',
   lastUnlimitedDifficulty: 'easy'
 };
 
@@ -707,6 +707,12 @@ export function loadSettings() {
     // This ensures existing users who had numbers disabled will now see partial numbers
     if (merged.hintMode === 'none') {
       merged.hintMode = 'partial';
+    }
+
+    // MIGRATION: Convert countdown from boolean to string
+    // true -> 'on', false -> 'off'
+    if (typeof merged.countdown === 'boolean') {
+      merged.countdown = merged.countdown ? 'on' : 'off';
     }
 
     return merged;

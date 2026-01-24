@@ -468,11 +468,11 @@ export function calculateBorderLayers(hintCells, gridSize) {
  * @param {number} animationTime - Current animation time in milliseconds
  * @param {Set<string>} playerDrawnCells - Set of "row,col" strings for drawn cells
  * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
- * @param {boolean} countdown - Whether to show remaining (true) or total required (false) corners
+ * @param {string} countdown - Number display mode: 'on' (countdown), 'off' (total), or 'both'
  * @param {Map<string, boolean>} [prebuiltSolutionTurnMap] - Optional pre-built solution turn map for performance
  * @param {Map<string, boolean>} [prebuiltPlayerTurnMap] - Optional pre-built player turn map for performance
  */
-export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells = new Set(), playerConnections = new Map(), countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null) {
+export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells = new Set(), playerConnections = new Map(), countdown = 'on', prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null) {
   if (!hintCells || hintCells.size === 0) return;
 
   // Use pre-built maps if provided, otherwise build them
@@ -498,7 +498,8 @@ export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells
     const isValid = remainingTurns === 0;
 
     // Determine display value based on countdown mode
-    const displayValue = countdown ? remainingTurns : expectedTurnCount;
+    const showCountdown = countdown === 'on' || countdown === 'both';
+    const displayValue = showCountdown ? remainingTurns : expectedTurnCount;
 
     // Get color for pulsing background: green if validated, blue otherwise
     const hintColor = isValid ? CONFIG.COLORS.HINT_VALIDATED : CONFIG.COLORS.SOLUTION_PATH;
@@ -564,7 +565,7 @@ function getColorByMagnitude(value, isValidated) {
  * @param {Set<string>} playerDrawnCells - Set of "row,col" strings for drawn cells
  * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
  * @param {string} borderMode - Border display mode: 'off' | 'center' | 'full'
- * @param {boolean} countdown - Whether to show remaining (true) or total required (false) corners
+ * @param {string} countdown - Number display mode: 'on' (countdown), 'off' (total), or 'both'
  * @param {Map<string, boolean>} [prebuiltSolutionTurnMap] - Optional pre-built solution turn map for performance
  * @param {Map<string, boolean>} [prebuiltPlayerTurnMap] - Optional pre-built player turn map for performance
  * @param {Map<string, number>} [prebuiltBorderLayers] - Optional pre-built border layers for performance
@@ -572,7 +573,7 @@ function getColorByMagnitude(value, isValidated) {
  * @param {Object} numberAnimationState - Number animation state object from the view
  * @returns {{hasActiveAnimations: boolean}} Object indicating if there are active animations
  */
-export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null, animationMode = 'auto', numberAnimationState) {
+export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = 'on', prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null, animationMode = 'auto', numberAnimationState) {
   if (!solutionPath || solutionPath.length === 0) {
     return { hasActiveAnimations: false };
   }
@@ -613,7 +614,9 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       const isValid = remainingTurns === 0;
 
       // Determine display value based on countdown mode
-      const displayValue = countdown ? remainingTurns : expectedTurnCount;
+      // 'on' and 'both' show countdown, 'off' shows total
+      const showCountdown = countdown === 'on' || countdown === 'both';
+      const displayValue = showCountdown ? remainingTurns : expectedTurnCount;
 
       // Determine color for this cell
       let hintColor;
@@ -697,6 +700,26 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         ctx.restore();
       } else {
         ctx.fillText(displayValue.toString(), x, y);
+      }
+
+      // Draw small total number in top-left for 'both' mode
+      if (countdown === 'both') {
+        const mainFontSize = cellSize * CONFIG.HINT.FONT_SIZE_FACTOR;
+        const smallFontSize = Math.floor(mainFontSize * 0.4);
+        const smallPadding = mainFontSize * 0.1;
+        // Offset to compensate for font's internal top padding (makes visual padding equal)
+        const topOffset = smallFontSize * 0.15;
+
+        ctx.save();
+        ctx.font = `bold ${smallFontSize}px sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        // Use same color as main number (hintColor already determined above)
+        ctx.fillStyle = hintColor;
+        const totalX = col * cellSize + smallPadding;
+        const totalY = row * cellSize + smallPadding - topOffset;
+        ctx.fillText(expectedTurnCount.toString(), totalX, totalY);
+        ctx.restore();
       }
     }
   }

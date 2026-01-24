@@ -78,9 +78,12 @@ let newBtn;
 let finishBtn;
 let clearBtn;
 let undoBtn;
-let hintsCheckbox;
-let countdownCheckbox;
-let borderCheckbox;
+let hintsSelect;
+let hintsValue;
+let countdownSelect;
+let countdownValue;
+let bordersSelect;
+let bordersValue;
 let backBtn;
 let helpBtn;
 let settingsBtn;
@@ -97,7 +100,7 @@ let solutionPath = [];
 let hintCells = new Set();
 let hintMode = 'partial';
 let borderMode = 'off';
-let countdown = true;
+let countdown = 'on';
 let hasWon = false;
 let hasShownPartialWinFeedback = false;
 let hasViewedSolution = false;
@@ -457,53 +460,53 @@ function resumeTimer() {
  * UI FUNCTIONS
  * ========================================================================= */
 
-function updateCheckboxState() {
-  if (hintMode === 'partial') {
-    hintsCheckbox.checked = false;
-    hintsCheckbox.indeterminate = false;
-  } else if (hintMode === 'all') {
-    hintsCheckbox.checked = true;
-    hintsCheckbox.indeterminate = false;
+function updateHintsSelectState() {
+  if (hintsSelect) {
+    hintsSelect.value = hintMode;
+  }
+  if (hintsValue) {
+    hintsValue.textContent = hintMode === 'partial' ? 'Required only' : 'Show all';
   }
 }
 
-function cycleHintMode() {
-  if (hintMode === 'partial') {
-    hintMode = 'all';
-  } else {
-    hintMode = 'partial';
-  }
-  setTimeout(updateCheckboxState, 0);
-  saveCurrentSettings();
-  // Don't trigger game state save for display-only changes
-  render(false);
-}
-
-function updateBorderCheckboxState() {
-  if (borderMode === 'off') {
-    borderCheckbox.checked = false;
-    borderCheckbox.indeterminate = false;
-  } else if (borderMode === 'center') {
-    borderCheckbox.checked = false;
-    borderCheckbox.indeterminate = true;
-  } else if (borderMode === 'full') {
-    borderCheckbox.checked = true;
-    borderCheckbox.indeterminate = false;
+function handleHintsChange() {
+  if (hintsSelect) {
+    hintMode = hintsSelect.value;
+    updateHintsSelectState();
+    saveCurrentSettings();
+    // Don't trigger game state save for display-only changes
+    render(false);
   }
 }
 
-function cycleBorderMode() {
-  if (borderMode === 'off') {
-    borderMode = 'center';
-  } else if (borderMode === 'center') {
-    borderMode = 'full';
-  } else {
-    borderMode = 'off';
+function updateBordersSelectState() {
+  if (bordersSelect) {
+    bordersSelect.value = borderMode;
   }
-  setTimeout(updateBorderCheckboxState, 0);
-  saveCurrentSettings();
-  // Don't trigger game state save for display-only changes
-  render(false);
+  if (bordersValue) {
+    const labels = { off: 'Off', center: 'Center only', full: 'Full' };
+    bordersValue.textContent = labels[borderMode] || 'Off';
+  }
+}
+
+function handleBordersChange() {
+  if (bordersSelect) {
+    borderMode = bordersSelect.value;
+    updateBordersSelectState();
+    saveCurrentSettings();
+    // Don't trigger game state save for display-only changes
+    render(false);
+  }
+}
+
+function updateCountdownSelectState() {
+  if (countdownSelect) {
+    countdownSelect.value = countdown;
+  }
+  if (countdownValue) {
+    const labels = { on: 'Count down', off: 'Show total', both: 'Show both' };
+    countdownValue.textContent = labels[countdown] || 'Count down';
+  }
 }
 
 function showSettings() {
@@ -1342,9 +1345,12 @@ export function initGame(difficulty) {
   const settingsContent = document.getElementById('settings-content');
   const playView = document.getElementById('play-view');
 
-  hintsCheckbox = document.getElementById('hints-checkbox');
-  countdownCheckbox = document.getElementById('countdown-checkbox');
-  borderCheckbox = document.getElementById('border-checkbox');
+  hintsSelect = document.getElementById('hints-select');
+  hintsValue = document.getElementById('hints-value');
+  countdownSelect = document.getElementById('countdown-select');
+  countdownValue = document.getElementById('countdown-value');
+  bordersSelect = document.getElementById('borders-select');
+  bordersValue = document.getElementById('borders-value');
   backBtn = document.getElementById('back-btn');
   helpBtn = document.getElementById('help-btn');
   settingsBtn = document.getElementById('settings-btn');
@@ -1452,19 +1458,16 @@ export function initGame(difficulty) {
     e.preventDefault(); // Prevent click event from also firing
     performUndo();
   };
-  const hintsHandler = (e) => {
-    e.preventDefault();
-    cycleHintMode();
-  };
-  const borderHandler = (e) => {
-    e.preventDefault();
-    cycleBorderMode();
-  };
+  const hintsHandler = () => handleHintsChange();
+  const bordersHandler = () => handleBordersChange();
   const countdownHandler = () => {
-    countdown = countdownCheckbox.checked;
-    saveCurrentSettings();
-    // Don't trigger game state save for display-only changes
-    render(false);
+    if (countdownSelect) {
+      countdown = countdownSelect.value;
+      updateCountdownSelectState();
+      saveCurrentSettings();
+      // Don't trigger game state save for display-only changes
+      render(false);
+    }
   };
   const backBtnHandler = () => {
     // Smart navigation: if we came from home, go back to original entry
@@ -1518,9 +1521,9 @@ export function initGame(difficulty) {
   finishBtn.addEventListener('pointerdown', finishBtnHandler);
   clearBtn.addEventListener('pointerdown', clearBtnHandler);
   undoBtn.addEventListener('pointerdown', undoBtnHandler);
-  hintsCheckbox.addEventListener('click', hintsHandler);
-  countdownCheckbox.addEventListener('change', countdownHandler);
-  borderCheckbox.addEventListener('click', borderHandler);
+  hintsSelect.addEventListener('change', hintsHandler);
+  countdownSelect.addEventListener('change', countdownHandler);
+  bordersSelect.addEventListener('change', bordersHandler);
   backBtn.addEventListener('click', backBtnHandler);
   helpBtn.addEventListener('click', helpBtnHandler);
   settingsBtn.addEventListener('click', settingsBtnHandler);
@@ -1538,9 +1541,9 @@ export function initGame(difficulty) {
     { element: finishBtn, event: 'pointerdown', handler: finishBtnHandler },
     { element: clearBtn, event: 'pointerdown', handler: clearBtnHandler },
     { element: undoBtn, event: 'pointerdown', handler: undoBtnHandler },
-    { element: hintsCheckbox, event: 'click', handler: hintsHandler },
-    { element: countdownCheckbox, event: 'change', handler: countdownHandler },
-    { element: borderCheckbox, event: 'click', handler: borderHandler },
+    { element: hintsSelect, event: 'change', handler: hintsHandler },
+    { element: countdownSelect, event: 'change', handler: countdownHandler },
+    { element: bordersSelect, event: 'change', handler: bordersHandler },
     { element: backBtn, event: 'click', handler: backBtnHandler },
     { element: helpBtn, event: 'click', handler: helpBtnHandler },
     { element: settingsBtn, event: 'click', handler: settingsBtnHandler },
@@ -1572,10 +1575,10 @@ export function initGame(difficulty) {
   // Load saved game or generate new puzzle
   loadOrGeneratePuzzle();
 
-  // Set initial checkbox state
-  updateCheckboxState();
-  updateBorderCheckboxState();
-  countdownCheckbox.checked = countdown;
+  // Set initial select states
+  updateHintsSelectState();
+  updateBordersSelectState();
+  updateCountdownSelectState();
 
   // Initialize undo button state
   updateUndoButton();

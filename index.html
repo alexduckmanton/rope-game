@@ -158,22 +158,45 @@
             </div>
           </div>
           <div class="settings-item">
-            <label class="settings-toggle-label">
-              <input type="checkbox" id="hints-checkbox">
-              <span>Hints</span>
-            </label>
+            <div class="settings-select-row" id="hints-row">
+              <span class="settings-label">Numbers</span>
+              <div class="settings-value-container">
+                <span class="settings-value" id="hints-value">Required only</span>
+                <i data-lucide="chevron-down" width="16" height="16"></i>
+              </div>
+              <select id="hints-select">
+                <option value="partial">Required only</option>
+                <option value="all">Show all</option>
+              </select>
+            </div>
           </div>
           <div class="settings-item">
-            <label class="settings-toggle-label">
-              <input type="checkbox" id="countdown-checkbox">
-              <span>Countdown</span>
-            </label>
+            <div class="settings-select-row" id="countdown-row">
+              <span class="settings-label">Behaviour</span>
+              <div class="settings-value-container">
+                <span class="settings-value" id="countdown-value">Count down</span>
+                <i data-lucide="chevron-down" width="16" height="16"></i>
+              </div>
+              <select id="countdown-select">
+                <option value="on">Count down</option>
+                <option value="off">Show total</option>
+                <option value="both">Show both</option>
+              </select>
+            </div>
           </div>
           <div class="settings-item">
-            <label class="settings-toggle-label">
-              <input type="checkbox" id="border-checkbox">
-              <span>Borders</span>
-            </label>
+            <div class="settings-select-row" id="borders-row">
+              <span class="settings-label">Borders</span>
+              <div class="settings-value-container">
+                <span class="settings-value" id="borders-value">Off</span>
+                <i data-lucide="chevron-down" width="16" height="16"></i>
+              </div>
+              <select id="borders-select">
+                <option value="off">Off</option>
+                <option value="center">Center only</option>
+                <option value="full">Full</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>

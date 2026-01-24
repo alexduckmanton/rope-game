@@ -1054,6 +1054,59 @@ button {
   flex: 1;
 }
 
+/* Select-based settings rows */
+.settings-select-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 16px 20px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  user-select: none;
+  width: 100%;
+  background-color: var(--color-bg-elevated);
+  transition: background-color 100ms ease;
+}
+
+.settings-select-row:hover {
+  background-color: var(--color-bg-surface);
+}
+
+.settings-select-row:active {
+  background-color: var(--color-neutral-200);
+}
+
+.settings-label {
+  flex: 1;
+}
+
+.settings-value-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-secondary);
+}
+
+.settings-value {
+  font-weight: 500;
+}
+
+/* Hide the native select but keep it functional */
+.settings-select-row select {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 /* Settings control for non-toggle items (like difficulty segmented control) */
 .settings-control {
   display: flex;
