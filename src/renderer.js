@@ -704,8 +704,8 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Draw small total number in top-left for 'both' mode
       if (countdown === 'both') {
         const mainFontSize = cellSize * CONFIG.HINT.FONT_SIZE_FACTOR;
-        const smallFontSize = Math.floor(mainFontSize * 0.25);
-        const smallPadding = mainFontSize * 0.25;
+        const smallFontSize = Math.floor(mainFontSize * 0.33);
+        const smallPadding = mainFontSize * 0.1;
 
         ctx.save();
         ctx.font = `bold ${smallFontSize}px sans-serif`;
