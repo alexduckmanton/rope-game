@@ -468,11 +468,11 @@ export function calculateBorderLayers(hintCells, gridSize) {
  * @param {number} animationTime - Current animation time in milliseconds
  * @param {Set<string>} playerDrawnCells - Set of "row,col" strings for drawn cells
  * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
- * @param {boolean} countdown - Whether to show remaining (true) or total required (false) corners
+ * @param {string} countdown - Number display mode: 'on' (countdown), 'off' (total), or 'both'
  * @param {Map<string, boolean>} [prebuiltSolutionTurnMap] - Optional pre-built solution turn map for performance
  * @param {Map<string, boolean>} [prebuiltPlayerTurnMap] - Optional pre-built player turn map for performance
  */
-export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells = new Set(), playerConnections = new Map(), countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null) {
+export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells, animationTime, playerDrawnCells = new Set(), playerConnections = new Map(), countdown = 'on', prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null) {
   if (!hintCells || hintCells.size === 0) return;
 
   // Use pre-built maps if provided, otherwise build them
@@ -498,7 +498,8 @@ export function renderHintPulse(ctx, gridSize, cellSize, solutionPath, hintCells
     const isValid = remainingTurns === 0;
 
     // Determine display value based on countdown mode
-    const displayValue = countdown ? remainingTurns : expectedTurnCount;
+    const showCountdown = countdown === 'on' || countdown === 'both';
+    const displayValue = showCountdown ? remainingTurns : expectedTurnCount;
 
     // Get color for pulsing background: green if validated, blue otherwise
     const hintColor = isValid ? CONFIG.COLORS.HINT_VALIDATED : CONFIG.COLORS.SOLUTION_PATH;
@@ -564,7 +565,7 @@ function getColorByMagnitude(value, isValidated) {
  * @param {Set<string>} playerDrawnCells - Set of "row,col" strings for drawn cells
  * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
  * @param {string} borderMode - Border display mode: 'off' | 'center' | 'full'
- * @param {boolean} countdown - Whether to show remaining (true) or total required (false) corners
+ * @param {string} countdown - Number display mode: 'on' (countdown), 'off' (total), or 'both'
  * @param {Map<string, boolean>} [prebuiltSolutionTurnMap] - Optional pre-built solution turn map for performance
  * @param {Map<string, boolean>} [prebuiltPlayerTurnMap] - Optional pre-built player turn map for performance
  * @param {Map<string, number>} [prebuiltBorderLayers] - Optional pre-built border layers for performance
