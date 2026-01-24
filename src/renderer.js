@@ -703,14 +703,18 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 
       // Draw small total number in top-left for 'both' mode
       if (countdown === 'both') {
+        const mainFontSize = cellSize * CONFIG.HINT.FONT_SIZE_FACTOR;
+        const smallFontSize = Math.floor(mainFontSize * 0.25);
+        const smallPadding = mainFontSize * 0.25;
+
         ctx.save();
-        ctx.font = 'bold 8px sans-serif';
+        ctx.font = `bold ${smallFontSize}px sans-serif`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
         // Use same color as main number (hintColor already determined above)
         ctx.fillStyle = hintColor;
-        const totalX = col * cellSize + 8;
-        const totalY = row * cellSize + 8;
+        const totalX = col * cellSize + smallPadding;
+        const totalY = row * cellSize + smallPadding;
         ctx.fillText(expectedTurnCount.toString(), totalX, totalY);
         ctx.restore();
       }
