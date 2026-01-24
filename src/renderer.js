@@ -706,6 +706,8 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         const mainFontSize = cellSize * CONFIG.HINT.FONT_SIZE_FACTOR;
         const smallFontSize = Math.floor(mainFontSize * 0.33);
         const smallPadding = mainFontSize * 0.1;
+        // Offset to compensate for font's internal top padding (makes visual padding equal)
+        const topOffset = smallFontSize * 0.15;
 
         ctx.save();
         ctx.font = `bold ${smallFontSize}px sans-serif`;
@@ -714,7 +716,7 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         // Use same color as main number (hintColor already determined above)
         ctx.fillStyle = hintColor;
         const totalX = col * cellSize + smallPadding;
-        const totalY = row * cellSize + smallPadding;
+        const totalY = row * cellSize + smallPadding - topOffset;
         ctx.fillText(expectedTurnCount.toString(), totalX, totalY);
         ctx.restore();
       }
