@@ -704,7 +704,7 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       // Draw small total number in top-left for 'both' mode
       if (countdown === 'both') {
         const mainFontSize = cellSize * CONFIG.HINT.FONT_SIZE_FACTOR;
-        const smallFontSize = Math.floor(mainFontSize * 0.33);
+        const smallFontSize = Math.floor(mainFontSize * 0.4);
         const smallPadding = mainFontSize * 0.1;
         // Offset to compensate for font's internal top padding (makes visual padding equal)
         const topOffset = smallFontSize * 0.15;
