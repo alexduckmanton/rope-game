@@ -140,22 +140,30 @@ Each numbered hint validates the 3x3 area centered on itself (8 neighbors + self
 
 ### Player Feedback Systems
 
-**Countdown Mode (Dynamic Feedback):**
+**Number Behaviour (Dynamic Feedback):**
 
-Players can toggle between two number display modes via the Countdown setting:
+Players can choose between three number display modes via the "Number behaviour" setting:
 
-**Countdown ON (Default Behavior):**
+**Count down (Default):**
 - Numbers show **remaining corners needed**: `expectedTurnCount - actualTurnCount`
 - **Dynamic feedback**: Numbers update in real-time as players draw their path
 - **Progress tracking**: Numbers count down toward zero as correct corners are added
 - **Negative values**: When players draw too many corners, number goes negative (e.g., need 3, drew 4 → shows "-1")
 - **Color feedback**: Colors shift dynamically with magnitude (see Magnitude-Based Color System for details)
 
-**Countdown OFF (Classic Mode):**
+**Show total (Classic Mode):**
 - Numbers show **total required corners**: `expectedTurnCount` (static)
 - **Static display**: Numbers never change regardless of player progress
 - **Traditional puzzle style**: Mirrors physical puzzle books where constraints stay constant
 - **Color feedback**: Colors remain static based on expected turn count, only shift to green upon validation
+
+**Show both:**
+- Combines countdown and total display in a single view
+- **Main number**: Shows countdown (remaining corners) in the center of the cell
+- **Small total**: Shows total required corners in the top-left corner of the cell
+- **Proportional sizing**: Small number is 40% of main number size, with 10% padding
+- **Unified coloring**: Both numbers share the same color (including green when validated)
+- **Best of both worlds**: Players see progress while retaining reference to original constraint
 
 **Design Rationale:**
 
@@ -163,19 +171,21 @@ Countdown mode provides **progressive disclosure** - players immediately see if 
 
 Static mode appeals to **purist players** who prefer the traditional puzzle-solving experience where all information is given upfront and progress tracking happens mentally.
 
+Show both mode serves players who want the dynamic feedback of countdown while still seeing the original constraint value for reference.
+
 **Implementation Architecture:**
 
 The countdown parameter is threaded through the rendering pipeline:
-- **Settings layer**: Stored in localStorage, defaults to true (countdown ON)
-- **Game state**: Boolean variable passed to render function
-- **Renderer**: Conditionally displays `remainingTurns` vs `expectedTurnCount` based on parameter
-- **Tutorial**: Hardcoded to countdown mode (always true) for consistent learning experience
+- **Settings layer**: Stored in localStorage as string ('on', 'off', 'both'), defaults to 'on'
+- **Game state**: String variable passed to render function
+- **Renderer**: Conditionally displays `remainingTurns` vs `expectedTurnCount` based on parameter; 'both' mode renders additional small number in top-left
+- **Migration**: Boolean values from older versions are automatically converted ('true' → 'on', 'false' → 'off')
 
-Validation logic remains identical - both modes use the same `isValid = remainingTurns === 0` check. Only the displayed value changes.
+Validation logic remains identical - all modes use the same `isValid = remainingTurns === 0` check. Only the displayed value changes.
 
 **User Control:**
 
-Setting is accessible via bottom sheet under Hints checkbox. Changes apply immediately with live re-render. Setting persists across sessions and applies to all game modes (daily and unlimited).
+Setting is accessible via select dropdown in settings bottom sheet. Changes apply immediately with live re-render. Setting persists across sessions and applies to all game modes (daily and unlimited).
 
 **Score Tracking System:**
 
@@ -493,7 +503,7 @@ When navigating FROM home to a subpage, the router adds metadata to history stat
 - Deterministic generation from date-based seed
 - New button hidden (can't regenerate daily puzzles)
 - Restart button replays same puzzle
-- Settings: Hints, Countdown, Borders, Solution
+- Settings: Numbers, Number behaviour, Borders, Solution
 
 **Unlimited Mode**
 - True random generation (not date-based)
@@ -919,7 +929,7 @@ For implementation details, see Color Token System in Key Systems section.
 - **Library**: Lucide icons (tree-shakeable, ~2-3KB for current icons)
 - **Sizing**: 18px inline (button labels), 20px standalone, 24px header buttons
 - **Color**: Inherit via `currentColor`
-- **Usage**: Arrow-left (back), Circle-help (help), Settings (gear), Dices (new puzzle), Refresh-ccw (Clear), Undo2 (undo), Check (End, home completion), Party-popper (win), Octagon-alert (confirmation warning), Circle-off (error), Share2 (share), Trophy/Skull (home completion icons)
+- **Usage**: Arrow-left (back), Circle-help (help), Settings (gear), Dices (new puzzle), Refresh-ccw (Clear), Undo2 (undo), Check (End, home completion), Party-popper (win), Octagon-alert (confirmation warning), Circle-off (error), Share2 (share), Trophy/Skull (home completion icons), ChevronDown (settings select indicator)
 
 **Settings Bottom Sheet:**
 
@@ -929,10 +939,11 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 - **Layout**: Settings displayed as list items with grey dividers
 - **Available Settings:**
   - **Difficulty** (Unlimited mode only): iOS-style segmented control for switching grid sizes
-  - **Hints**: Binary toggle between Partial (30% of cells, unchecked) and All (100% of cells, checked). Default: Partial. Migration: Old 'none' values automatically converted to 'partial' on load.
-  - **Countdown**: Boolean toggle for remaining vs total corners display (default ON)
-  - **Borders**: Three-state toggle (Off → Center → Full) for hint area borders
-  - **Solution**: Boolean toggle to overlay solution path in blue
+  - **Numbers**: Select dropdown with options "Required only" (partial hints) / "Show all" (all cells). Default: Required only. Migration: Old 'none' values automatically converted to 'partial' on load.
+  - **Number behaviour**: Select dropdown with options "Count down" / "Show total" / "Show both". Default: Count down. Migration: Boolean values from older versions automatically converted.
+  - **Borders**: Select dropdown with options "Off" / "Center only" / "Full" for hint area borders. Default: Off.
+  - **Solution**: Button to overlay solution path in blue (disqualifies player)
+- **Settings Row Layout**: Each setting row has left-aligned label, right-aligned value with chevron-down icon. Tapping anywhere on row opens native select picker.
 - **Behavior**: Context-aware (difficulty segmented control appears only in Unlimited mode), changes apply immediately with live re-render (no save/cancel buttons), click outside or dismiss button to close
 
 **Game Control Buttons:**
@@ -1106,22 +1117,21 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 3. **Border rendering**: Modify `drawHintBorders()` in `renderer.js` (width, inset, layer offset)
 4. **Pulse animation timing**: Adjust `CONFIG.HINT.PULSE_DURATION` and `CONFIG.HINT.PULSE_MAX_OPACITY`
 
-**Modify Player Feedback (Countdown Feature):**
-1. **Change default**: Update `countdown: true` in `DEFAULT_SETTINGS` object in `persistence.js`
-2. **Display calculation**: Modify `displayValue` logic in `renderer.js:renderCellNumbers()` (currently line 403)
-3. **Add new display modes**: Extend conditional to support additional feedback styles beyond remaining/total
-4. **Tutorial behavior**: Update hardcoded value in `tutorial.js:renderCellNumbers()` call (currently line 207)
-5. **UI positioning**: Modify checkbox placement in `index.html` settings list
-6. **Setting label**: Change "Countdown" text in checkbox span element
+**Modify Number Behaviour Setting:**
+1. **Change default**: Update `countdown: 'on'` in `DEFAULT_SETTINGS` object in `persistence.js` (values: 'on', 'off', 'both')
+2. **Display calculation**: Modify `displayValue` logic in `renderer.js:renderCellNumbers()` - uses `showCountdown = countdown === 'on' || countdown === 'both'`
+3. **Add new display modes**: Add new option value to select in `index.html`, update labels in `game.js:updateCountdownSelectState()`
+4. **Small number rendering**: For 'both' mode, modify small number sizing/position in `renderer.js:renderCellNumbers()`
+5. **Migration**: Add migration logic in `persistence.js:loadSettings()` for backward compatibility (boolean → string conversion already exists)
+6. **UI**: Modify select options in `index.html` settings list, update value labels in `game.js`
 
-**Modify Hints Setting:**
+**Modify Numbers Setting:**
 1. **Change default**: Update `hintMode: 'partial'` in `DEFAULT_SETTINGS` object in `persistence.js`
-2. **Toggle behavior**: Modify `cycleHintMode()` in `game.js` (currently binary toggle between 'partial' and 'all')
-3. **Checkbox state**: Update `updateCheckboxState()` in `game.js` for visual representation
+2. **Select handler**: Modify `handleHintsChange()` in `game.js`
+3. **Select state**: Update `updateHintsSelectState()` in `game.js` for value display
 4. **Add new hint modes**: Extend conditional logic in `renderer.js:renderCellNumbers()` to support additional display modes
 5. **Migration**: Add migration logic in `persistence.js:loadSettings()` for backward compatibility
-6. **UI positioning**: Modify checkbox placement in `index.html` settings list
-7. **Setting label**: Change "Hints" text in checkbox span element
+6. **UI**: Modify select options in `index.html` settings list, update value labels in `game.js`
 
 **Change Persistence Behavior:**
 1. **Save cooldown**: Modify `SAVE_COOLDOWN_MS` constant in `persistence.js` (default 5000ms)
@@ -1262,7 +1272,7 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 | **Grid Size** | Easy 4x4, Medium 6x6, Hard 8x8 | Same sizes, switchable within session |
 | **Win Requirement** | Any valid loop satisfying all hints | Same for all difficulties |
 | **Timer Display** | Shows selected difficulty (e.g., "Medium • 0:00") | Shows current difficulty (e.g., "Easy • 0:00") |
-| **Settings** | Hints, Countdown, Borders, Solution toggles | Same + difficulty segmented control at top |
+| **Settings** | Numbers, Number behaviour, Borders, Solution (select dropdowns) | Same + difficulty segmented control at top |
 | **Save Slots** | One per date+difficulty | One per difficulty (persistent across sessions) |
 | **Restart** | Replays same daily puzzle | Replays current random puzzle |
 | **Rotation** | New puzzle at local midnight | N/A (always generates random) |
@@ -1279,7 +1289,7 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 | **Clear button** | Clears all drawn cells, resets game state (only enabled when cells exist) |
 | **Undo button** | Reverts last drawing action (only enabled when undo history exists) |
 | **Back button** | Returns to home page |
-| **Settings button** | Opens bottom sheet with toggles |
+| **Settings button** | Opens bottom sheet with select dropdowns |
 | **Tab blur** | Timer pauses automatically |
 | **Tab focus** | Timer resumes automatically |
 
@@ -1289,8 +1299,9 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 - **Pulsing background**: Animated 3x3 area showing validation region, color matches hint number
 
 **Number Display Behavior:**
-- **Countdown ON (default)**: Shows remaining corners (e.g., need 3, drew 1 → shows "2")
-- **Countdown OFF**: Shows total required corners (e.g., need 3 → always shows "3")
+- **Count down (default)**: Shows remaining corners (e.g., need 3, drew 1 → shows "2")
+- **Show total**: Shows total required corners (e.g., need 3 → always shows "3")
+- **Show both**: Shows countdown in center + small total (40% size) in top-left corner
 - **Negative values**: When too many corners drawn (e.g., need 3, drew 5 → shows "-2")
 - **Color**: Magnitude-based gradient from bright yellow-orange to dark magenta (see Magnitude-Based Color System)
 
