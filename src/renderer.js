@@ -572,7 +572,7 @@ function getColorByMagnitude(value, isValidated) {
  * @param {Object} numberAnimationState - Number animation state object from the view
  * @returns {{hasActiveAnimations: boolean}} Object indicating if there are active animations
  */
-export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = true, prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null, animationMode = 'auto', numberAnimationState) {
+export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCells, hintMode = 'partial', playerDrawnCells = new Set(), playerConnections = new Map(), borderMode = 'full', countdown = 'on', prebuiltSolutionTurnMap = null, prebuiltPlayerTurnMap = null, prebuiltBorderLayers = null, animationMode = 'auto', numberAnimationState) {
   if (!solutionPath || solutionPath.length === 0) {
     return { hasActiveAnimations: false };
   }
@@ -613,7 +613,9 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
       const isValid = remainingTurns === 0;
 
       // Determine display value based on countdown mode
-      const displayValue = countdown ? remainingTurns : expectedTurnCount;
+      // 'on' and 'both' show countdown, 'off' shows total
+      const showCountdown = countdown === 'on' || countdown === 'both';
+      const displayValue = showCountdown ? remainingTurns : expectedTurnCount;
 
       // Determine color for this cell
       let hintColor;
@@ -697,6 +699,20 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         ctx.restore();
       } else {
         ctx.fillText(displayValue.toString(), x, y);
+      }
+
+      // Draw small total number in top-left for 'both' mode
+      if (countdown === 'both') {
+        ctx.save();
+        ctx.font = 'bold 8px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        // Use same color as main number (hintColor already determined above)
+        ctx.fillStyle = hintColor;
+        const totalX = col * cellSize + 8;
+        const totalY = row * cellSize + 8;
+        ctx.fillText(expectedTurnCount.toString(), totalX, totalY);
+        ctx.restore();
       }
     }
   }

@@ -100,7 +100,7 @@ let solutionPath = [];
 let hintCells = new Set();
 let hintMode = 'partial';
 let borderMode = 'off';
-let countdown = true;
+let countdown = 'on';
 let hasWon = false;
 let hasShownPartialWinFeedback = false;
 let hasViewedSolution = false;
@@ -501,10 +501,11 @@ function handleBordersChange() {
 
 function updateCountdownSelectState() {
   if (countdownSelect) {
-    countdownSelect.value = countdown ? 'on' : 'off';
+    countdownSelect.value = countdown;
   }
   if (countdownValue) {
-    countdownValue.textContent = countdown ? 'Count down' : 'Show total';
+    const labels = { on: 'Count down', off: 'Show total', both: 'Show both' };
+    countdownValue.textContent = labels[countdown] || 'Count down';
   }
 }
 
@@ -1461,7 +1462,7 @@ export function initGame(difficulty) {
   const bordersHandler = () => handleBordersChange();
   const countdownHandler = () => {
     if (countdownSelect) {
-      countdown = countdownSelect.value === 'on';
+      countdown = countdownSelect.value;
       updateCountdownSelectState();
       saveCurrentSettings();
       // Don't trigger game state save for display-only changes
