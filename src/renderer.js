@@ -702,7 +702,7 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
         ctx.fillText(displayValue.toString(), x, y);
       }
 
-      // Draw small total number in top-left for 'both' mode
+      // Draw small total number in top-right for 'both' mode
       if (countdown === 'both') {
         const mainFontSize = cellSize * CONFIG.HINT.FONT_SIZE_FACTOR;
         const smallFontSize = Math.floor(mainFontSize * 0.4);
@@ -712,11 +712,11 @@ export function renderCellNumbers(ctx, gridSize, cellSize, solutionPath, hintCel
 
         ctx.save();
         ctx.font = `bold ${smallFontSize}px sans-serif`;
-        ctx.textAlign = 'left';
+        ctx.textAlign = 'right';
         ctx.textBaseline = 'top';
         // Use same color as main number (hintColor already determined above)
         ctx.fillStyle = hintColor;
-        const totalX = col * cellSize + smallPadding;
+        const totalX = (col + 1) * cellSize - smallPadding;
         const totalY = row * cellSize + smallPadding - topOffset;
         ctx.fillText(expectedTurnCount.toString(), totalX, totalY);
         ctx.restore();

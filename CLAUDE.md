@@ -160,7 +160,7 @@ Players can choose between three number display modes via the "Number behaviour"
 **Show both:**
 - Combines countdown and total display in a single view
 - **Main number**: Shows countdown (remaining corners) in the center of the cell
-- **Small total**: Shows total required corners in the top-left corner of the cell
+- **Small total**: Shows total required corners in the top-right corner of the cell
 - **Proportional sizing**: Small number is 40% of main number size, with 10% padding
 - **Unified coloring**: Both numbers share the same color (including green when validated)
 - **Best of both worlds**: Players see progress while retaining reference to original constraint
@@ -178,7 +178,7 @@ Show both mode serves players who want the dynamic feedback of countdown while s
 The countdown parameter is threaded through the rendering pipeline:
 - **Settings layer**: Stored in localStorage as string ('on', 'off', 'both'), defaults to 'on'
 - **Game state**: String variable passed to render function
-- **Renderer**: Conditionally displays `remainingTurns` vs `expectedTurnCount` based on parameter; 'both' mode renders additional small number in top-left
+- **Renderer**: Conditionally displays `remainingTurns` vs `expectedTurnCount` based on parameter; 'both' mode renders additional small number in top-right
 - **Migration**: Boolean values from older versions are automatically converted ('true' → 'on', 'false' → 'off')
 
 Validation logic remains identical - all modes use the same `isValid = remainingTurns === 0` check. Only the displayed value changes.
@@ -1301,7 +1301,7 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 **Number Display Behavior:**
 - **Count down (default)**: Shows remaining corners (e.g., need 3, drew 1 → shows "2")
 - **Show total**: Shows total required corners (e.g., need 3 → always shows "3")
-- **Show both**: Shows countdown in center + small total (40% size) in top-left corner
+- **Show both**: Shows countdown in center + small total (40% size) in top-right corner
 - **Negative values**: When too many corners drawn (e.g., need 3, drew 5 → shows "-2")
 - **Color**: Magnitude-based gradient from bright yellow-orange to dark magenta (see Magnitude-Based Color System)
 
