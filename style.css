@@ -520,6 +520,22 @@ button {
   max-width: 300px;
 }
 
+.home-footer {
+  position: fixed;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.home-footer a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
 .btn-large {
   padding: 16px 32px;
   font-size: 18px;
