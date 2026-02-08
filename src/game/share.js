@@ -25,6 +25,18 @@ export function formatShareDate(date = new Date()) {
 }
 
 /**
+ * Get emoji for share text based on score
+ * Matches the icon system used on the home page:
+ * - 🏆 (trophy) for perfect 100% wins
+ * - ✅ (check) for partial completions
+ * @param {number} score - Score percentage
+ * @returns {string} Emoji character
+ */
+function getShareEmoji(score) {
+  return score === 100 ? '🏆' : '✅';
+}
+
+/**
  * Build share text for completed puzzle
  * @param {string} difficulty - Difficulty level
  * @param {string} time - Formatted completion time
@@ -34,13 +46,14 @@ export function formatShareDate(date = new Date()) {
 export function buildShareText(difficulty, time, score = 100) {
   const dateStr = formatShareDate();
   const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+  const emoji = getShareEmoji(score);
 
   // When early game ending is enabled, include score percentage
   // When disabled, use simpler format without score
   if (CONFIG.FEATURES.ENABLE_EARLY_GAME_ENDING) {
-    return `💫 ${label} Loopy\n${score}% in ${time}\n${dateStr}`;
+    return `${emoji} ${label} Loopy\n${score}% in ${time}\n${dateStr}`;
   } else {
-    return `💫 ${label} Loopy ${time}\n${dateStr}`;
+    return `${emoji} ${label} Loopy ${time}\n${dateStr}`;
   }
 }
 
