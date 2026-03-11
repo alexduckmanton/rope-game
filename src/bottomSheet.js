@@ -60,10 +60,14 @@ const COLOR_SCHEMES = {
  * @param {string} [options.primaryButton.icon] - Optional Lucide icon name for the button
  * @param {string} [options.primaryButton.variant='primary'] - Button variant: 'primary', 'secondary', or 'destructive'
  * @param {Function} options.primaryButton.onClick - Click handler (receives button element as argument)
+ * @param {Object} [options.secondaryButton] - Optional secondary button below dismiss (e.g., external links)
+ * @param {string} options.secondaryButton.label - Button text
+ * @param {string} [options.secondaryButton.icon] - Optional Lucide icon name for the button
+ * @param {string} [options.secondaryButton.href] - URL to open in new tab on click
  * @param {Function} [options.onClose] - Optional callback when sheet is closed (via dismiss button or click-outside)
  * @returns {Object} - Object with show(), hide(), destroy() methods
  */
-export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = 'Close', dismissVariant = 'secondary', showCloseIcon = false, primaryButton, onClose }) {
+export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = 'Close', dismissVariant = 'secondary', showCloseIcon = false, primaryButton, secondaryButton, onClose }) {
   // Create overlay (backdrop + container)
   const overlay = document.createElement('div');
   overlay.className = 'bottom-sheet-overlay';
@@ -129,41 +133,45 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   let buttonsContainer;
   let primaryBtn = null;
   let dismissBtn = null;
+  let secondaryBtn = null;
 
   // Only create dismiss button if dismissLabel is provided (not null/undefined)
   const hasDismissButton = dismissLabel !== null && dismissLabel !== undefined;
+  const hasMultipleButtons = primaryButton || secondaryButton;
 
   // Determine dismiss button class based on variant
   const dismissBtnClass = dismissVariant === 'primary'
     ? 'bottom-sheet-btn bottom-sheet-btn-primary'
     : 'bottom-sheet-btn bottom-sheet-btn-secondary';
 
-  if (primaryButton) {
+  if (hasMultipleButtons) {
     // Use buttons container when we have multiple buttons
     buttonsContainer = document.createElement('div');
     buttonsContainer.className = 'bottom-sheet-buttons';
 
-    // Determine primary button class based on variant
-    const primaryBtnVariant = primaryButton.variant || 'primary';
-    let primaryBtnClass;
-    if (primaryBtnVariant === 'destructive') {
-      primaryBtnClass = 'bottom-sheet-btn bottom-sheet-btn-destructive';
-    } else if (primaryBtnVariant === 'secondary') {
-      primaryBtnClass = 'bottom-sheet-btn bottom-sheet-btn-secondary';
-    } else {
-      primaryBtnClass = 'bottom-sheet-btn bottom-sheet-btn-primary';
-    }
+    if (primaryButton) {
+      // Determine primary button class based on variant
+      const primaryBtnVariant = primaryButton.variant || 'primary';
+      let primaryBtnClass;
+      if (primaryBtnVariant === 'destructive') {
+        primaryBtnClass = 'bottom-sheet-btn bottom-sheet-btn-destructive';
+      } else if (primaryBtnVariant === 'secondary') {
+        primaryBtnClass = 'bottom-sheet-btn bottom-sheet-btn-secondary';
+      } else {
+        primaryBtnClass = 'bottom-sheet-btn bottom-sheet-btn-primary';
+      }
 
-    // Create primary button
-    primaryBtn = document.createElement('button');
-    primaryBtn.className = primaryBtnClass;
-    if (primaryButton.icon) {
-      primaryBtn.innerHTML = `<i data-lucide="${primaryButton.icon}"></i><span>${primaryButton.label}</span>`;
-    } else {
-      primaryBtn.textContent = primaryButton.label;
-    }
+      // Create primary button
+      primaryBtn = document.createElement('button');
+      primaryBtn.className = primaryBtnClass;
+      if (primaryButton.icon) {
+        primaryBtn.innerHTML = `<i data-lucide="${primaryButton.icon}"></i><span>${primaryButton.label}</span>`;
+      } else {
+        primaryBtn.textContent = primaryButton.label;
+      }
 
-    buttonsContainer.appendChild(primaryBtn);
+      buttonsContainer.appendChild(primaryBtn);
+    }
 
     // Create dismiss button only if dismissLabel is provided
     if (hasDismissButton) {
@@ -171,6 +179,18 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
       dismissBtn.className = dismissBtnClass;
       dismissBtn.textContent = dismissLabel;
       buttonsContainer.appendChild(dismissBtn);
+    }
+
+    // Create secondary button (e.g., external link)
+    if (secondaryButton) {
+      secondaryBtn = document.createElement('button');
+      secondaryBtn.className = 'bottom-sheet-btn bottom-sheet-btn-secondary';
+      if (secondaryButton.icon) {
+        secondaryBtn.innerHTML = `<i data-lucide="${secondaryButton.icon}"></i><span>${secondaryButton.label}</span>`;
+      } else {
+        secondaryBtn.textContent = secondaryButton.label;
+      }
+      buttonsContainer.appendChild(secondaryBtn);
     }
   } else if (hasDismissButton) {
     // Single dismiss button (only if dismissLabel is provided)
@@ -208,6 +228,7 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
     }
   };
   const handlePrimaryClick = primaryButton ? () => primaryButton.onClick(primaryBtn) : null;
+  const handleSecondaryClick = secondaryButton && secondaryButton.href ? () => window.open(secondaryButton.href, '_blank', 'noopener') : null;
 
   if (closeIconBtn) {
     closeIconBtn.addEventListener('click', handleCloseIconClick);
@@ -218,6 +239,9 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   overlay.addEventListener('click', handleOverlayClick);
   if (primaryBtn && handlePrimaryClick) {
     primaryBtn.addEventListener('click', handlePrimaryClick);
+  }
+  if (secondaryBtn && handleSecondaryClick) {
+    secondaryBtn.addEventListener('click', handleSecondaryClick);
   }
 
   /**
@@ -279,6 +303,9 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
     overlay.removeEventListener('click', handleOverlayClick);
     if (primaryBtn && handlePrimaryClick) {
       primaryBtn.removeEventListener('click', handlePrimaryClick);
+    }
+    if (secondaryBtn && handleSecondaryClick) {
+      secondaryBtn.removeEventListener('click', handleSecondaryClick);
     }
 
     // IMPORTANT: Restore HTMLElement content IMMEDIATELY (synchronously) so it's
