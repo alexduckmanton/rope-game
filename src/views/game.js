@@ -598,8 +598,13 @@ function showWinCelebration(finalTime) {
         }, 0);
       };
     } else {
-      bottomSheetOptions.dismissLabel = 'Close';
+      // All difficulties complete - no dismiss button, just X icon to close
+      bottomSheetOptions.dismissLabel = null;
     }
+    bottomSheetOptions.secondaryButton = {
+      label: 'Support Loopy',
+      href: 'https://ko-fi.com/alexduckmanton'
+    };
   } else {
     bottomSheetOptions.dismissLabel = 'Yay!';
   }
