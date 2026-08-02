@@ -624,9 +624,11 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Home screen display:**
 
-A pill above the difficulty buttons: a Lucide `flame` icon plus text, e.g. "5 day streak", on a light orange background with dark orange text. Its colours come from the `--color-streak`, `--color-streak-text` and `--color-streak-bg` semantic tokens (backed by an orange base scale in `tokens.css`), which invert in dark mode to a light orange label on a deep orange background.
+A pill above the difficulty buttons: a Lucide `flame` icon plus text, e.g. "5 day streak", on a saturated orange background with a near-black brown label. Its colours come from the `--color-streak`, `--color-streak-text` and `--color-streak-bg` semantic tokens (backed by an orange base scale in `tokens.css`). Dark mode brightens the background rather than inverting the pair — a hot orange badge is the one pop of colour on a near-black page.
 
-The pill hugs its content via `align-self: center` — the slot is a column flex container, so without it the pill would stretch to the slot's full 300px width.
+The label is dark rather than white because white on this orange only reaches ~2.8:1 contrast; `#431407` clears 4.5:1 against both the light and dark backgrounds. If the background shade ever changes, re-check that.
+
+The pill hugs its content via `align-self: center` — the slot is a column flex container, so without it the pill would stretch to the slot's full 300px width. Its padding is asymmetric (16px right, 12px left) because the flame carries its own internal whitespace, so equal numeric padding looks tight on the right.
 
 The pill shares a fixed-height slot (`.home-slot`, 56px — one large button tall) with the tutorial button. Exactly one of them shows, and sometimes neither:
 
