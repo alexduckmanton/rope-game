@@ -65,6 +65,12 @@
   --color-amber-500: #F59E0B;    /* Amber (warnings, success icons) */
   --color-amber-600: #D97706;    /* Darker amber (future use) */
 
+  /* Orange Scale
+     Used for: the streak pill on the home screen */
+  --color-orange-100: #FFEDD5;   /* Light orange bg (streak pill) */
+  --color-orange-500: #F97316;   /* Orange (streak flame) */
+  --color-orange-700: #C2410C;   /* Dark orange (streak text) */
+
   /* Hint Magnitude Gradient (Special Case)
      Used exclusively for hint cell coloring based on magnitude (1-9)
      Orange → Magenta gradient representing increasing complexity
@@ -127,8 +133,10 @@
   --color-partial: var(--color-green-500);           /* Partial completion icon */
   --color-partial-bg: var(--color-green-100);        /* Partial completion background */
 
-  /* Streak flame on the home screen */
-  --color-streak: var(--color-amber-500);
+  /* Streak pill on the home screen */
+  --color-streak: var(--color-orange-500);          /* Flame icon */
+  --color-streak-text: var(--color-orange-700);     /* Pill label */
+  --color-streak-bg: var(--color-orange-100);       /* Pill background */
 
   --color-error: var(--color-red-500);
   --color-error-bg: var(--color-red-100);
@@ -225,6 +233,13 @@
     --color-amber-100: #4A3A20;    /* Dark amber bg */
     --color-amber-500: #FCD34D;    /* Brighter amber */
     --color-amber-600: #F59E0B;    /* Medium amber */
+
+    /* Orange Scale (Inverted for dark mode)
+       The light/dark roles swap: the pill sits on a deep orange background
+       with a light orange label, keeping the same contrast the other way up */
+    --color-orange-100: #43291A;   /* Deep orange bg (streak pill) */
+    --color-orange-500: #FB923C;   /* Brighter orange (streak flame) */
+    --color-orange-700: #FDBA74;   /* Light orange (streak text) */
 
     /* Hint Magnitude Gradient (Adjusted brightness for dark mode)
        Maintain distinct gradient but optimized for dark backgrounds */

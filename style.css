@@ -541,20 +541,27 @@ button {
   display: flex;
 }
 
-/* Streak line. Deliberately plain text: tapping it cycles through the
- * per-difficulty streaks, but it is a small reward for the curious rather than
- * a control, so it carries no button affordance. */
+/* Streak pill. Tapping it cycles through the per-difficulty streaks, but that
+ * is a small reward for the curious rather than a control, so the pill is a
+ * badge and carries no button affordance.
+ *
+ * `align-self: center` keeps it hugging its content: the slot is a column
+ * flex container, so stretching would pull the pill to the full 300px width.
+ */
 .home-streak {
   display: none;
+  align-self: center;
   align-items: center;
   justify-content: center;
   gap: 6px;
   margin: 0;
-  padding: 4px 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background-color: var(--color-streak-bg);
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1;
-  color: var(--color-text-secondary);
+  color: var(--color-streak-text);
 }
 
 .home-streak.visible {

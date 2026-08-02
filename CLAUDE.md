@@ -624,27 +624,29 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Home screen display:**
 
-A single line above the difficulty buttons: a Lucide `flame` icon plus text, e.g. "5 day streak".
+A pill above the difficulty buttons: a Lucide `flame` icon plus text, e.g. "5 day streak", on a light orange background with dark orange text. Its colours come from the `--color-streak`, `--color-streak-text` and `--color-streak-bg` semantic tokens (backed by an orange base scale in `tokens.css`), which invert in dark mode to a light orange label on a deep orange background.
 
-The line shares a fixed-height slot (`.home-slot`, 56px — one large button tall) with the tutorial button. Exactly one of them shows, and sometimes neither:
+The pill hugs its content via `align-self: center` — the slot is a column flex container, so without it the pill would stretch to the slot's full 300px width.
+
+The pill shares a fixed-height slot (`.home-slot`, 56px — one large button tall) with the tutorial button. Exactly one of them shows, and sometimes neither:
 
 | Streak live | Tutorial done | Slot shows |
 |---|---|---|
-| yes | either | Streak line |
+| yes | either | Streak pill |
 | no | no | Tutorial button |
 | no | yes | Nothing |
 
 Both children start hidden in CSS, so the slot is empty at first paint and filling it once localStorage has been read never moves the difficulty buttons. This matters because the router shows the home view before `views/home.js` has finished loading — previously the tutorial button painted during that gap and then vanished, shifting the buttons 36px.
 
-Tapping the line cycles through every difficulty that currently has a live streak of its own, then wraps back to the overall total:
+Tapping the pill cycles through every difficulty that currently has a live streak of its own, then wraps back to the overall total:
 
 ```
 5 day streak  →  5 day medium streak  →  3 day hard streak  →  5 day streak
 ```
 
-Difficulties with no live streak are skipped, so a tap never lands on "0 day streak", and the line is inert when there is nothing to cycle to. Cycle order follows the on-screen button order (`easy`, `medium`, `hard`) via the `DIFFICULTIES` constant in `views/home.js`.
+Difficulties with no live streak are skipped, so a tap never lands on "0 day streak", and the pill is inert when there is nothing to cycle to. Cycle order follows the on-screen button order (`easy`, `medium`, `hard`) via the `DIFFICULTIES` constant in `views/home.js`.
 
-This is deliberately styled as plain text, not a control — it is a small reward for the curious rather than a feature that needs discovering.
+This is deliberately styled as a badge, not a control — no press state, no chevron. Cycling is a small reward for the curious rather than a feature that needs discovering.
 
 The difficulty buttons themselves carry only the existing completion icon: trophy for a win, check for a manual finish, skull for a viewed solution.
 
