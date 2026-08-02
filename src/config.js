@@ -42,6 +42,19 @@ function getColors() {
 }
 
 export const CONFIG = {
+  // Site metadata
+  SITE: {
+    URL: 'https://loopy.wtf',  // Canonical site URL (used in share text)
+  },
+
+  // Daily puzzle configuration
+  DAILY: {
+    // Epoch date for puzzle numbering (YYYY-MM-DD, local time).
+    // The puzzle on this date is #1; every day after increments by one.
+    // Change this to the game's real launch date if it differs.
+    PUZZLE_NUMBER_EPOCH: '2025-12-13',
+  },
+
   // Cell sizing
   CELL_SIZE_MIN: 50,           // Minimum cell size in pixels
   CELL_SIZE_MAX: 100,          // Maximum cell size in pixels
@@ -109,6 +122,21 @@ export const CONFIG = {
 
   // Difficulty settings
   DIFFICULTY: {
+    // Player-facing labels for each difficulty.
+    //
+    // These are deliberately decoupled from the internal difficulty keys,
+    // which stay 'easy' / 'medium' / 'hard' throughout - in URLs, storage
+    // keys, daily seeds and analytics - so renaming what players see never
+    // migrates data or changes which puzzle a given day produces.
+    //
+    // Read them through getDifficultyLabel() rather than reaching in here, so
+    // every surface stays in step.
+    LABELS: {
+      easy: 'Easy',
+      medium: 'Tricky',
+      hard: 'Diabolical',
+    },
+
     // Hint generation configuration per difficulty level
     // count: fixed number of hints to place
     // minDistance: minimum Chebyshev distance between hints (0 = no constraint)
@@ -142,8 +170,37 @@ export const CONFIG = {
     // Enable early game ending functionality
     // When enabled, shows:
     // - End button (allows players to finish game early with current score)
-    // - Score percentage in timer display (e.g., "Medium • 1:23 • 75%")
+    // - Score percentage in timer display (e.g., "Tricky • 1:23 • 75%")
     // When disabled, hides both features for cleaner traditional puzzle experience
     ENABLE_EARLY_GAME_ENDING: false,
   },
 };
+
+/**
+ * Get the player-facing label for a difficulty
+ *
+ * Falls back to a capitalised form of the key itself, which covers
+ * 'unlimited' and anything added later without a label.
+ *
+ * @param {string} difficulty - Internal difficulty key
+ * @returns {string} Label for display, e.g. "Diabolical"
+ */
+export function getDifficultyLabel(difficulty) {
+  if (!difficulty) return '';
+
+  return (
+    CONFIG.DIFFICULTY.LABELS[difficulty] ||
+    difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
+  );
+}
+
+/**
+ * Get the player-facing label in lowercase, for use mid-sentence
+ * (e.g. "5 day diabolical streak")
+ *
+ * @param {string} difficulty - Internal difficulty key
+ * @returns {string} Lowercase label
+ */
+export function getDifficultyLabelLower(difficulty) {
+  return getDifficultyLabel(difficulty).toLowerCase();
+}

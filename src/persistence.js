@@ -129,6 +129,20 @@ function getManuallyFinishedKey(difficulty) {
 }
 
 /**
+ * Get storage key for streak tracking
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {string} localStorage key
+ */
+function getStreakKey(difficulty) {
+  return `${STORAGE_PREFIX}:streak:${difficulty}`;
+}
+
+/**
+ * Key used for the overall streak, which any difficulty can extend
+ */
+const OVERALL_STREAK_KEY = 'overall';
+
+/**
  * Get storage key for settings
  * @returns {string} localStorage key
  */
@@ -145,14 +159,34 @@ function getTutorialCompletedKey() {
 }
 
 /**
+ * Format a Date as YYYY-MM-DD using local calendar components
+ * @param {Date} date - Date to format
+ * @returns {string} Date string
+ */
+function toDateString(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Get today's date in YYYY-MM-DD format
  */
 function getTodayDateString() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return toDateString(new Date());
+}
+
+/**
+ * Get yesterday's date in YYYY-MM-DD format
+ *
+ * Uses Date's own month/year rollover so month boundaries, leap days and
+ * daylight saving transitions are all handled correctly.
+ */
+function getYesterdayDateString() {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return toDateString(yesterday);
 }
 
 /* ============================================================================
@@ -657,6 +691,165 @@ export function isDailyManuallyFinished(difficulty) {
     console.warn('Failed to check manually finished state:', error);
     return false;
   }
+}
+
+/* ============================================================================
+ * STREAK TRACKING
+ * ========================================================================= */
+
+/**
+ * Read the raw stored streak record
+ * @param {string} key - Difficulty, or OVERALL_STREAK_KEY
+ * @returns {{current: number, best: number, lastDate: string|null}} Streak record
+ */
+function readStreakRecord(key) {
+  const empty = { current: 0, best: 0, lastDate: null };
+
+  try {
+    const raw = localStorage.getItem(getStreakKey(key));
+    if (!raw) return empty;
+
+    const parsed = JSON.parse(raw);
+    return {
+      current: Number(parsed.current) || 0,
+      best: Number(parsed.best) || 0,
+      lastDate: parsed.lastDate || null,
+    };
+  } catch (error) {
+    console.warn('Failed to read streak:', error);
+    return empty;
+  }
+}
+
+/**
+ * Get the current state of a stored streak
+ *
+ * A streak stays alive as long as the last completion was today or yesterday.
+ * Any longer gap means the streak has lapsed, so `current` reports 0 even
+ * though the stored record still holds the old value (which is only ever
+ * overwritten on the next completion).
+ *
+ * @param {string} key - Difficulty, or OVERALL_STREAK_KEY
+ * @returns {{current: number, best: number, completedToday: boolean}} Streak state
+ */
+function getStreakState(key) {
+  const record = readStreakRecord(key);
+  const isAlive =
+    record.lastDate === getTodayDateString() ||
+    record.lastDate === getYesterdayDateString();
+
+  return {
+    current: isAlive ? record.current : 0,
+    best: record.best,
+    completedToday: record.lastDate === getTodayDateString(),
+  };
+}
+
+/**
+ * Extend a stored streak to today
+ *
+ * Extends when the previous completion was yesterday, and starts a new streak
+ * of 1 otherwise. Calling this more than once on the same day is a no-op, so
+ * it is safe to call from every completion path.
+ *
+ * @param {string} key - Difficulty, or OVERALL_STREAK_KEY
+ * @returns {{current: number, best: number, completedToday: boolean}} Updated streak state
+ */
+function extendStreak(key) {
+  const record = readStreakRecord(key);
+  const today = getTodayDateString();
+
+  // Already counted today - nothing to do
+  if (record.lastDate === today) {
+    return { current: record.current, best: record.best, completedToday: true };
+  }
+
+  const continuesStreak = record.lastDate === getYesterdayDateString();
+  const current = continuesStreak ? record.current + 1 : 1;
+  const best = Math.max(current, record.best);
+
+  try {
+    localStorage.setItem(
+      getStreakKey(key),
+      JSON.stringify({ current, best, lastDate: today })
+    );
+  } catch (error) {
+    console.warn('Failed to save streak:', error);
+  }
+
+  return { current, best, completedToday: true };
+}
+
+/**
+ * Get the streak for a single difficulty
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {{current: number, best: number, completedToday: boolean}} Streak state
+ */
+export function getStreak(difficulty) {
+  return getStreakState(difficulty);
+}
+
+/**
+ * Get the overall streak, which any difficulty can extend
+ *
+ * This is the streak players are asked to protect: completing any one of the
+ * three daily puzzles keeps it alive, so a busy day only costs them the
+ * Diabolical puzzle rather than the whole streak.
+ *
+ * @returns {{current: number, best: number, completedToday: boolean}} Streak state
+ */
+export function getOverallStreak() {
+  return getStreakState(OVERALL_STREAK_KEY);
+}
+
+/**
+ * Record a completed daily puzzle against both the overall streak and the
+ * streak for that specific difficulty
+ *
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {{difficulty: Object, overall: Object}} Updated streak states
+ */
+export function recordDailyStreak(difficulty) {
+  return {
+    difficulty: extendStreak(difficulty),
+    overall: extendStreak(OVERALL_STREAK_KEY),
+  };
+}
+
+/**
+ * Bring streaks up to date with today's completion flags
+ *
+ * Streaks are normally written at the moment a puzzle is completed. That
+ * leaves one gap: a player who finished today's puzzle on a build without
+ * streaks - which is every existing player on the day this ships - would see
+ * no streak until tomorrow, because a completed puzzle is locked and can never
+ * run the completion path again.
+ *
+ * This reconciles the two by treating any difficulty flagged as completed
+ * today as a completion for streak purposes. It only ever looks at today, and
+ * `extendStreak` no-ops once a streak has been recorded for today, so it is
+ * safe to run on every app start. Deliberately silent on analytics: this is a
+ * repair, not a fresh completion.
+ *
+ * @returns {boolean} Whether any streak was backfilled
+ */
+export function reconcileStreaks() {
+  let backfilled = false;
+
+  for (const difficulty of ['easy', 'medium', 'hard']) {
+    // A viewed solution does not count, matching the live completion path
+    if (!isDailyCompleted(difficulty) && !isDailyManuallyFinished(difficulty)) {
+      continue;
+    }
+
+    if (!getStreakState(difficulty).completedToday || !getOverallStreak().completedToday) {
+      backfilled = true;
+    }
+
+    recordDailyStreak(difficulty);
+  }
+
+  return backfilled;
 }
 
 /* ============================================================================

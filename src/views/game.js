@@ -8,11 +8,11 @@
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCellsWithMinDistance, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
 import { buildSolutionTurnMap, countTurnsInArea, parseCellKey, checkPartialStructuralLoop } from '../utils.js';
-import { CONFIG } from '../config.js';
+import { CONFIG, getDifficultyLabel } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
-import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished, isDailyCompleted } from '../persistence.js';
+import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished, isDailyCompleted, recordDailyStreak } from '../persistence.js';
 import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
@@ -27,7 +27,8 @@ import {
   trackUndoUsed,
   trackSolutionViewed,
   trackSettingsOpened,
-  trackValidationError
+  trackValidationError,
+  trackStreakUpdated
 } from '../analytics.js';
 
 /* ============================================================================
@@ -43,16 +44,6 @@ const GAME_STATE = {
   WON: 'won',
   VIEWED_SOLUTION: 'viewed-solution',
   NEW: 'new'
-};
-
-/**
- * Display names for difficulty levels
- * Maps internal lowercase difficulty strings to user-facing capitalized names
- */
-const DIFFICULTY_DISPLAY_NAMES = {
-  easy: 'Easy',
-  medium: 'Medium',
-  hard: 'Hard'
 };
 
 /* ============================================================================
@@ -818,21 +809,24 @@ function render(triggerSave = true, animationMode = 'auto') {
       updateFinishButton();
       updateClearButton();
 
-      // Mark daily puzzle as completed (not for unlimited mode)
-      if (isDailyMode) {
-        markDailyCompleted(currentGameDifficulty);
-      }
-
       // Capture time BEFORE any rendering that might cause re-renders
       const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
       const completionTimeSeconds = gameTimer ? gameTimer.getElapsedSeconds() : 0;
+
+      // Mark daily puzzle as completed (not for unlimited mode)
+      if (isDailyMode) {
+        markDailyCompleted(currentGameDifficulty);
+        const streak = recordDailyStreak(currentGameDifficulty);
+        trackStreakUpdated(currentGameDifficulty, streak.difficulty, streak.overall);
+      }
 
       // Track game completion
       trackGameCompleted(
         currentGameDifficulty,
         isDailyMode ? 'daily' : 'unlimited',
         completionTimeSeconds,
-        finalTime
+        finalTime,
+        'win'
       );
 
       // Re-render path with win color (already green from visual validation, but ensures consistency)
@@ -1177,7 +1171,7 @@ function viewSolution() {
  */
 function showFinishConfirmation() {
   // Get display name for difficulty
-  const difficultyName = DIFFICULTY_DISPLAY_NAMES[currentGameDifficulty];
+  const difficultyName = getDifficultyLabel(currentGameDifficulty);
 
   // Build confirmation message - only show "until tomorrow" for daily mode
   let bodyMessage = '';
@@ -1236,14 +1230,27 @@ function finishGame() {
   updateFinishButton();
   updateClearButton();
 
-  // Mark as manually finished for daily puzzles
-  if (isDailyMode) {
-    markDailyManuallyFinished(currentGameDifficulty);
-  }
-
   // Capture current score and time
   const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
   const scorePercentage = currentScore ? currentScore.percentage : 0;
+
+  // Mark as manually finished for daily puzzles
+  if (isDailyMode) {
+    markDailyManuallyFinished(currentGameDifficulty);
+    const streak = recordDailyStreak(currentGameDifficulty);
+    trackStreakUpdated(currentGameDifficulty, streak.difficulty, streak.overall);
+  }
+
+  // A manual finish still ends the puzzle, so it counts as a completion for
+  // analytics - the completion_type property separates it from a real win
+  trackGameCompleted(
+    currentGameDifficulty,
+    isDailyMode ? 'daily' : 'unlimited',
+    gameTimer ? gameTimer.getElapsedSeconds() : 0,
+    finalTime,
+    'manual_finish',
+    scorePercentage
+  );
 
   // Show partial win modal with "Close" button (no timer resume)
   // Destroy any previous game sheet before showing new one
@@ -1483,7 +1490,7 @@ export function initGame(difficulty) {
       navigate('/', true);
     }
   };
-  const helpBtnHandler = () => showTutorialSheet('game');
+  const helpBtnHandler = () => showTutorialSheet('game', currentGameDifficulty);
   const settingsBtnHandler = () => showSettings();
   const visibilityChangeHandler = () => {
     if (document.hidden) {

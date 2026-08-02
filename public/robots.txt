@@ -1,6 +1,8 @@
 # Loopy - Path Drawing Puzzle Game
 # https://loopy.wtf
 
+Sitemap: https://loopy.wtf/sitemap.xml
+
 User-agent: *
 Allow: /
 

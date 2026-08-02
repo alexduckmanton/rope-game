@@ -1,7 +1,7 @@
 {
   "name": "Loopy",
   "short_name": "Loopy",
-  "description": "A path-drawing puzzle",
+  "description": "A free daily loop logic puzzle. Draw one closed loop that satisfies every number.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F3F4F6",
@@ -43,9 +43,9 @@
       ]
     },
     {
-      "name": "Medium Loopy",
-      "short_name": "Medium",
-      "description": "Play today's medium Loopy (6×6 grid)",
+      "name": "Tricky Loopy",
+      "short_name": "Tricky",
+      "description": "Play today's tricky Loopy (6×6 grid)",
       "url": "/play?difficulty=medium",
       "icons": [
         {
@@ -56,9 +56,9 @@
       ]
     },
     {
-      "name": "Hard Loopy",
-      "short_name": "Hard",
-      "description": "Play today's hard Loopy (8×8 grid)",
+      "name": "Diabolical Loopy",
+      "short_name": "Diabolical",
+      "description": "Play today's diabolical Loopy (8×8 grid)",
       "url": "/play?difficulty=hard",
       "icons": [
         {

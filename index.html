@@ -1,26 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Preconnect for faster third-party resources -->
-  <link rel="preconnect" href="https://www.googletagmanager.com">
-  <link rel="dns-prefetch" href="https://www.googletagmanager.com">
-
-  <!-- Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-9BFMVX4CLE"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-9BFMVX4CLE', { send_page_view: false });
-  </script>
-
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
 
   <!-- Primary Meta Tags -->
-  <title>Loopy</title>
-  <meta name="title" content="Loopy">
-  <meta name="description" content="A path-drawing puzzle">
+  <title>Loopy — A Free Daily Loop Logic Puzzle</title>
+  <meta name="title" content="Loopy — A Free Daily Loop Logic Puzzle">
+  <meta name="description" content="Draw one closed loop that satisfies every number. A new Loopy logic puzzle every day in three difficulties. Free, no sign-up, plays in your browser.">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#F3F4F6" media="(prefers-color-scheme: light)">
@@ -45,25 +32,25 @@
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://loopy.wtf/">
-  <meta property="og:title" content="Loopy">
-  <meta property="og:description" content="A path-drawing puzzle">
+  <meta property="og:title" content="Loopy — A Free Daily Loop Logic Puzzle">
+  <meta property="og:description" content="Draw one closed loop that satisfies every number. A new logic puzzle every day, in three difficulties. Free, no sign-up.">
   <meta property="og:site_name" content="Loopy">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url" content="https://loopy.wtf/">
-  <meta name="twitter:title" content="Loopy">
-  <meta name="twitter:description" content="A path-drawing puzzle">
+  <meta name="twitter:title" content="Loopy — A Free Daily Loop Logic Puzzle">
+  <meta name="twitter:description" content="Draw one closed loop that satisfies every number. A new logic puzzle every day, in three difficulties. Free, no sign-up.">
 
   <!-- Open Graph Image -->
   <meta property="og:image" content="https://loopy.wtf/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Loopy - A path-drawing puzzle">
+  <meta property="og:image:alt" content="Loopy - a free daily loop logic puzzle">
 
   <!-- Twitter Card Image -->
   <meta name="twitter:image" content="https://loopy.wtf/og-image.png">
-  <meta name="twitter:image:alt" content="Loopy - A path-drawing puzzle">
+  <meta name="twitter:image:alt" content="Loopy - a free daily loop logic puzzle">
 
   <!-- Mobile Web App -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -80,23 +67,31 @@
     <div id="home-view" class="view">
       <div class="home-container">
         <h1 class="game-title">Loopy</h1>
-        <p class="game-tagline">&nbsp;</p>
-        <div class="home-buttons">
+        <p class="game-tagline">A daily path-drawing puzzle</p>
+        <!-- Fixed-height slot holding either the streak line or the tutorial
+             button. Both start hidden so the space is reserved from first
+             paint and nothing shifts once localStorage has been read. -->
+        <div class="home-slot">
+          <p id="home-streak" class="home-streak">
+            <i data-lucide="flame" width="18" height="18"></i>
+            <span id="home-streak-text"></span>
+          </p>
           <button id="tutorial-btn" class="btn btn-large">
-            <i class="btn-complete-icon" data-lucide="check" width="20" height="20"></i>
             <span>How to play</span>
           </button>
+        </div>
+        <div class="home-buttons">
           <button id="easy-btn" class="btn btn-large">
             <i class="btn-complete-icon" data-lucide="trophy" width="20" height="20"></i>
             <span>Easy</span>
           </button>
           <button id="medium-btn" class="btn btn-large">
             <i class="btn-complete-icon" data-lucide="trophy" width="20" height="20"></i>
-            <span>Medium</span>
+            <span>Tricky</span>
           </button>
           <button id="hard-btn" class="btn btn-large">
             <i class="btn-complete-icon" data-lucide="trophy" width="20" height="20"></i>
-            <span>Hard</span>
+            <span>Diabolical</span>
           </button>
           <!-- Temporarily hidden - page still works via direct URL -->
           <!-- <button id="unlimited-btn" class="btn btn-large">Unlimited</button> -->
@@ -153,8 +148,8 @@
             <div class="settings-control">
               <div class="segmented-control" id="difficulty-segmented-control">
                 <button class="segment-btn" data-difficulty="easy">Easy</button>
-                <button class="segment-btn" data-difficulty="medium">Medium</button>
-                <button class="segment-btn" data-difficulty="hard">Hard</button>
+                <button class="segment-btn" data-difficulty="medium">Tricky</button>
+                <button class="segment-btn" data-difficulty="hard">Diabolical</button>
               </div>
             </div>
           </div>

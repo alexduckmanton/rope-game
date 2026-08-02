@@ -1,14 +1,21 @@
 /**
  * Home View
  *
- * Main landing page with game title and difficulty selection buttons
+ * Main landing page with game title, streak line and difficulty selection buttons
  */
 
 import { navigate } from '../router.js';
-import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished } from '../persistence.js';
+import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished, getStreak, getOverallStreak } from '../persistence.js';
 import { initIcons } from '../icons.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
 import { trackDifficultySelected } from '../analytics.js';
+import { getDifficultyLabelLower } from '../config.js';
+
+/**
+ * Difficulties in the order they appear on screen, which is also the order the
+ * streak line cycles through them
+ */
+const DIFFICULTIES = ['easy', 'medium', 'hard'];
 
 /**
  * Update button completed state based on completion status
@@ -63,17 +70,88 @@ function updateDailyButtonState(button, difficulty) {
 }
 
 /**
+ * Build the list of streaks the streak line cycles through
+ *
+ * The overall streak comes first, followed by every difficulty that currently
+ * has a live streak of its own. Difficulties with no streak are left out, so
+ * tapping never lands on "0 day streak".
+ *
+ * @returns {Array<{label: string}>} Streaks to cycle through, overall first
+ */
+function buildStreakCycle() {
+  const overall = getOverallStreak();
+  if (overall.current === 0) return [];
+
+  const cycle = [{ label: `${overall.current} day streak` }];
+
+  for (const difficulty of DIFFICULTIES) {
+    const streak = getStreak(difficulty);
+    if (streak.current === 0) continue;
+
+    // Difficulty stays lowercase so the line reads as a sentence - a
+    // capitalised word mid-phrase reads as a label instead
+    cycle.push({ label: `${streak.current} day ${getDifficultyLabelLower(difficulty)} streak` });
+  }
+
+  return cycle;
+}
+
+/**
+ * Fill the slot above the difficulty buttons
+ *
+ * The slot holds one of two things, and reserves its height either way so the
+ * difficulty buttons never move:
+ *
+ * 1. The streak line, whenever a streak is live. Tapping it steps through the
+ *    per-difficulty streaks and wraps back to the overall one - an easter egg
+ *    rather than a control, so it carries no button affordance.
+ * 2. The tutorial button, for players with no streak who have not been through
+ *    it yet. Anyone with a streak has plainly worked out how to play, and the
+ *    help button in the game view still reaches the tutorial either way.
+ *
+ * When neither applies the slot simply stays empty.
+ *
+ * @param {HTMLElement} tutorialBtn - The tutorial button element
+ * @returns {Function|null} Cleanup function, or null if nothing was bound
+ */
+function initHomeSlot(tutorialBtn) {
+  const streakEl = document.getElementById('home-streak');
+  const textEl = document.getElementById('home-streak-text');
+  if (!streakEl || !textEl) return null;
+
+  const cycle = buildStreakCycle();
+
+  if (cycle.length === 0) {
+    streakEl.classList.remove('visible');
+    tutorialBtn.classList.toggle('visible', !isTutorialCompleted());
+    return null;
+  }
+
+  tutorialBtn.classList.remove('visible');
+
+  let index = 0;
+  textEl.textContent = cycle[index].label;
+  streakEl.classList.add('visible');
+
+  // A single entry means there is nothing to cycle to
+  if (cycle.length === 1) return null;
+
+  const handleCycle = () => {
+    index = (index + 1) % cycle.length;
+    textEl.textContent = cycle[index].label;
+  };
+
+  streakEl.addEventListener('click', handleCycle);
+
+  return () => streakEl.removeEventListener('click', handleCycle);
+}
+
+/**
  * Initialize the home view
  * Sets up button click handlers for navigation
  * @returns {Function|null} Cleanup function (none needed for home view)
  */
 export function initHome() {
-  // Update tagline
-  const tagline = document.querySelector('.game-tagline');
-  if (tagline) {
-    tagline.textContent = 'A daily path-drawing puzzle';
-  }
-
   // Get button elements
   const tutorialBtn = document.getElementById('tutorial-btn');
   const easyBtn = document.getElementById('easy-btn');
@@ -82,13 +160,12 @@ export function initHome() {
   // Temporarily hidden - page still works via direct URL
   // const unlimitedBtn = document.getElementById('unlimited-btn');
 
-  // Update completed state icons
-  updateCompletedState(tutorialBtn, isTutorialCompleted(), 'check');
-
   // Update daily puzzle buttons (trophy for wins, skull for viewed solutions)
   updateDailyButtonState(easyBtn, 'easy');
   updateDailyButtonState(mediumBtn, 'medium');
   updateDailyButtonState(hardBtn, 'hard');
+
+  const cleanupSlot = initHomeSlot(tutorialBtn);
 
   // Re-initialize icons after updating attributes
   initIcons();
@@ -118,10 +195,9 @@ export function initHome() {
   // Temporarily hidden - page still works via direct URL
   // unlimitedBtn.addEventListener('click', handleUnlimited);
 
-  // Listen for tutorial completion to update checkmark immediately
+  // Hide the tutorial button as soon as it is completed, without a reload
   const handleTutorialCompleted = () => {
-    updateCompletedState(tutorialBtn, true, 'check');
-    initIcons();
+    tutorialBtn.classList.remove('visible');
   };
   window.addEventListener('tutorialCompleted', handleTutorialCompleted);
 
@@ -132,6 +208,7 @@ export function initHome() {
     mediumBtn.removeEventListener('click', handleMedium);
     hardBtn.removeEventListener('click', handleHard);
     window.removeEventListener('tutorialCompleted', handleTutorialCompleted);
+    if (cleanupSlot) cleanupSlot();
     // Temporarily hidden - page still works via direct URL
     // unlimitedBtn.removeEventListener('click', handleUnlimited);
   };

@@ -5,7 +5,7 @@
  * with clipboard fallback.
  */
 
-import { CONFIG } from '../config.js';
+import { CONFIG, getDifficultyLabel } from '../config.js';
 import {
   trackShareAttempted,
   trackShareCompleted,
@@ -26,6 +26,12 @@ export function formatShareDate(date = new Date()) {
 
 /**
  * Build share text for completed puzzle
+ *
+ * NOTE: Adding a puzzle number and the site URL to this text is a pending
+ * change, held until there is enough `share_attempted` data to measure its
+ * effect. `getPuzzleNumber()` in seededRandom.js and `CONFIG.SITE.URL` are
+ * already in place for it.
+ *
  * @param {string} difficulty - Difficulty level
  * @param {string} time - Formatted completion time
  * @param {number} [score] - Score percentage (optional, defaults to 100 for perfect wins)
@@ -33,7 +39,7 @@ export function formatShareDate(date = new Date()) {
  */
 export function buildShareText(difficulty, time, score = 100) {
   const dateStr = formatShareDate();
-  const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+  const label = getDifficultyLabel(difficulty);
 
   // When early game ending is enabled, include score percentage
   // When disabled, use simpler format without score

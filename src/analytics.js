@@ -1,14 +1,31 @@
 /**
- * Google Analytics integration for SPA
+ * PostHog analytics integration for SPA
  *
  * Handles page view and event tracking for client-side route changes.
- * The gtag script is loaded in index.html.
+ * PostHog is initialised on module load, before the router renders its first
+ * route, so the initial page view is never missed.
  *
  * CRITICAL: All analytics calls are wrapped in try-catch blocks to ensure
  * analytics failures never interrupt gameplay.
  */
 
-const GA_MEASUREMENT_ID = 'G-9BFMVX4CLE';
+// Slim, self-contained build: excludes autocapture, session replay, surveys and
+// web vitals (all unused here) and loads no extra scripts at runtime. Roughly
+// half the bundle size of the default posthog-js entry point.
+import posthog from 'posthog-js/dist/module.slim.no-external.js';
+
+/**
+ * PostHog project credentials
+ *
+ * The project API key is a public, client-side key by design - it can only
+ * write events, never read them - so it is safe to ship in the bundle. Both
+ * values can still be overridden at build time via environment variables
+ * (e.g. to point a fork or a staging deploy at a different project).
+ */
+const POSTHOG_KEY =
+  import.meta.env.VITE_POSTHOG_KEY || 'phc_AhkvYZopskAH4WgPiAoLE8izgfCYKjZsNj6LbLRSBHx8';
+const POSTHOG_HOST =
+  import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com';
 
 /**
  * Debug mode - logs analytics events to console
@@ -22,33 +39,73 @@ const DEBUG_ANALYTICS =
  * Referrer tracking for SPA
  *
  * In SPAs, document.referrer is only set on initial page load and never updates
- * during client-side navigation. We need to:
- * 1. Capture the original external referrer on first load (for attribution)
- * 2. Track internal page URLs for subsequent navigation (for user journey)
+ * during client-side navigation. PostHog handles external attribution itself,
+ * so we only track the previous internal page to reconstruct user journeys.
  */
-const originalReferrer = document.referrer || '';
 let lastPageUrl = '';
 
 /**
- * Safe wrapper for gtag calls with error handling
- * @param {string} command - The gtag command ('event', 'config', etc.)
- * @param {string} eventName - The event/config name
- * @param {Object} [params] - Optional parameters
+ * Whether PostHog initialised successfully
+ * When false, every tracking call becomes a no-op
  */
-function safeGtag(command, eventName, params = {}) {
-  try {
-    if (DEBUG_ANALYTICS) {
-      console.log(`[Analytics] ${eventName}`, params);
-    }
+let isInitialized = false;
 
-    if (typeof gtag !== 'function') {
-      if (DEBUG_ANALYTICS) {
-        console.log('[Analytics] gtag not available (likely blocked)');
-      }
+/**
+ * Initialise PostHog
+ *
+ * Configuration notes:
+ * - persistence: localStorage only, so the game sets no cookies at all, which
+ *   keeps the privacy/consent story simple.
+ * - person_profiles: 'always' because the game has no accounts. Without it,
+ *   anonymous players get no person profiles and retention analysis - the main
+ *   reason for using PostHog here - would not work.
+ * - capture_pageview: false because the router tracks SPA navigation manually.
+ * - autocapture: false because the game already emits explicit, meaningful
+ *   events; autocapture on a canvas game is mostly noise.
+ */
+function initAnalytics() {
+  try {
+    if (!POSTHOG_KEY) {
+      console.warn('[Analytics] No PostHog key configured - tracking disabled');
       return;
     }
 
-    gtag(command, eventName, params);
+    posthog.init(POSTHOG_KEY, {
+      api_host: POSTHOG_HOST,
+      persistence: 'localStorage',
+      person_profiles: 'always',
+      capture_pageview: false,
+      capture_pageleave: true,
+      autocapture: false,
+      disable_session_recording: true,
+      debug: DEBUG_ANALYTICS,
+    });
+
+    isInitialized = true;
+  } catch (error) {
+    // Silent fail - never interrupt gameplay
+    console.debug('[Analytics] Init error:', error);
+  }
+}
+
+initAnalytics();
+
+/**
+ * Safe wrapper for PostHog capture calls with error handling
+ * @param {string} eventName - The event name
+ * @param {Object} [properties] - Optional event properties
+ */
+function safeCapture(eventName, properties = {}) {
+  try {
+    if (DEBUG_ANALYTICS) {
+      console.log(`[Analytics] ${eventName}`, properties);
+    }
+
+    if (!isInitialized) {
+      return;
+    }
+
+    posthog.capture(eventName, properties);
   } catch (error) {
     // Silent fail - never interrupt gameplay
     console.debug('[Analytics] Error:', error);
@@ -59,10 +116,9 @@ function safeGtag(command, eventName, params = {}) {
  * Track a page view for SPA navigation
  * Call this when the route changes to track virtual page views
  *
- * IMPORTANT: Since we use send_page_view: false in the gtag config,
- * we must manually provide page_referrer for proper attribution.
- * - First page view: Uses document.referrer (external traffic source)
- * - Subsequent views: Uses the previous internal page URL
+ * PostHog derives external attribution ($referrer, UTM parameters) from the
+ * initial page load itself, so we only attach the previous internal page here
+ * rather than overriding PostHog's own referrer handling.
  *
  * @param {string} path - The page path (e.g., '/', '/play', '/tutorial')
  * @param {string} [title] - Optional page title
@@ -70,14 +126,10 @@ function safeGtag(command, eventName, params = {}) {
 export function trackPageView(path, title) {
   const currentPageUrl = window.location.origin + path;
 
-  // For the first page view, use the original external referrer
-  // For subsequent views, use the last internal page URL
-  const referrer = lastPageUrl || originalReferrer;
-
-  safeGtag('event', 'page_view', {
-    page_location: currentPageUrl,
-    page_title: title || document.title,
-    page_referrer: referrer,
+  safeCapture('$pageview', {
+    $current_url: currentPageUrl,
+    title: title || document.title,
+    previous_page: lastPageUrl || undefined,
   });
 
   // Update last page URL for next navigation
@@ -90,7 +142,7 @@ export function trackPageView(path, title) {
  * @param {Object} [params] - Optional event parameters
  */
 export function trackEvent(eventName, params = {}) {
-  safeGtag('event', eventName, params);
+  safeCapture(eventName, params);
 }
 
 /* ============================================================================
@@ -100,9 +152,13 @@ export function trackEvent(eventName, params = {}) {
 /**
  * Track tutorial opened
  * @param {string} source - Where tutorial was opened from ('home', 'game')
+ * @param {string} [difficulty] - Difficulty being played, when opened from a game
  */
-export function trackTutorialOpened(source) {
-  trackEvent('tutorial_opened', { source });
+export function trackTutorialOpened(source, difficulty) {
+  trackEvent('tutorial_opened', {
+    source,
+    difficulty: difficulty || 'none'
+  });
 }
 
 /**
@@ -148,13 +204,17 @@ export function trackGameStarted(difficulty, mode) {
  * @param {string} mode - Game mode ('daily', 'unlimited')
  * @param {number} completionTimeSeconds - Time in seconds
  * @param {string} completionTimeFormatted - Formatted time (e.g., "Easy • 2:34")
+ * @param {string} [completionType] - How the game ended ('win', 'manual_finish')
+ * @param {number} [score] - Score percentage at completion
  */
-export function trackGameCompleted(difficulty, mode, completionTimeSeconds, completionTimeFormatted) {
+export function trackGameCompleted(difficulty, mode, completionTimeSeconds, completionTimeFormatted, completionType = 'win', score = 100) {
   trackEvent('game_completed', {
     difficulty,
     mode,
     completion_time_seconds: completionTimeSeconds,
-    completion_time_formatted: completionTimeFormatted
+    completion_time_formatted: completionTimeFormatted,
+    completion_type: completionType,
+    score
   });
 }
 
@@ -285,4 +345,43 @@ export function trackDifficultySelected(difficulty) {
     difficulty,
     source: 'home'
   });
+}
+
+/* ============================================================================
+ * STREAK EVENTS
+ * ========================================================================= */
+
+/**
+ * Track a streak being extended or restarted
+ *
+ * Reports both the streak for the difficulty just completed and the overall
+ * streak, which any difficulty can extend. Both are also stored as person
+ * properties so streak length can be used to segment retention analysis
+ * (e.g. how long players with a 7+ day streak stick around).
+ *
+ * @param {string} difficulty - Difficulty level just completed
+ * @param {{current: number, best: number}} difficultyStreak - Streak for that difficulty
+ * @param {{current: number, best: number}} overallStreak - Streak across all difficulties
+ */
+export function trackStreakUpdated(difficulty, difficultyStreak, overallStreak) {
+  trackEvent('streak_updated', {
+    difficulty,
+    streak_current: difficultyStreak.current,
+    streak_best: difficultyStreak.best,
+    streak_overall_current: overallStreak.current,
+    streak_overall_best: overallStreak.best
+  });
+
+  try {
+    if (isInitialized) {
+      posthog.setPersonProperties({
+        [`streak_current_${difficulty}`]: difficultyStreak.current,
+        [`streak_best_${difficulty}`]: difficultyStreak.best,
+        streak_current_overall: overallStreak.current,
+        streak_best_overall: overallStreak.best
+      });
+    }
+  } catch (error) {
+    console.debug('[Analytics] Error:', error);
+  }
 }

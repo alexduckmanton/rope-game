@@ -15,6 +15,7 @@
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@fontsource/monoton": "^5.2.7",
-    "lucide": "^0.555.0"
+    "lucide": "^0.555.0",
+    "posthog-js": "^1.409.5"
   }
 }

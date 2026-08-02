@@ -10,12 +10,13 @@
 | `router.js` | Client-side routing | `initRouter()` - History API navigation |
 | `tokens.css` | Color definitions | CSS custom properties for all colors, dark mode overrides via media query |
 | `tokens.js` | Color token exports | `colors`, `semantic` - Reads CSS variables, dispatches `themeChanged` event |
-| `config.js` | Configuration constants | `CONFIG` - Colors (from tokens.js), sizes, generation tuning, rendering params, interaction behavior, scoring configuration |
+| `config.js` | Configuration constants | `CONFIG` - Colors (from tokens.js), sizes, generation tuning, rendering params, interaction behavior, scoring configuration; `getDifficultyLabel()`, `getDifficultyLabelLower()` - player-facing difficulty names |
 | `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
 | `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle (used for hint generation; players can make smaller loops) |
 | `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCellsWithMinDistance()`, `calculateBorderLayers()` |
-| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()` |
-| `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles |
+| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()`, `getStreak()`, `getOverallStreak()`, `recordDailyStreak()` |
+| `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles; `getPuzzleNumber()` - sequential daily puzzle number |
+| `analytics.js` | PostHog analytics | `trackPageView()`, `trackEvent()`, plus a named `trackX()` helper per game event |
 | `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `parseCellKey()`, `createCellKey()`, `getCellsAlongLine()` - Bresenham with 4-connected enforcement |
 | `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet()`, `showBottomSheetAsync()` - Factory + async helper with onClose callback |
 | `components/tutorialSheet.js` | Tutorial bottom sheet | `showTutorialSheet()` - Self-contained carousel with video management |
@@ -35,11 +36,19 @@
 
 ### Grid Sizes
 
-| Difficulty | Grid Size | Total Cells | Hint Count | Min Distance | Win Requirement | Warnsdorff Attempts |
+| Difficulty (label) | Grid Size | Total Cells | Hint Count | Min Distance | Win Requirement | Warnsdorff Attempts |
 |------------|-----------|-------------|------------|--------------|-----------------|---------------------|
 | Easy       | 4x4       | 16          | 2          | 3 cells      | Any valid loop  | 20                  |
-| Medium     | 6x6       | 36          | 5          | 2 cells      | Any valid loop  | 50                  |
-| Hard       | 8x8       | 64          | 16         | None (0)     | Any valid loop  | 100                 |
+| Tricky     | 6x6       | 36          | 5          | 2 cells      | Any valid loop  | 50                  |
+| Diabolical | 8x8       | 64          | 16         | None (0)     | Any valid loop  | 100                 |
+
+**Labels vs keys:** players see Easy / Tricky / Diabolical, but the internal keys are `easy` / `medium` / `hard` and appear unchanged in URLs, storage keys, daily seeds and analytics. Labels live in `CONFIG.DIFFICULTY.LABELS` and are read through `getDifficultyLabel()` / `getDifficultyLabelLower()` in `config.js` — never derive one by capitalising a key, or renaming will silently miss that surface.
+
+| Key | Label | Grid |
+|-----|-------|------|
+| `easy` | Easy | 4x4 |
+| `medium` | **Tricky** | 6x6 |
+| `hard` | **Diabolical** | 8x8 |
 
 ### Storage Keys
 
@@ -47,6 +56,7 @@
 - Unlimited mode: `loop-game:unlimited:medium` (one slot per difficulty)
 - Settings: `loop-game:settings` (global, shared across all modes)
 - Manual finish tracking: `loop-game:manually-finished:easy` (tracks early game endings by difficulty, date-based expiration)
+- Streaks: `loop-game:streak:easy` (per difficulty) and `loop-game:streak:overall`, each storing `{ current, best, lastDate }`
 
 -----
 
@@ -272,19 +282,16 @@ When players complete a closed loop, contextual feedback modals appear based on 
 
 **Share Text Format:**
 
-Both partial and perfect completions use a consistent share format that includes the score:
-
 ```
-💫 Medium Loopy
-75% in 2:34
+💫 Medium Loopy 2:34
 26 Dec 2025
 ```
 
-- **Perfect wins** (100%): Share text shows "100% in \<time\>"
-- **Partial wins** (<100%): Share text shows actual score percentage
-- Includes difficulty level, score percentage, time, and date
+- Shows "\<score\>% in \<time\>" on its own line when `ENABLE_EARLY_GAME_ENDING` is on, otherwise difficulty and time on one line
 - Uses Web Share API on mobile devices with clipboard fallback
 - Share button available in both partial win and perfect win modals
+
+**Pending change:** adding a puzzle number and the site URL (`💫 Loopy #233 · Medium / 2:34 / https://loopy.wtf`) is held until `share_attempted` volume is high enough to measure the effect. `getPuzzleNumber()` in `seededRandom.js` and `CONFIG.SITE.URL` already exist for it.
 
 **Validation Optimization:**
 
@@ -477,13 +484,13 @@ Generates Hamiltonian cycles (paths visiting all cells exactly once forming a lo
 
 | View | Route | Purpose |
 |------|-------|---------|
-| **Home** | `/` | Landing page with current date and navigation buttons (Tutorial, Easy, Medium, Hard) |
+| **Home** | `/` | Landing page with current date and navigation buttons (Tutorial, Easy, Tricky, Diabolical) |
 | **Play** | `/play?difficulty=X` | Main game interface with canvas, controls, timer, settings, help button |
 
 **Tutorial Access:**
 
 Tutorial is implemented as a bottom sheet component rather than a dedicated view:
-- **From Home**: Tutorial button opens carousel bottom sheet overlay
+- **From Home**: Tutorial button opens carousel bottom sheet overlay. It shares a fixed-height slot with the streak line (see Streak System) and is hidden once the tutorial is completed, or once a streak exists — a player with a streak has plainly worked out how to play
 - **From Game**: Help icon (circle-help, left of settings) opens same tutorial sheet
 - **No Route**: Tutorial has no URL route - accessible via function call from any view
 
@@ -497,7 +504,7 @@ When navigating FROM home to a subpage, the router adds metadata to history stat
 
 **Game Modes:**
 
-**Daily Puzzle Modes (Easy/Medium/Hard)**
+**Daily Puzzle Modes (`easy`/`medium`/`hard`)**
 - Fixed grid sizes per difficulty
 - Everyone sees identical puzzle for same local date
 - Deterministic generation from date-based seed
@@ -597,29 +604,103 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Performance:** O(1) state comparison for duplicate detection, minimal memory impact (~50 states × small data structures).
 
-### Google Analytics
+### Streak System
 
-**Setup:** Google Analytics 4 (GA4) with measurement ID `G-9BFMVX4CLE`.
+**Purpose:** Gives players a reason to return tomorrow. Daily puzzle games live on streaks — without one there is no cost to skipping a day.
+
+**Tracking:** Two kinds of streak, both stored as `{ current, best, lastDate }`:
+
+- **Overall** (`loop-game:streak:overall`) — the one players are asked to protect. Completing *any* of the three daily puzzles extends it, so a busy day costs them the Diabolical puzzle rather than the whole streak.
+- **Per difficulty** (`loop-game:streak:<difficulty>`) — kept for players who care about a specific difficulty, and surfaced only through the streak line's tap-to-cycle.
+
+`recordDailyStreak(difficulty)` extends both and returns `{ difficulty, overall }`. Read them with `getStreak(difficulty)` and `getOverallStreak()`.
+
+**Rules:**
+- A completion extends a streak when the previous completion was **yesterday**, and starts a new streak of 1 otherwise.
+- `reconcileStreaks()` runs on app start (from `main.js`) and treats any difficulty already flagged as completed today as a completion for streak purposes. Without it, a player who finished today's puzzle on a build without streak tracking would see nothing until tomorrow, since a completed puzzle is locked and can never run the completion path again. It is idempotent and silent on analytics.
+- Recording twice on the same day is a no-op, so it is safe to call from every completion path.
+- A streak stays **alive** while the last completion was today or yesterday. Any longer gap and the getters report `current: 0` — the stored value is only overwritten on the next completion.
+- **Wins and manual finishes count**; viewing the solution does not extend a streak (though it does not break an already-live one either).
+
+**Home screen display:**
+
+A single line above the difficulty buttons: a Lucide `flame` icon plus text, e.g. "5 day streak".
+
+The line shares a fixed-height slot (`.home-slot`, 56px — one large button tall) with the tutorial button. Exactly one of them shows, and sometimes neither:
+
+| Streak live | Tutorial done | Slot shows |
+|---|---|---|
+| yes | either | Streak line |
+| no | no | Tutorial button |
+| no | yes | Nothing |
+
+Both children start hidden in CSS, so the slot is empty at first paint and filling it once localStorage has been read never moves the difficulty buttons. This matters because the router shows the home view before `views/home.js` has finished loading — previously the tutorial button painted during that gap and then vanished, shifting the buttons 36px.
+
+Tapping the line cycles through every difficulty that currently has a live streak of its own, then wraps back to the overall total:
+
+```
+5 day streak  →  5 day medium streak  →  3 day hard streak  →  5 day streak
+```
+
+Difficulties with no live streak are skipped, so a tap never lands on "0 day streak", and the line is inert when there is nothing to cycle to. Cycle order follows the on-screen button order (`easy`, `medium`, `hard`) via the `DIFFICULTIES` constant in `views/home.js`.
+
+This is deliberately styled as plain text, not a control — it is a small reward for the curious rather than a feature that needs discovering.
+
+The difficulty buttons themselves carry only the existing completion icon: trophy for a win, check for a manual finish, skull for a viewed solution.
+
+**Analytics:** Each update fires `streak_updated` carrying both the difficulty and overall streaks, and writes them as person properties (`streak_current_<difficulty>`, `streak_current_overall`, and their `best` equivalents), so retention can be segmented by streak length.
+
+### Analytics (PostHog)
+
+**Setup:** PostHog Cloud (US region), project "Default project". The project API key is a public client-side key and is hardcoded in `src/analytics.js`, with `VITE_POSTHOG_KEY` / `VITE_POSTHOG_HOST` available as build-time overrides for forks or staging deploys.
+
+**Why PostHog:** Retention and funnel analysis on anonymous players is the metric that matters for a daily game, and PostHog's data can be queried directly through its MCP server rather than read off a dashboard.
 
 **Implementation:**
-- **Script tag**: Loaded in `index.html` head immediately after opening `<head>` tag (as Google recommends)
-- **SPA tracking**: `src/analytics.js` module exports `trackPageView(path, title)` for virtual page views
-- **Router integration**: `router.js` calls `trackPageView()` on every route change
+- **Bundle**: Imports `posthog-js/dist/module.slim.no-external.js` — excludes autocapture, session replay, surveys and web vitals (all unused), roughly halving the added bundle size. No scripts are fetched from a CDN at runtime.
+- **Initialization**: Happens on module load in `src/analytics.js`, before the router renders its first route, so the initial page view is never missed.
+- **SPA tracking**: `trackPageView(path, title)` sends `$pageview`; `router.js` calls it on every route change after setting `document.title`.
+- **Event helpers**: Named `trackX()` functions wrap `posthog.capture()` for every game event (see the event list below).
 
-**Tracked Pages:**
-- `/` (home)
-- `/play?difficulty=easy|medium|hard`
+**Key configuration choices:**
+| Option | Value | Reason |
+|--------|-------|--------|
+| `persistence` | `localStorage` | The game sets no cookies at all, keeping the privacy/consent story simple |
+| `person_profiles` | `always` | The game has no accounts; without this, anonymous players get no person profiles and retention analysis does not work |
+| `capture_pageview` | `false` | The router tracks SPA navigation manually |
+| `autocapture` | `false` | Explicit events only; autocapture on a canvas game is mostly noise |
+| `capture_pageleave` | `true` | Needed for session duration |
+
+**Tracked events:**
+
+| Event | Key properties | Notes |
+|-------|----------------|-------|
+| `$pageview` | `$current_url`, `title`, `previous_page` | Powers DAU, new vs returning, and play frequency |
+| `game_started` | `difficulty`, `mode` | Fires only for a *fresh* puzzle, not when a saved game is restored, so it counts genuine starts |
+| `game_completed` | `difficulty`, `mode`, `completion_time_seconds`, `completion_type`, `score` | `completion_type` is `win` or `manual_finish` |
+| `game_restarted` | `difficulty`, `mode` | Clear button |
+| `puzzle_generated` | `difficulty` | Unlimited mode only |
+| `validation_error` | `difficulty`, `mode` | Closed loop that fails its hints |
+| `undo_used` / `solution_viewed` / `settings_opened` | `difficulty`, `mode` | |
+| `tutorial_opened` | `source` (`home`/`game`), `difficulty` | `difficulty` is `none` when opened from home |
+| `tutorial_section_viewed` | `section_index`, `section_name`, `method` | |
+| `tutorial_completed` | — | |
+| `share_attempted` | `difficulty`, `completion_time` | Fires on share button click; the denominator is `game_completed` |
+| `share_completed` / `share_failed` | `difficulty`, `method` / `error_type` | |
+| `difficulty_selected` | `difficulty`, `source` | Home screen navigation |
+| `streak_updated` | `difficulty`, `streak_current`, `streak_best`, `streak_overall_current`, `streak_overall_best` | Also written as person properties |
+
+PostHog attaches `$session_id` to every event, which is what makes "how many difficulties per session" answerable.
 
 **Key Files:**
 | File | Purpose |
 |------|---------|
-| `index.html` (lines 4-11) | GA script tag and gtag initialization |
-| `src/analytics.js` | SPA page view tracking module |
+| `src/analytics.js` | PostHog initialization and all event helpers |
 | `src/router.js` | Calls trackPageView on route changes |
 
 **Notes:**
-- The `trackPageView()` function safely checks if `gtag` exists before calling it (graceful degradation if blocked)
-- Initial page load is tracked by the script in `index.html`; subsequent SPA navigations are tracked by the router
+- Every call is wrapped in try/catch and no-ops when PostHog fails to initialize or is blocked, so analytics can never interrupt gameplay.
+- PostHog silently drops events from browsers reporting `navigator.webdriver === true`. This is intended bot filtering, but it means automated browser tests will never produce events unless the flag is spoofed.
 
 ### Color Token System
 
@@ -1063,7 +1144,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 
 **✅ Core Features Complete**
 - Full gameplay loop (draw, validate, win detection)
-- Three difficulty levels (Easy 4x4, Medium 6x6, Hard 8x8)
+- Three difficulty levels (Easy 4x4, Tricky 6x6, Diabolical 8x8)
 - Daily puzzle system with deterministic generation
 - Unlimited practice mode with in-session difficulty switching
 - Settings persistence (hints, borders, solution display)
@@ -1075,6 +1156,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 - Settings bottom sheet with context-aware controls
 - Intelligent drag interactions and path smoothing
 - Automatic dark mode following system preferences
+- Per-difficulty daily streaks with home screen badges
 - Design token system with CSS-as-source-of-truth architecture
 
 **🚧 Planned Enhancements**
@@ -1082,7 +1164,6 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 - Redo functionality (undo already implemented)
 - Move counter
 - Daily puzzle completion tracking and statistics dashboard
-- Streak counter (consecutive days completed)
 - Leaderboards and social sharing for daily puzzles (requires backend)
 - Achievement system
 - Sound effects (optional, subtle)
@@ -1262,14 +1343,14 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 
 **Note:** The game has only two playable modes: Daily Mode and Unlimited Mode. Tutorial is not a game mode—it's a video-based bottom sheet component accessible from any view via button click. Tutorial does not have puzzles, timers, or game state.
 
-| Aspect | Daily Mode (Easy/Medium/Hard) | Unlimited Mode |
+| Aspect | Daily Mode (`easy`/`medium`/`hard`) | Unlimited Mode |
 |--------|-------------------------------|----------------|
 | **Puzzle Source** | Deterministic from date seed | True random generation |
 | **Consistency** | Everyone sees same puzzle on same local date | Each session gets different puzzles |
 | **Entry Point** | Home → Select difficulty → Fixed for session | Home → Unlimited → Defaults to Easy |
 | **New Button** | Hidden (can't regenerate daily puzzle) | Visible (generate fresh puzzle anytime) |
 | **Difficulty** | Fixed by initial selection | Switchable in-session via settings segmented control |
-| **Grid Size** | Easy 4x4, Medium 6x6, Hard 8x8 | Same sizes, switchable within session |
+| **Grid Size** | Easy 4x4, Tricky 6x6, Diabolical 8x8 | Same sizes, switchable within session |
 | **Win Requirement** | Any valid loop satisfying all hints | Same for all difficulties |
 | **Timer Display** | Shows selected difficulty (e.g., "Medium • 0:00") | Shows current difficulty (e.g., "Easy • 0:00") |
 | **Settings** | Numbers, Number behaviour, Borders, Solution (select dropdowns) | Same + difficulty segmented control at top |

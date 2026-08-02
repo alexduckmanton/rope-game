@@ -5,6 +5,8 @@
  * page visibility handling. Encapsulates all timer state.
  */
 
+import { getDifficultyLabel } from '../config.js';
+
 /**
  * Format seconds as "M:SS" string
  * @param {number} seconds - Total seconds
@@ -32,8 +34,7 @@ export function createGameTimer({ onUpdate, difficulty }) {
   let currentDifficulty = difficulty;
 
   function updateDisplay() {
-    const label = currentDifficulty.charAt(0).toUpperCase() + currentDifficulty.slice(1);
-    onUpdate(`${label} • ${formatTime(elapsedSeconds)}`);
+    onUpdate(`${getDifficultyLabel(currentDifficulty)} • ${formatTime(elapsedSeconds)}`);
   }
 
   function start(resumeFromSeconds = 0) {

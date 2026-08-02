@@ -9,7 +9,7 @@
 
 import { initRouter } from './router.js';
 import { initIcons } from './icons.js';
-import { cleanupOldSaves } from './persistence.js';
+import { cleanupOldSaves, reconcileStreaks } from './persistence.js';
 import { CONFIG } from './config.js';
 import tokens from './tokens.js';
 
@@ -85,6 +85,10 @@ function init() {
 
   // Clean up old saved games from previous days
   cleanupOldSaves();
+
+  // Catch up any streak that was missed because the puzzle was completed on a
+  // build without streak tracking
+  reconcileStreaks();
 
   // Listen for theme changes and update meta tag
   window.addEventListener('themeChanged', updateThemeColor);
