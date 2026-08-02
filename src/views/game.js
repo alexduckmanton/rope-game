@@ -12,7 +12,7 @@ import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
-import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished, isDailyCompleted } from '../persistence.js';
+import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished, isDailyCompleted, recordDailyStreak } from '../persistence.js';
 import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
@@ -27,7 +27,8 @@ import {
   trackUndoUsed,
   trackSolutionViewed,
   trackSettingsOpened,
-  trackValidationError
+  trackValidationError,
+  trackStreakUpdated
 } from '../analytics.js';
 
 /* ============================================================================
@@ -821,6 +822,8 @@ function render(triggerSave = true, animationMode = 'auto') {
       // Mark daily puzzle as completed (not for unlimited mode)
       if (isDailyMode) {
         markDailyCompleted(currentGameDifficulty);
+        const streak = recordDailyStreak(currentGameDifficulty);
+        trackStreakUpdated(currentGameDifficulty, streak.current, streak.best);
       }
 
       // Capture time BEFORE any rendering that might cause re-renders
@@ -1239,6 +1242,8 @@ function finishGame() {
   // Mark as manually finished for daily puzzles
   if (isDailyMode) {
     markDailyManuallyFinished(currentGameDifficulty);
+    const streak = recordDailyStreak(currentGameDifficulty);
+    trackStreakUpdated(currentGameDifficulty, streak.current, streak.best);
   }
 
   // Capture current score and time

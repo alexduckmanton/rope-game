@@ -64,6 +64,7 @@
   --color-amber-100: #FEF3C7;    /* Light amber bg (warning backgrounds) */
   --color-amber-500: #F59E0B;    /* Amber (warnings, success icons) */
   --color-amber-600: #D97706;    /* Darker amber (future use) */
+  --color-amber-700: #B45309;    /* Deep amber (text on amber backgrounds) */
 
   /* Hint Magnitude Gradient (Special Case)
      Used exclusively for hint cell coloring based on magnitude (1-9)
@@ -126,6 +127,12 @@
 
   --color-partial: var(--color-green-500);           /* Partial completion icon */
   --color-partial-bg: var(--color-green-100);        /* Partial completion background */
+
+  /* Streak badge on the home screen difficulty buttons.
+     Gold once today's puzzle is done; transparent while the streak is only
+     carried over from previous days. */
+  --color-streak-bg: var(--color-amber-100);         /* Gold badge background */
+  --color-streak-text: var(--color-amber-700);       /* Icon + count inside gold badge */
 
   --color-error: var(--color-red-500);
   --color-error-bg: var(--color-red-100);
@@ -222,6 +229,7 @@
     --color-amber-100: #4A3A20;    /* Dark amber bg */
     --color-amber-500: #FCD34D;    /* Brighter amber */
     --color-amber-600: #F59E0B;    /* Medium amber */
+    --color-amber-700: #FBBF24;    /* Bright amber (text on dark amber backgrounds) */
 
     /* Hint Magnitude Gradient (Adjusted brightness for dark mode)
        Maintain distinct gradient but optimized for dark backgrounds */

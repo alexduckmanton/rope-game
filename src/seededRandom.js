@@ -5,6 +5,33 @@
  * This ensures everyone playing on the same date gets the same puzzle.
  */
 
+import { CONFIG } from './config.js';
+
+/**
+ * Get the sequential number of today's daily puzzle
+ *
+ * Counts days since the configured epoch date, where the epoch itself is #1.
+ * Uses UTC arithmetic on the local calendar components so daylight saving
+ * transitions can never shift the count by a day.
+ *
+ * @param {Date} [date] - Date to number (defaults to today, local time)
+ * @returns {number} Puzzle number (minimum 1)
+ */
+export function getPuzzleNumber(date = new Date()) {
+  const [epochYear, epochMonth, epochDay] = CONFIG.DAILY.PUZZLE_NUMBER_EPOCH
+    .split('-')
+    .map(Number);
+
+  const epochUtc = Date.UTC(epochYear, epochMonth - 1, epochDay);
+  const todayUtc = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  const daysSinceEpoch = Math.round((todayUtc - epochUtc) / MS_PER_DAY);
+
+  // Epoch date is puzzle #1; clamp so pre-epoch dates never show 0 or negative
+  return Math.max(1, daysSinceEpoch + 1);
+}
+
 /**
  * Create a seeded random number generator using Mulberry32 algorithm
  *

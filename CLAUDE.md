@@ -14,8 +14,9 @@
 | `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
 | `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle (used for hint generation; players can make smaller loops) |
 | `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCellsWithMinDistance()`, `calculateBorderLayers()` |
-| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()` |
-| `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles |
+| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()`, `getStreak()`, `recordDailyStreak()` |
+| `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles; `getPuzzleNumber()` - sequential daily puzzle number |
+| `analytics.js` | PostHog analytics | `trackPageView()`, `trackEvent()`, plus a named `trackX()` helper per game event |
 | `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `parseCellKey()`, `createCellKey()`, `getCellsAlongLine()` - Bresenham with 4-connected enforcement |
 | `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet()`, `showBottomSheetAsync()` - Factory + async helper with onClose callback |
 | `components/tutorialSheet.js` | Tutorial bottom sheet | `showTutorialSheet()` - Self-contained carousel with video management |
@@ -47,6 +48,7 @@
 - Unlimited mode: `loop-game:unlimited:medium` (one slot per difficulty)
 - Settings: `loop-game:settings` (global, shared across all modes)
 - Manual finish tracking: `loop-game:manually-finished:easy` (tracks early game endings by difficulty, date-based expiration)
+- Streaks: `loop-game:streak:easy` (per difficulty, stores `{ current, best, lastDate }`)
 
 -----
 
@@ -272,17 +274,17 @@ When players complete a closed loop, contextual feedback modals appear based on 
 
 **Share Text Format:**
 
-Both partial and perfect completions use a consistent share format that includes the score:
+Both partial and perfect completions use a consistent three-line share format:
 
 ```
-💫 Medium Loopy
-75% in 2:34
-26 Dec 2025
+💫 Loopy #233 · Medium
+2:34
+https://loopy.wtf
 ```
 
-- **Perfect wins** (100%): Share text shows "100% in \<time\>"
-- **Partial wins** (<100%): Share text shows actual score percentage
-- Includes difficulty level, score percentage, time, and date
+- **Puzzle number**: Days since `CONFIG.DAILY.PUZZLE_NUMBER_EPOCH`, where the epoch date is #1. Gives results a comparable identity between players.
+- **URL**: Included in the share text itself so anyone receiving a share can find the game. Passed inside `text` rather than the Web Share API's separate `url` field, which some targets would append a second time.
+- **Score line**: Shows "\<score\>% in \<time\>" when `ENABLE_EARLY_GAME_ENDING` is on, otherwise just the time.
 - Uses Web Share API on mobile devices with clipboard fallback
 - Share button available in both partial win and perfect win modals
 
@@ -597,29 +599,65 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Performance:** O(1) state comparison for duplicate detection, minimal memory impact (~50 states × small data structures).
 
-### Google Analytics
+### Streak System
 
-**Setup:** Google Analytics 4 (GA4) with measurement ID `G-9BFMVX4CLE`.
+**Purpose:** Gives players a reason to return tomorrow. Daily puzzle games live on streaks — without one there is no cost to skipping a day.
+
+**Tracking:** One streak per difficulty, stored as `{ current, best, lastDate }` under `loop-game:streak:<difficulty>`. Recorded by `recordDailyStreak(difficulty)` in `persistence.js`, read by `getStreak(difficulty)`.
+
+**Rules:**
+- A completion extends the streak when the previous completion was **yesterday**, and starts a new streak of 1 otherwise.
+- Recording twice on the same day is a no-op, so it is safe to call from every completion path.
+- A streak stays **alive** while the last completion was today or yesterday. Any longer gap and `getStreak()` reports `current: 0` — the stored value is only overwritten on the next completion.
+- **Wins and manual finishes count**; viewing the solution does not extend a streak (though it does not break an already-live one either).
+
+**Home screen display:**
+
+The streak appears as a badge on the left of each difficulty button, containing the completion icon and a `×N` count. The badge's geometry is identical in both states so nothing shifts when today's puzzle is completed — only the colours change:
+
+| State | Badge | Icon |
+|-------|-------|------|
+| Today completed (win or manual finish) | Gold background (`--color-streak-bg` / `--color-streak-text`) | Trophy, or check for a manual finish |
+| Streak alive, today not yet played | Transparent background | Trophy |
+| Solution viewed today | Transparent background | Skull |
+| No live streak, today not played | Hidden | — |
+
+The count is omitted when the streak is 0, so a solution-viewed day with no prior streak shows the icon alone. Classes are applied by `updateDailyButtonState()` in `views/home.js`: `.completed` (today done in some form), `.has-streak` (live streak), `.streak-active` (gold).
+
+**Analytics:** Each update fires `streak_updated` and writes `streak_current_<difficulty>` / `streak_best_<difficulty>` person properties, so retention can be segmented by streak length.
+
+### Analytics (PostHog)
+
+**Setup:** PostHog Cloud (US region), project "Default project". The project API key is a public client-side key and is hardcoded in `src/analytics.js`, with `VITE_POSTHOG_KEY` / `VITE_POSTHOG_HOST` available as build-time overrides for forks or staging deploys.
+
+**Why PostHog:** Retention and funnel analysis on anonymous players is the metric that matters for a daily game, and PostHog's data can be queried directly through its MCP server rather than read off a dashboard.
 
 **Implementation:**
-- **Script tag**: Loaded in `index.html` head immediately after opening `<head>` tag (as Google recommends)
-- **SPA tracking**: `src/analytics.js` module exports `trackPageView(path, title)` for virtual page views
-- **Router integration**: `router.js` calls `trackPageView()` on every route change
+- **Bundle**: Imports `posthog-js/dist/module.slim.no-external.js` — excludes autocapture, session replay, surveys and web vitals (all unused), roughly halving the added bundle size. No scripts are fetched from a CDN at runtime.
+- **Initialization**: Happens on module load in `src/analytics.js`, before the router renders its first route, so the initial page view is never missed.
+- **SPA tracking**: `trackPageView(path, title)` sends `$pageview`; `router.js` calls it on every route change after setting `document.title`.
+- **Event helpers**: Named `trackX()` functions wrap `posthog.capture()` for every game event (see the event list below).
 
-**Tracked Pages:**
-- `/` (home)
-- `/play?difficulty=easy|medium|hard`
+**Key configuration choices:**
+| Option | Value | Reason |
+|--------|-------|--------|
+| `persistence` | `localStorage` | The game sets no cookies at all, keeping the privacy/consent story simple |
+| `person_profiles` | `always` | The game has no accounts; without this, anonymous players get no person profiles and retention analysis does not work |
+| `capture_pageview` | `false` | The router tracks SPA navigation manually |
+| `autocapture` | `false` | Explicit events only; autocapture on a canvas game is mostly noise |
+| `capture_pageleave` | `true` | Needed for session duration |
+
+**Tracked events:** `$pageview`, `tutorial_opened`, `tutorial_section_viewed`, `tutorial_completed`, `game_started`, `game_completed`, `game_restarted`, `puzzle_generated`, `validation_error`, `undo_used`, `solution_viewed`, `settings_opened`, `share_attempted`, `share_completed`, `share_failed`, `difficulty_selected`, `streak_updated`.
 
 **Key Files:**
 | File | Purpose |
 |------|---------|
-| `index.html` (lines 4-11) | GA script tag and gtag initialization |
-| `src/analytics.js` | SPA page view tracking module |
+| `src/analytics.js` | PostHog initialization and all event helpers |
 | `src/router.js` | Calls trackPageView on route changes |
 
 **Notes:**
-- The `trackPageView()` function safely checks if `gtag` exists before calling it (graceful degradation if blocked)
-- Initial page load is tracked by the script in `index.html`; subsequent SPA navigations are tracked by the router
+- Every call is wrapped in try/catch and no-ops when PostHog fails to initialize or is blocked, so analytics can never interrupt gameplay.
+- PostHog silently drops events from browsers reporting `navigator.webdriver === true`. This is intended bot filtering, but it means automated browser tests will never produce events unless the flag is spoofed.
 
 ### Color Token System
 
@@ -1075,6 +1113,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 - Settings bottom sheet with context-aware controls
 - Intelligent drag interactions and path smoothing
 - Automatic dark mode following system preferences
+- Per-difficulty daily streaks with home screen badges
 - Design token system with CSS-as-source-of-truth architecture
 
 **🚧 Planned Enhancements**
@@ -1082,7 +1121,6 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 - Redo functionality (undo already implemented)
 - Move counter
 - Daily puzzle completion tracking and statistics dashboard
-- Streak counter (consecutive days completed)
 - Leaderboards and social sharing for daily puzzles (requires backend)
 - Achievement system
 - Sound effects (optional, subtle)

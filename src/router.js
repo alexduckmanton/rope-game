@@ -13,11 +13,34 @@ let currentViewId = null;
 let currentCleanup = null;
 let currentUrl = null;
 
+// Default document title, used for the home route
+const DEFAULT_TITLE = 'Loopy — A Free Daily Loop Logic Puzzle';
+
 // Route definitions
 const routes = [
   { path: '/', viewId: 'home-view' },
   { path: '/play', viewId: 'play-view' }
 ];
+
+/**
+ * Build the document title for a route
+ *
+ * Distinct per-route titles help search engines treat the play routes as
+ * separate pages rather than duplicates of the home page.
+ *
+ * @param {Object} route - The matched route
+ * @param {URLSearchParams} params - URL search parameters
+ * @returns {string} Document title
+ */
+function getRouteTitle(route, params) {
+  if (route.viewId !== 'play-view') {
+    return DEFAULT_TITLE;
+  }
+
+  const difficulty = params.get('difficulty') || 'medium';
+  const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+  return `${label} Loopy — Today's Daily Loop Logic Puzzle`;
+}
 
 /**
  * Navigate to a new path
@@ -84,6 +107,9 @@ async function renderRoute() {
     viewElement.classList.add('active');
     currentViewId = route.viewId;
     currentUrl = newUrl;
+
+    // Set the title before tracking so the page view records the right one
+    document.title = getRouteTitle(route, params);
 
     // Track page view for analytics
     trackPageView(newUrl);

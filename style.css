@@ -547,15 +547,49 @@ button {
   position: relative;
 }
 
-/* Completed state icon in buttons - hidden by default, positioned left */
-.btn-complete-icon {
+/* Streak badge - wraps the completion icon and streak count on the left of a
+ * home button. Hidden by default; shown once today's puzzle is completed or
+ * while a streak from previous days is still alive.
+ *
+ * The badge keeps identical geometry in both states - only the colours change
+ * - so the icon never shifts when today's puzzle is completed. */
+.btn-streak-badge {
   display: none;
+  align-items: center;
+  gap: 4px;
   position: absolute;
-  left: 16px;
+  left: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background-color: transparent;
+  line-height: 1;
 }
 
-/* Show completion icon when button has completed class */
-.btn-large.completed .btn-complete-icon {
+/* Show the badge for a completed puzzle or a live streak */
+.btn-large.completed .btn-streak-badge,
+.btn-large.has-streak .btn-streak-badge {
+  display: inline-flex;
+}
+
+/* Gold badge once today's puzzle has been completed */
+.btn-large.streak-active .btn-streak-badge {
+  background-color: var(--color-streak-bg);
+  color: var(--color-streak-text);
+}
+
+.btn-streak-count {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Collapse the count entirely when there is no streak to show */
+.btn-streak-count:empty {
+  display: none;
+}
+
+/* Completion icon lives inside the badge */
+.btn-complete-icon {
   display: inline-flex;
 }
 

@@ -42,6 +42,19 @@ function getColors() {
 }
 
 export const CONFIG = {
+  // Site metadata
+  SITE: {
+    URL: 'https://loopy.wtf',  // Canonical site URL (used in share text)
+  },
+
+  // Daily puzzle configuration
+  DAILY: {
+    // Epoch date for puzzle numbering (YYYY-MM-DD, local time).
+    // The puzzle on this date is #1; every day after increments by one.
+    // Change this to the game's real launch date if it differs.
+    PUZZLE_NUMBER_EPOCH: '2025-12-13',
+  },
+
   // Cell sizing
   CELL_SIZE_MIN: 50,           // Minimum cell size in pixels
   CELL_SIZE_MAX: 100,          // Maximum cell size in pixels

@@ -238,11 +238,13 @@ The indie daily-game scene is small and friendly, and its players are *exactly* 
 
 ## 9. Do these five things this week
 
-1. **Add the URL and a puzzle number to the share text.** One-line change in `src/game/share.js`. Biggest single win available to you.
-2. **Rewrite `<title>` and the meta description** to something searchable; add `sitemap.xml`.
-3. **Verify the site in Google Search Console** and submit the sitemap.
-4. **Pull your baseline numbers from GA4** (D1/D7 return, completion rate, share rate) and record them in this repo.
-5. **Start building streaks + a stats screen.** All the data is already in localStorage.
+1. ~~**Add the URL and a puzzle number to the share text.**~~ **Done.** Shares now read `💫 Loopy #233 · Medium / 2:34 / https://loopy.wtf`.
+2. ~~**Rewrite `<title>` and the meta description**; add `sitemap.xml`.~~ **Done**, including per-route titles and a `Sitemap:` line in `robots.txt`.
+3. **Verify the site in Google Search Console** and submit the sitemap. Still worth doing — Search Console reports what Google actually indexes and which queries you surface for, which no product analytics tool can tell you.
+4. **Pull baseline numbers** (D1/D7 return, first-session completion rate, share rate) once PostHog has a week or two of data, and record them here as the before-picture.
+5. ~~**Streaks.**~~ **Done** — per-difficulty streaks with home screen badges. A full stats screen (win rate, best times, score distribution) is the natural follow-up, and it's the thing players screenshot.
+
+**Analytics note:** the game moved from Google Analytics to PostHog, so retention, funnels and streak-segmented cohorts can be queried directly rather than read off a dashboard.
 
 ## 10. Weekly operating cadence (once you're rolling)
 
