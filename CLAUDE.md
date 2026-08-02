@@ -621,7 +621,7 @@ A single line above the difficulty buttons: a Lucide `flame` icon plus text, e.g
 Tapping the line cycles through every difficulty that currently has a live streak of its own, then wraps back to the overall total:
 
 ```
-5 day streak  →  5 day Medium streak  →  3 day Hard streak  →  5 day streak
+5 day streak  →  5 day medium streak  →  3 day hard streak  →  5 day streak
 ```
 
 Difficulties with no live streak are skipped, so a tap never lands on "0 day streak", and the line is inert when there is nothing to cycle to. Cycle order follows the on-screen button order (Easy, Medium, Hard) via the `DIFFICULTIES` constant in `views/home.js`.

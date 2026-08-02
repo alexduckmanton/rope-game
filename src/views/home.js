@@ -87,8 +87,9 @@ function buildStreakCycle() {
     const streak = getStreak(difficulty);
     if (streak.current === 0) continue;
 
-    const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
-    cycle.push({ label: `${streak.current} day ${label} streak` });
+    // Difficulty stays lowercase so the line reads as a sentence - a
+    // capitalised word mid-phrase reads as a label instead
+    cycle.push({ label: `${streak.current} day ${difficulty} streak` });
   }
 
   return cycle;
