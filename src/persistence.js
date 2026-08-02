@@ -816,6 +816,42 @@ export function recordDailyStreak(difficulty) {
   };
 }
 
+/**
+ * Bring streaks up to date with today's completion flags
+ *
+ * Streaks are normally written at the moment a puzzle is completed. That
+ * leaves one gap: a player who finished today's puzzle on a build without
+ * streaks - which is every existing player on the day this ships - would see
+ * no streak until tomorrow, because a completed puzzle is locked and can never
+ * run the completion path again.
+ *
+ * This reconciles the two by treating any difficulty flagged as completed
+ * today as a completion for streak purposes. It only ever looks at today, and
+ * `extendStreak` no-ops once a streak has been recorded for today, so it is
+ * safe to run on every app start. Deliberately silent on analytics: this is a
+ * repair, not a fresh completion.
+ *
+ * @returns {boolean} Whether any streak was backfilled
+ */
+export function reconcileStreaks() {
+  let backfilled = false;
+
+  for (const difficulty of ['easy', 'medium', 'hard']) {
+    // A viewed solution does not count, matching the live completion path
+    if (!isDailyCompleted(difficulty) && !isDailyManuallyFinished(difficulty)) {
+      continue;
+    }
+
+    if (!getStreakState(difficulty).completedToday || !getOverallStreak().completedToday) {
+      backfilled = true;
+    }
+
+    recordDailyStreak(difficulty);
+  }
+
+  return backfilled;
+}
+
 /* ============================================================================
  * SETTINGS PERSISTENCE
  * ========================================================================= */

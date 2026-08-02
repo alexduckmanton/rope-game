@@ -609,6 +609,7 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Rules:**
 - A completion extends a streak when the previous completion was **yesterday**, and starts a new streak of 1 otherwise.
+- `reconcileStreaks()` runs on app start (from `main.js`) and treats any difficulty already flagged as completed today as a completion for streak purposes. Without it, a player who finished today's puzzle on a build without streak tracking would see nothing until tomorrow, since a completed puzzle is locked and can never run the completion path again. It is idempotent and silent on analytics.
 - Recording twice on the same day is a no-op, so it is safe to call from every completion path.
 - A streak stays **alive** while the last completion was today or yesterday. Any longer gap and the getters report `current: 0` — the stored value is only overwritten on the next completion.
 - **Wins and manual finishes count**; viewing the solution does not extend a streak (though it does not break an already-live one either).
