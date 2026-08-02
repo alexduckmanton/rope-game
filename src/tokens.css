@@ -62,15 +62,14 @@
      Used for: warnings, success notifications */
   --color-amber-50: #FFFBEB;     /* Very light amber bg */
   --color-amber-100: #FEF3C7;    /* Light amber bg (warning backgrounds) */
-  --color-amber-500: #F59E0B;    /* Amber (warnings, success icons, streak pill bg) */
+  --color-amber-500: #F59E0B;    /* Amber (warnings, success icons) */
   --color-amber-600: #D97706;    /* Darker amber (future use) */
+  --color-amber-800: #92400E;    /* Deep brown (streak flame) */
+  --color-amber-950: #431407;    /* Near-black brown (streak text) */
 
-  /* Orange Scale
-     The deep browns the streak pill's label and flame are drawn in. Kept
-     apart from the amber scale because they are foreground colours: they
-     need to stay dark whichever way the amber background moves. */
-  --color-orange-800: #7C2D12;   /* Deep brown-orange (streak flame) */
-  --color-orange-950: #431407;   /* Near-black brown (streak text) */
+  /* Yellow Scale
+     Used for: the streak pill background */
+  --color-yellow-400: #FACC15;   /* Yellow (streak pill bg) */
 
   /* Hint Magnitude Gradient (Special Case)
      Used exclusively for hint cell coloring based on magnitude (1-9)
@@ -135,11 +134,11 @@
   --color-partial-bg: var(--color-green-100);        /* Partial completion background */
 
   /* Streak pill on the home screen.
-     A saturated amber badge: the label and flame are deep browns rather
-     than white, which on this amber would fall well under AA. */
-  --color-streak: var(--color-orange-800);          /* Flame icon */
-  --color-streak-text: var(--color-orange-950);     /* Pill label */
-  --color-streak-bg: var(--color-amber-500);        /* Pill background */
+     A bright yellow badge: the label and flame are deep browns rather than
+     white, which on this yellow would be close to unreadable. */
+  --color-streak: var(--color-amber-800);           /* Flame icon */
+  --color-streak-text: var(--color-amber-950);      /* Pill label */
+  --color-streak-bg: var(--color-yellow-400);       /* Pill background */
 
   --color-error: var(--color-red-500);
   --color-error-bg: var(--color-red-100);
@@ -236,13 +235,15 @@
     --color-amber-100: #4A3A20;    /* Dark amber bg */
     --color-amber-500: #FCD34D;    /* Brighter amber */
     --color-amber-600: #F59E0B;    /* Medium amber */
+    /* The two browns hold their light-mode values: they are the streak
+       pill's foregrounds, and the pill stays dark-on-yellow in both themes */
+    --color-amber-800: #92400E;    /* Deep brown (streak flame) */
+    --color-amber-950: #431407;    /* Near-black brown (streak text) */
 
-    /* Orange Scale (Unchanged in dark mode)
-       These are the streak pill's foreground colours and the pill keeps its
-       dark-on-amber arrangement in both themes - a hot badge is the pop of
-       colour on a near-black page, so the background brightens instead */
-    --color-orange-800: #7C2D12;   /* Deep brown-orange (streak flame) */
-    --color-orange-950: #431407;   /* Near-black brown (streak text) */
+    /* Yellow Scale (Brighter for dark mode)
+       A hot badge is the pop of colour on a near-black page, so the pill
+       background brightens rather than inverting to dark-on-dark */
+    --color-yellow-400: #FDE047;   /* Brighter yellow (streak pill bg) */
 
     /* Hint Magnitude Gradient (Adjusted brightness for dark mode)
        Maintain distinct gradient but optimized for dark backgrounds */
