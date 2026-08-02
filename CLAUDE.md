@@ -624,9 +624,9 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Home screen display:**
 
-A pill above the difficulty buttons: a Lucide `flame` icon plus text, e.g. "5 day streak", on a saturated orange background with a near-black brown label. Its colours come from the `--color-streak`, `--color-streak-text` and `--color-streak-bg` semantic tokens (backed by an orange base scale in `tokens.css`). Dark mode brightens the background rather than inverting the pair — a hot orange badge is the one pop of colour on a near-black page.
+A pill above the difficulty buttons: a Lucide `flame` icon plus text, e.g. "5 day streak", on a saturated amber background with a near-black brown label. Its colours come from the `--color-streak`, `--color-streak-text` and `--color-streak-bg` semantic tokens. The background reuses `--color-amber-500`, so it brightens in dark mode along with the rest of the amber scale — a hot badge is the one pop of colour on a near-black page. The label and flame come from a two-shade orange scale that stays dark in both themes, since they are foregrounds and need to hold whichever way the amber moves.
 
-The label is dark rather than white because white on this orange only reaches ~2.8:1 contrast; `#431407` clears 4.5:1 against both the light and dark backgrounds. If the background shade ever changes, re-check that.
+The label is dark rather than white because white on amber falls well under AA. `#431407` gives 7.3:1 in light mode and 10.9:1 in dark; the flame's `#7C2D12` gives 4.4:1 and 6.5:1. If the background shade ever changes, re-check those.
 
 The pill hugs its content via `align-self: center` — the slot is a column flex container, so without it the pill would stretch to the slot's full 300px width. Its padding is asymmetric (16px right, 12px left) because the flame carries its own internal whitespace, so equal numeric padding looks tight on the right.
 

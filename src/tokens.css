@@ -62,14 +62,13 @@
      Used for: warnings, success notifications */
   --color-amber-50: #FFFBEB;     /* Very light amber bg */
   --color-amber-100: #FEF3C7;    /* Light amber bg (warning backgrounds) */
-  --color-amber-500: #F59E0B;    /* Amber (warnings, success icons) */
+  --color-amber-500: #F59E0B;    /* Amber (warnings, success icons, streak pill bg) */
   --color-amber-600: #D97706;    /* Darker amber (future use) */
 
   /* Orange Scale
-     Used for: the streak pill on the home screen */
-  --color-orange-100: #FFEDD5;   /* Light orange bg */
-  --color-orange-500: #F97316;   /* Strong orange (streak pill bg) */
-  --color-orange-700: #C2410C;   /* Dark orange */
+     The deep browns the streak pill's label and flame are drawn in. Kept
+     apart from the amber scale because they are foreground colours: they
+     need to stay dark whichever way the amber background moves. */
   --color-orange-800: #7C2D12;   /* Deep brown-orange (streak flame) */
   --color-orange-950: #431407;   /* Near-black brown (streak text) */
 
@@ -136,11 +135,11 @@
   --color-partial-bg: var(--color-green-100);        /* Partial completion background */
 
   /* Streak pill on the home screen.
-     A saturated orange badge: the label and flame are deep browns rather
-     than white, since white on this orange only reaches ~2.8:1 contrast. */
+     A saturated amber badge: the label and flame are deep browns rather
+     than white, which on this amber would fall well under AA. */
   --color-streak: var(--color-orange-800);          /* Flame icon */
   --color-streak-text: var(--color-orange-950);     /* Pill label */
-  --color-streak-bg: var(--color-orange-500);       /* Pill background */
+  --color-streak-bg: var(--color-amber-500);        /* Pill background */
 
   --color-error: var(--color-red-500);
   --color-error-bg: var(--color-red-100);
@@ -238,13 +237,10 @@
     --color-amber-500: #FCD34D;    /* Brighter amber */
     --color-amber-600: #F59E0B;    /* Medium amber */
 
-    /* Orange Scale (Adjusted for dark mode)
-       The pill keeps its dark-on-orange arrangement here: a saturated orange
-       badge is the pop of colour on a near-black page, so brightening the
-       background and holding the deep browns reads better than inverting */
-    --color-orange-100: #43291A;   /* Deep orange bg */
-    --color-orange-500: #FB923C;   /* Brighter orange (streak pill bg) */
-    --color-orange-700: #FDBA74;   /* Light orange */
+    /* Orange Scale (Unchanged in dark mode)
+       These are the streak pill's foreground colours and the pill keeps its
+       dark-on-amber arrangement in both themes - a hot badge is the pop of
+       colour on a near-black page, so the background brightens instead */
     --color-orange-800: #7C2D12;   /* Deep brown-orange (streak flame) */
     --color-orange-950: #431407;   /* Near-black brown (streak text) */
 
