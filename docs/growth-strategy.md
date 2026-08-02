@@ -246,6 +246,28 @@ The indie daily-game scene is small and friendly, and its players are *exactly* 
 
 **Analytics note:** the game moved from Google Analytics to PostHog, so retention, funnels and streak-segmented cohorts can be queried directly rather than read off a dashboard.
 
+## 11. The PostHog dashboard
+
+Project **Loopy** (538478, US cloud). The [**Loopy Overview**](https://us.posthog.com/project/538478/dashboard/1940498) dashboard is pinned and set as the project's landing page:
+
+| Tile | What it answers | Read it for |
+|------|-----------------|-------------|
+| Daily players | Unique players per day | The headline number. Everything else explains its movement |
+| Average session duration | Time spent per session, daily | Rising duration on flat players = deeper engagement |
+| Puzzles started vs completed, by difficulty | Raw start and completion counts | Absolute volume per difficulty |
+| Completion rate by difficulty | Completions ÷ starts | A falling line means a difficulty is losing people |
+| New vs returning players | Lifecycle bands | Growth is only real when the *returning* band grows |
+| Play frequency | Days played per 30 | A spike at 1 day means people try it once and leave |
+| Tutorial opens by source | Home vs mid-puzzle | Opens from inside a puzzle mean the rules weren't clear enough first |
+| Tutorial opens by difficulty | Which puzzle drove them to the rules | `none` = opened from home |
+| Difficulties played per session | 1 vs several | Tall bar at 1 = players treat difficulties as separate games |
+| Share rate | Shares ÷ completions | The baseline for the pending share-text change |
+
+**Two caveats when reading it:**
+
+1. **Timezone.** The project buckets by UTC, but puzzles roll over at each player's *local* midnight. Day-edge numbers will be slightly soft for players outside UTC; totals and trends are unaffected.
+2. **`game_started` fires only for a fresh puzzle**, not when a saved game is restored from localStorage. That makes it a true count of starts, but it means a player who starts on one day and finishes after a reload shows up as a completion without a same-day start.
+
 ## 10. Weekly operating cadence (once you're rolling)
 
 - **Monday, 15 min:** check DAU, D7 retention, share rate, top referrers.
