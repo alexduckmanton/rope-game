@@ -10,7 +10,7 @@
 | `router.js` | Client-side routing | `initRouter()` - History API navigation |
 | `tokens.css` | Color definitions | CSS custom properties for all colors, dark mode overrides via media query |
 | `tokens.js` | Color token exports | `colors`, `semantic` - Reads CSS variables, dispatches `themeChanged` event |
-| `config.js` | Configuration constants | `CONFIG` - Colors (from tokens.js), sizes, generation tuning, rendering params, interaction behavior, scoring configuration |
+| `config.js` | Configuration constants | `CONFIG` - Colors (from tokens.js), sizes, generation tuning, rendering params, interaction behavior, scoring configuration; `getDifficultyLabel()`, `getDifficultyLabelLower()` - player-facing difficulty names |
 | `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
 | `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle (used for hint generation; players can make smaller loops) |
 | `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCellsWithMinDistance()`, `calculateBorderLayers()` |
@@ -36,11 +36,19 @@
 
 ### Grid Sizes
 
-| Difficulty | Grid Size | Total Cells | Hint Count | Min Distance | Win Requirement | Warnsdorff Attempts |
+| Difficulty (label) | Grid Size | Total Cells | Hint Count | Min Distance | Win Requirement | Warnsdorff Attempts |
 |------------|-----------|-------------|------------|--------------|-----------------|---------------------|
 | Easy       | 4x4       | 16          | 2          | 3 cells      | Any valid loop  | 20                  |
-| Medium     | 6x6       | 36          | 5          | 2 cells      | Any valid loop  | 50                  |
-| Hard       | 8x8       | 64          | 16         | None (0)     | Any valid loop  | 100                 |
+| Hard       | 6x6       | 36          | 5          | 2 cells      | Any valid loop  | 50                  |
+| Diabolical | 8x8       | 64          | 16         | None (0)     | Any valid loop  | 100                 |
+
+**Labels vs keys:** players see Easy / Hard / Diabolical, but the internal keys are `easy` / `medium` / `hard` and appear unchanged in URLs, storage keys, daily seeds and analytics. Labels live in `CONFIG.DIFFICULTY.LABELS` and are read through `getDifficultyLabel()` / `getDifficultyLabelLower()` in `config.js` — never derive one by capitalising a key, or renaming will silently miss that surface.
+
+| Key | Label | Grid |
+|-----|-------|------|
+| `easy` | Easy | 4x4 |
+| `medium` | **Hard** | 6x6 |
+| `hard` | **Diabolical** | 8x8 |
 
 ### Storage Keys
 

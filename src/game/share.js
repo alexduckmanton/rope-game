@@ -5,7 +5,7 @@
  * with clipboard fallback.
  */
 
-import { CONFIG } from '../config.js';
+import { CONFIG, getDifficultyLabel } from '../config.js';
 import {
   trackShareAttempted,
   trackShareCompleted,
@@ -39,7 +39,7 @@ export function formatShareDate(date = new Date()) {
  */
 export function buildShareText(difficulty, time, score = 100) {
   const dateStr = formatShareDate();
-  const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+  const label = getDifficultyLabel(difficulty);
 
   // When early game ending is enabled, include score percentage
   // When disabled, use simpler format without score

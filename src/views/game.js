@@ -8,7 +8,7 @@
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCellsWithMinDistance, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
 import { buildSolutionTurnMap, countTurnsInArea, parseCellKey, checkPartialStructuralLoop } from '../utils.js';
-import { CONFIG } from '../config.js';
+import { CONFIG, getDifficultyLabel } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
@@ -44,16 +44,6 @@ const GAME_STATE = {
   WON: 'won',
   VIEWED_SOLUTION: 'viewed-solution',
   NEW: 'new'
-};
-
-/**
- * Display names for difficulty levels
- * Maps internal lowercase difficulty strings to user-facing capitalized names
- */
-const DIFFICULTY_DISPLAY_NAMES = {
-  easy: 'Easy',
-  medium: 'Medium',
-  hard: 'Hard'
 };
 
 /* ============================================================================
@@ -1181,7 +1171,7 @@ function viewSolution() {
  */
 function showFinishConfirmation() {
   // Get display name for difficulty
-  const difficultyName = DIFFICULTY_DISPLAY_NAMES[currentGameDifficulty];
+  const difficultyName = getDifficultyLabel(currentGameDifficulty);
 
   // Build confirmation message - only show "until tomorrow" for daily mode
   let bodyMessage = '';

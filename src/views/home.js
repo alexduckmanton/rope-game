@@ -9,6 +9,7 @@ import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSoluti
 import { initIcons } from '../icons.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
 import { trackDifficultySelected } from '../analytics.js';
+import { getDifficultyLabelLower } from '../config.js';
 
 /**
  * Difficulties in the order they appear on screen, which is also the order the
@@ -89,7 +90,7 @@ function buildStreakCycle() {
 
     // Difficulty stays lowercase so the line reads as a sentence - a
     // capitalised word mid-phrase reads as a label instead
-    cycle.push({ label: `${streak.current} day ${difficulty} streak` });
+    cycle.push({ label: `${streak.current} day ${getDifficultyLabelLower(difficulty)} streak` });
   }
 
   return cycle;

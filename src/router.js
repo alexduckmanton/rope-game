@@ -8,6 +8,7 @@
  */
 
 import { trackPageView } from './analytics.js';
+import { getDifficultyLabel } from './config.js';
 
 let currentViewId = null;
 let currentCleanup = null;
@@ -38,8 +39,7 @@ function getRouteTitle(route, params) {
   }
 
   const difficulty = params.get('difficulty') || 'medium';
-  const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
-  return `${label} Loopy — Today's Daily Loop Logic Puzzle`;
+  return `${getDifficultyLabel(difficulty)} Loopy — Today's Daily Loop Logic Puzzle`;
 }
 
 /**

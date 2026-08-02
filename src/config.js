@@ -122,6 +122,21 @@ export const CONFIG = {
 
   // Difficulty settings
   DIFFICULTY: {
+    // Player-facing labels for each difficulty.
+    //
+    // These are deliberately decoupled from the internal difficulty keys,
+    // which stay 'easy' / 'medium' / 'hard' throughout - in URLs, storage
+    // keys, daily seeds and analytics - so renaming what players see never
+    // migrates data or changes which puzzle a given day produces.
+    //
+    // Read them through getDifficultyLabel() rather than reaching in here, so
+    // every surface stays in step.
+    LABELS: {
+      easy: 'Easy',
+      medium: 'Hard',
+      hard: 'Diabolical',
+    },
+
     // Hint generation configuration per difficulty level
     // count: fixed number of hints to place
     // minDistance: minimum Chebyshev distance between hints (0 = no constraint)
@@ -160,3 +175,32 @@ export const CONFIG = {
     ENABLE_EARLY_GAME_ENDING: false,
   },
 };
+
+/**
+ * Get the player-facing label for a difficulty
+ *
+ * Falls back to a capitalised form of the key itself, which covers
+ * 'unlimited' and anything added later without a label.
+ *
+ * @param {string} difficulty - Internal difficulty key
+ * @returns {string} Label for display, e.g. "Diabolical"
+ */
+export function getDifficultyLabel(difficulty) {
+  if (!difficulty) return '';
+
+  return (
+    CONFIG.DIFFICULTY.LABELS[difficulty] ||
+    difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
+  );
+}
+
+/**
+ * Get the player-facing label in lowercase, for use mid-sentence
+ * (e.g. "5 day diabolical streak")
+ *
+ * @param {string} difficulty - Internal difficulty key
+ * @returns {string} Lowercase label
+ */
+export function getDifficultyLabelLower(difficulty) {
+  return getDifficultyLabel(difficulty).toLowerCase();
+}
