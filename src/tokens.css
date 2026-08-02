@@ -69,7 +69,7 @@
 
   /* Yellow Scale
      Used for: the streak pill background */
-  --color-yellow-400: #FACC15;   /* Yellow (streak pill bg) */
+  --color-yellow-400: #FFD60A;   /* Yellow (streak pill bg) */
 
   /* Hint Magnitude Gradient (Special Case)
      Used exclusively for hint cell coloring based on magnitude (1-9)
@@ -243,7 +243,7 @@
     /* Yellow Scale (Brighter for dark mode)
        A hot badge is the pop of colour on a near-black page, so the pill
        background brightens rather than inverting to dark-on-dark */
-    --color-yellow-400: #FDE047;   /* Brighter yellow (streak pill bg) */
+    --color-yellow-400: #FFE44D;   /* Brighter yellow (streak pill bg) */
 
     /* Hint Magnitude Gradient (Adjusted brightness for dark mode)
        Maintain distinct gradient but optimized for dark backgrounds */

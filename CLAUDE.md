@@ -626,7 +626,7 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 A pill above the difficulty buttons: a Lucide `flame` icon plus text, e.g. "5 day streak", on a bright yellow background with a near-black brown label. Its colours come from the `--color-streak`, `--color-streak-text` and `--color-streak-bg` semantic tokens. The background is `--color-yellow-400`, which brightens in dark mode rather than inverting — a hot badge is the one pop of colour on a near-black page. The label and flame are `--color-amber-950` and `--color-amber-800`, the two browns in the amber scale that deliberately hold their light-mode values in dark mode: they are foregrounds, and need to stay dark whichever way the yellow moves.
 
-The label is dark rather than white because white on this yellow would be close to unreadable. `#431407` gives 10.2:1 in light mode and 11.9:1 in dark; the flame's `#92400E` gives 4.6:1 and 5.4:1. If the background shade ever changes, re-check those.
+The label is dark rather than white because white on this yellow would be close to unreadable. `#431407` gives 11.1:1 in light mode and 12.3:1 in dark; the flame's `#92400E` gives 5.0:1 and 5.6:1. If the background shade ever changes, re-check those.
 
 The pill hugs its content via `align-self: center` — the slot is a column flex container, so without it the pill would stretch to the slot's full 300px width. Its padding is asymmetric (16px right, 12px left) because the flame carries its own internal whitespace, so equal numeric padding looks tight on the right.
 
