@@ -12,7 +12,7 @@ import { CONFIG } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
-import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished, isDailyCompleted, recordDailyStreak, recordDailyCompletionTime } from '../persistence.js';
+import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished, isDailyCompleted, recordDailyStreak } from '../persistence.js';
 import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
@@ -826,9 +826,8 @@ function render(triggerSave = true, animationMode = 'auto') {
       // Mark daily puzzle as completed (not for unlimited mode)
       if (isDailyMode) {
         markDailyCompleted(currentGameDifficulty);
-        recordDailyCompletionTime(currentGameDifficulty, finalTime);
         const streak = recordDailyStreak(currentGameDifficulty);
-        trackStreakUpdated(currentGameDifficulty, streak.current, streak.best);
+        trackStreakUpdated(currentGameDifficulty, streak.difficulty, streak.overall);
       }
 
       // Track game completion
@@ -1248,9 +1247,8 @@ function finishGame() {
   // Mark as manually finished for daily puzzles
   if (isDailyMode) {
     markDailyManuallyFinished(currentGameDifficulty);
-    recordDailyCompletionTime(currentGameDifficulty, finalTime);
     const streak = recordDailyStreak(currentGameDifficulty);
-    trackStreakUpdated(currentGameDifficulty, streak.current, streak.best);
+    trackStreakUpdated(currentGameDifficulty, streak.difficulty, streak.overall);
   }
 
   // A manual finish still ends the puzzle, so it counts as a completion for

@@ -25,9 +25,10 @@
  * - HeartCrack: End/Finish button in game view (legacy)
  * - OctagonAlert: End game confirmation modal icon
  * - ChevronDown: Settings select dropdown indicator
+ * - Flame: Daily streak indicator on home screen
  */
 
-import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig, HeartCrack, OctagonAlert, ChevronDown } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig, HeartCrack, OctagonAlert, ChevronDown, Flame } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -62,7 +63,8 @@ export function initIcons() {
       CircleCheckBig,
       HeartCrack,
       OctagonAlert,
-      ChevronDown
+      ChevronDown,
+      Flame
     },
     attrs: {
       'stroke-width': '2',

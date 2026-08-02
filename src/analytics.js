@@ -354,25 +354,31 @@ export function trackDifficultySelected(difficulty) {
 /**
  * Track a streak being extended or restarted
  *
- * Also stored as person properties so streak length can be used to segment
- * retention analysis (e.g. how long players with a 7+ day streak stick around).
+ * Reports both the streak for the difficulty just completed and the overall
+ * streak, which any difficulty can extend. Both are also stored as person
+ * properties so streak length can be used to segment retention analysis
+ * (e.g. how long players with a 7+ day streak stick around).
  *
- * @param {string} difficulty - Difficulty level
- * @param {number} current - Current streak length after this completion
- * @param {number} best - Best streak length ever reached
+ * @param {string} difficulty - Difficulty level just completed
+ * @param {{current: number, best: number}} difficultyStreak - Streak for that difficulty
+ * @param {{current: number, best: number}} overallStreak - Streak across all difficulties
  */
-export function trackStreakUpdated(difficulty, current, best) {
+export function trackStreakUpdated(difficulty, difficultyStreak, overallStreak) {
   trackEvent('streak_updated', {
     difficulty,
-    streak_current: current,
-    streak_best: best
+    streak_current: difficultyStreak.current,
+    streak_best: difficultyStreak.best,
+    streak_overall_current: overallStreak.current,
+    streak_overall_best: overallStreak.best
   });
 
   try {
     if (isInitialized) {
       posthog.setPersonProperties({
-        [`streak_current_${difficulty}`]: current,
-        [`streak_best_${difficulty}`]: best
+        [`streak_current_${difficulty}`]: difficultyStreak.current,
+        [`streak_best_${difficulty}`]: difficultyStreak.best,
+        streak_current_overall: overallStreak.current,
+        streak_best_overall: overallStreak.best
       });
     }
   } catch (error) {

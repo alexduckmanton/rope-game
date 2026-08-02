@@ -138,13 +138,9 @@ function getStreakKey(difficulty) {
 }
 
 /**
- * Get storage key for today's completion time
- * @param {string} difficulty - 'easy', 'medium', or 'hard'
- * @returns {string} localStorage key
+ * Key used for the overall streak, which any difficulty can extend
  */
-function getCompletionTimeKey(difficulty) {
-  return `${STORAGE_PREFIX}:completion-time:${difficulty}`;
-}
+const OVERALL_STREAK_KEY = 'overall';
 
 /**
  * Get storage key for settings
@@ -697,62 +693,20 @@ export function isDailyManuallyFinished(difficulty) {
   }
 }
 
-/**
- * Record how long today's daily puzzle took to complete
- *
- * Stored separately from the completion flags so the existing date-string
- * format of those keys is left untouched. Like them, it is date-stamped and
- * so becomes stale automatically at local midnight.
- *
- * @param {string} difficulty - 'easy', 'medium', or 'hard'
- * @param {string} time - Formatted completion time (e.g. "2:34")
- * @returns {boolean} Whether save was successful
- */
-export function recordDailyCompletionTime(difficulty, time) {
-  try {
-    localStorage.setItem(
-      getCompletionTimeKey(difficulty),
-      JSON.stringify({ date: getTodayDateString(), time })
-    );
-    return true;
-  } catch (error) {
-    console.warn('Failed to save completion time:', error);
-    return false;
-  }
-}
-
-/**
- * Get the completion time for today's daily puzzle
- * @param {string} difficulty - 'easy', 'medium', or 'hard'
- * @returns {string|null} Formatted time, or null if not completed today
- */
-export function getDailyCompletionTime(difficulty) {
-  try {
-    const raw = localStorage.getItem(getCompletionTimeKey(difficulty));
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw);
-    return parsed.date === getTodayDateString() ? parsed.time : null;
-  } catch (error) {
-    console.warn('Failed to read completion time:', error);
-    return null;
-  }
-}
-
 /* ============================================================================
  * STREAK TRACKING
  * ========================================================================= */
 
 /**
- * Read the raw stored streak record for a difficulty
- * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * Read the raw stored streak record
+ * @param {string} key - Difficulty, or OVERALL_STREAK_KEY
  * @returns {{current: number, best: number, lastDate: string|null}} Streak record
  */
-function readStreakRecord(difficulty) {
+function readStreakRecord(key) {
   const empty = { current: 0, best: 0, lastDate: null };
 
   try {
-    const raw = localStorage.getItem(getStreakKey(difficulty));
+    const raw = localStorage.getItem(getStreakKey(key));
     if (!raw) return empty;
 
     const parsed = JSON.parse(raw);
@@ -768,42 +722,41 @@ function readStreakRecord(difficulty) {
 }
 
 /**
- * Get the current streak state for a difficulty
+ * Get the current state of a stored streak
  *
  * A streak stays alive as long as the last completion was today or yesterday.
  * Any longer gap means the streak has lapsed, so `current` reports 0 even
  * though the stored record still holds the old value (which is only ever
  * overwritten on the next completion).
  *
- * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @param {string} key - Difficulty, or OVERALL_STREAK_KEY
  * @returns {{current: number, best: number, completedToday: boolean}} Streak state
  */
-export function getStreak(difficulty) {
-  const record = readStreakRecord(difficulty);
-  const today = getTodayDateString();
-  const yesterday = getYesterdayDateString();
-
-  const isAlive = record.lastDate === today || record.lastDate === yesterday;
+function getStreakState(key) {
+  const record = readStreakRecord(key);
+  const isAlive =
+    record.lastDate === getTodayDateString() ||
+    record.lastDate === getYesterdayDateString();
 
   return {
     current: isAlive ? record.current : 0,
     best: record.best,
-    completedToday: record.lastDate === today,
+    completedToday: record.lastDate === getTodayDateString(),
   };
 }
 
 /**
- * Record a completed daily puzzle against the streak for a difficulty
+ * Extend a stored streak to today
  *
- * Extends the streak when the previous completion was yesterday, and starts a
- * new streak of 1 otherwise. Calling this more than once on the same day is a
- * no-op, so it is safe to call from every completion path.
+ * Extends when the previous completion was yesterday, and starts a new streak
+ * of 1 otherwise. Calling this more than once on the same day is a no-op, so
+ * it is safe to call from every completion path.
  *
- * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @param {string} key - Difficulty, or OVERALL_STREAK_KEY
  * @returns {{current: number, best: number, completedToday: boolean}} Updated streak state
  */
-export function recordDailyStreak(difficulty) {
-  const record = readStreakRecord(difficulty);
+function extendStreak(key) {
+  const record = readStreakRecord(key);
   const today = getTodayDateString();
 
   // Already counted today - nothing to do
@@ -817,7 +770,7 @@ export function recordDailyStreak(difficulty) {
 
   try {
     localStorage.setItem(
-      getStreakKey(difficulty),
+      getStreakKey(key),
       JSON.stringify({ current, best, lastDate: today })
     );
   } catch (error) {
@@ -825,6 +778,42 @@ export function recordDailyStreak(difficulty) {
   }
 
   return { current, best, completedToday: true };
+}
+
+/**
+ * Get the streak for a single difficulty
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {{current: number, best: number, completedToday: boolean}} Streak state
+ */
+export function getStreak(difficulty) {
+  return getStreakState(difficulty);
+}
+
+/**
+ * Get the overall streak, which any difficulty can extend
+ *
+ * This is the streak players are asked to protect: completing any one of the
+ * three daily puzzles keeps it alive, so a busy day only costs them the Hard
+ * puzzle rather than the whole streak.
+ *
+ * @returns {{current: number, best: number, completedToday: boolean}} Streak state
+ */
+export function getOverallStreak() {
+  return getStreakState(OVERALL_STREAK_KEY);
+}
+
+/**
+ * Record a completed daily puzzle against both the overall streak and the
+ * streak for that specific difficulty
+ *
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {{difficulty: Object, overall: Object}} Updated streak states
+ */
+export function recordDailyStreak(difficulty) {
+  return {
+    difficulty: extendStreak(difficulty),
+    overall: extendStreak(OVERALL_STREAK_KEY),
+  };
 }
 
 /* ============================================================================

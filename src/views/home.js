@@ -1,81 +1,52 @@
 /**
  * Home View
  *
- * Main landing page with game title and difficulty selection buttons
+ * Main landing page with game title, streak line and difficulty selection buttons
  */
 
 import { navigate } from '../router.js';
-import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished, getStreak, getDailyCompletionTime } from '../persistence.js';
+import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished, getStreak, getOverallStreak } from '../persistence.js';
 import { initIcons } from '../icons.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
 import { trackDifficultySelected } from '../analytics.js';
 
 /**
- * Set the contents of a button's streak badge
- *
+ * Difficulties in the order they appear on screen, which is also the order the
+ * streak line cycles through them
+ */
+const DIFFICULTIES = ['easy', 'medium', 'hard'];
+
+/**
+ * Update button completed state based on completion status
  * @param {HTMLElement} button - The button element
+ * @param {boolean} isCompleted - Whether the associated puzzle is completed
  * @param {string} icon - Icon name to use ('trophy', 'skull', 'check', etc.)
- * @param {number} [count] - Streak count (hidden when 0)
  */
-function setButtonBadge(button, icon, count = 0) {
-  const badge = button.querySelector('.btn-streak-badge');
-  if (!badge) return;
+function updateCompletedState(button, isCompleted, icon = 'trophy') {
+  if (isCompleted) {
+    button.classList.add('completed');
+    // Update the icon based on completion type
+    const iconElement = button.querySelector('.btn-complete-icon');
+    if (iconElement) {
+      // Lucide replaces <i> tags with <svg> elements, so we need to replace the element entirely
+      const newIcon = document.createElement('i');
+      newIcon.className = 'btn-complete-icon';
+      newIcon.setAttribute('data-lucide', icon);
+      newIcon.setAttribute('width', '20');
+      newIcon.setAttribute('height', '20');
 
-  const iconElement = badge.querySelector('.btn-complete-icon');
-  if (iconElement) {
-    // Lucide replaces <i> tags with <svg> elements, so we need to replace the element entirely
-    const newIcon = document.createElement('i');
-    newIcon.className = 'btn-complete-icon';
-    newIcon.setAttribute('data-lucide', icon);
-    newIcon.setAttribute('width', '20');
-    newIcon.setAttribute('height', '20');
-
-    // Replace the old element (which is now an SVG) with a fresh <i> tag
-    iconElement.replaceWith(newIcon);
-  }
-
-  const countElement = badge.querySelector('.btn-streak-count');
-  if (countElement) {
-    countElement.textContent = count > 0 ? `×${count}` : '';
+      // Replace the old element (which is now an SVG) with a fresh <i> tag
+      iconElement.replaceWith(newIcon);
+    }
+  } else {
+    button.classList.remove('completed');
   }
 }
 
 /**
- * Update the tutorial button's completed state
- * @param {HTMLElement} button - The tutorial button element
- */
-function updateTutorialButtonState(button) {
-  button.classList.toggle('completed', isTutorialCompleted());
-  setButtonBadge(button, 'check');
-}
-
-/**
- * Set the "completed today" badge (check + completion time) on a button
- * @param {HTMLElement} button - The difficulty button element
- * @param {string|null} time - Formatted completion time, or null if unknown
- */
-function setTodayBadge(button, time) {
-  const timeElement = button.querySelector('.btn-today-time');
-  if (timeElement) {
-    timeElement.textContent = time || '';
-  }
-}
-
-/**
- * Update daily puzzle button with today's result and its streak
- *
- * Two badges sit on the button, splitting "today" from "history" so the two
- * are never confused:
- *
- * - Left, green: only present when today's puzzle has been completed, showing
- *   a check and how long it took.
- * - Right, gold or transparent: the streak. Gold once today counts toward it,
- *   transparent while the streak is carried over from previous days, so the
- *   button doubles as a "you haven't played today" cue.
- *
- * The streak icon reflects today's result: trophy for a win, check for a
- * manual finish, skull for a viewed solution. When today hasn't been played,
- * the trophy stands in for the streak from previous days.
+ * Update daily puzzle button with appropriate completion icon
+ * Shows trophy for legitimate wins, check for manually finished, skull for viewed solutions
+ * Priority: trophy > check > skull
  *
  * @param {HTMLElement} button - The difficulty button element
  * @param {string} difficulty - Difficulty level ('easy', 'medium', 'hard')
@@ -85,27 +56,80 @@ function updateDailyButtonState(button, difficulty) {
   const manuallyFinished = isDailyManuallyFinished(difficulty);
   const viewedSolution = isDailyCompletedWithViewedSolution(difficulty);
   const isCompleted = won || manuallyFinished || viewedSolution;
-  const streak = getStreak(difficulty);
 
   // Priority: trophy > check > skull
-  let icon = 'trophy'; // default (also used for a streak with today unplayed)
-  if (!won && manuallyFinished) {
+  let icon = 'skull'; // default
+  if (won) {
+    icon = 'trophy';
+  } else if (manuallyFinished) {
     icon = 'check';
-  } else if (!won && viewedSolution) {
-    icon = 'skull';
   }
 
-  // The green badge marks a genuine completion, so a viewed solution does not
-  // qualify - that result is conveyed by the skull on the streak badge instead
-  const completedToday = won || manuallyFinished;
+  updateCompletedState(button, isCompleted, icon);
+}
 
-  button.classList.toggle('completed', isCompleted);
-  button.classList.toggle('completed-today', completedToday);
-  button.classList.toggle('has-streak', streak.current > 0);
-  button.classList.toggle('streak-active', streak.completedToday);
+/**
+ * Build the list of streaks the streak line cycles through
+ *
+ * The overall streak comes first, followed by every difficulty that currently
+ * has a live streak of its own. Difficulties with no streak are left out, so
+ * tapping never lands on "0 day streak".
+ *
+ * @returns {Array<{label: string}>} Streaks to cycle through, overall first
+ */
+function buildStreakCycle() {
+  const overall = getOverallStreak();
+  if (overall.current === 0) return [];
 
-  setButtonBadge(button, icon, streak.current);
-  setTodayBadge(button, completedToday ? getDailyCompletionTime(difficulty) : null);
+  const cycle = [{ label: `${overall.current} day streak` }];
+
+  for (const difficulty of DIFFICULTIES) {
+    const streak = getStreak(difficulty);
+    if (streak.current === 0) continue;
+
+    const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+    cycle.push({ label: `${streak.current} day ${label} streak` });
+  }
+
+  return cycle;
+}
+
+/**
+ * Set up the streak line above the difficulty buttons
+ *
+ * Hidden entirely when there is no live streak. Tapping the line steps through
+ * the per-difficulty streaks and wraps back to the overall one - an easter egg
+ * rather than a control, so it carries no button affordance.
+ *
+ * @returns {Function|null} Cleanup function, or null if the line is hidden
+ */
+function initStreakLine() {
+  const streakEl = document.getElementById('home-streak');
+  const textEl = document.getElementById('home-streak-text');
+  if (!streakEl || !textEl) return null;
+
+  const cycle = buildStreakCycle();
+
+  if (cycle.length === 0) {
+    streakEl.classList.remove('visible');
+    return null;
+  }
+
+  let index = 0;
+  textEl.textContent = cycle[index].label;
+  streakEl.classList.add('visible');
+
+  // A single entry means there is nothing to cycle to
+  if (cycle.length === 1) return null;
+
+  const handleCycle = () => {
+    index = (index + 1) % cycle.length;
+    textEl.textContent = cycle[index].label;
+  };
+
+  streakEl.addEventListener('click', handleCycle);
+
+  return () => streakEl.removeEventListener('click', handleCycle);
 }
 
 /**
@@ -122,13 +146,16 @@ export function initHome() {
   // Temporarily hidden - page still works via direct URL
   // const unlimitedBtn = document.getElementById('unlimited-btn');
 
-  // Update completed state icons
-  updateTutorialButtonState(tutorialBtn);
+  // Once the tutorial has been seen it stops earning its place on the home
+  // screen, so hide it rather than marking it complete
+  tutorialBtn.style.display = isTutorialCompleted() ? 'none' : '';
 
-  // Update daily puzzle buttons (icon for today's result, badge for the streak)
+  // Update daily puzzle buttons (trophy for wins, skull for viewed solutions)
   updateDailyButtonState(easyBtn, 'easy');
   updateDailyButtonState(mediumBtn, 'medium');
   updateDailyButtonState(hardBtn, 'hard');
+
+  const cleanupStreakLine = initStreakLine();
 
   // Re-initialize icons after updating attributes
   initIcons();
@@ -158,10 +185,9 @@ export function initHome() {
   // Temporarily hidden - page still works via direct URL
   // unlimitedBtn.addEventListener('click', handleUnlimited);
 
-  // Listen for tutorial completion to update checkmark immediately
+  // Hide the tutorial button as soon as it is completed, without a reload
   const handleTutorialCompleted = () => {
-    updateTutorialButtonState(tutorialBtn);
-    initIcons();
+    tutorialBtn.style.display = 'none';
   };
   window.addEventListener('tutorialCompleted', handleTutorialCompleted);
 
@@ -172,6 +198,7 @@ export function initHome() {
     mediumBtn.removeEventListener('click', handleMedium);
     hardBtn.removeEventListener('click', handleHard);
     window.removeEventListener('tutorialCompleted', handleTutorialCompleted);
+    if (cleanupStreakLine) cleanupStreakLine();
     // Temporarily hidden - page still works via direct URL
     // unlimitedBtn.removeEventListener('click', handleUnlimited);
   };

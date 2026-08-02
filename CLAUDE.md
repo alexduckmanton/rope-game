@@ -14,7 +14,7 @@
 | `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
 | `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle (used for hint generation; players can make smaller loops) |
 | `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCellsWithMinDistance()`, `calculateBorderLayers()` |
-| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()`, `getStreak()`, `recordDailyStreak()`, `getDailyCompletionTime()` |
+| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()`, `getStreak()`, `getOverallStreak()`, `recordDailyStreak()` |
 | `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles; `getPuzzleNumber()` - sequential daily puzzle number |
 | `analytics.js` | PostHog analytics | `trackPageView()`, `trackEvent()`, plus a named `trackX()` helper per game event |
 | `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `parseCellKey()`, `createCellKey()`, `getCellsAlongLine()` - Bresenham with 4-connected enforcement |
@@ -48,8 +48,7 @@
 - Unlimited mode: `loop-game:unlimited:medium` (one slot per difficulty)
 - Settings: `loop-game:settings` (global, shared across all modes)
 - Manual finish tracking: `loop-game:manually-finished:easy` (tracks early game endings by difficulty, date-based expiration)
-- Streaks: `loop-game:streak:easy` (per difficulty, stores `{ current, best, lastDate }`)
-- Completion time: `loop-game:completion-time:easy` (per difficulty, stores `{ date, time }`, date-based expiration)
+- Streaks: `loop-game:streak:easy` (per difficulty) and `loop-game:streak:overall`, each storing `{ current, best, lastDate }`
 
 -----
 
@@ -483,7 +482,7 @@ Generates Hamiltonian cycles (paths visiting all cells exactly once forming a lo
 **Tutorial Access:**
 
 Tutorial is implemented as a bottom sheet component rather than a dedicated view:
-- **From Home**: Tutorial button opens carousel bottom sheet overlay
+- **From Home**: Tutorial button opens carousel bottom sheet overlay. The button is hidden once the tutorial has been completed, since it has stopped earning its place on the home screen
 - **From Game**: Help icon (circle-help, left of settings) opens same tutorial sheet
 - **No Route**: Tutorial has no URL route - accessible via function call from any view
 
@@ -601,34 +600,36 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Purpose:** Gives players a reason to return tomorrow. Daily puzzle games live on streaks — without one there is no cost to skipping a day.
 
-**Tracking:** One streak per difficulty, stored as `{ current, best, lastDate }` under `loop-game:streak:<difficulty>`. Recorded by `recordDailyStreak(difficulty)` in `persistence.js`, read by `getStreak(difficulty)`.
+**Tracking:** Two kinds of streak, both stored as `{ current, best, lastDate }`:
+
+- **Overall** (`loop-game:streak:overall`) — the one players are asked to protect. Completing *any* of the three daily puzzles extends it, so a busy day costs them the Hard puzzle rather than the whole streak.
+- **Per difficulty** (`loop-game:streak:<difficulty>`) — kept for players who care about a specific difficulty, and surfaced only through the streak line's tap-to-cycle.
+
+`recordDailyStreak(difficulty)` extends both and returns `{ difficulty, overall }`. Read them with `getStreak(difficulty)` and `getOverallStreak()`.
 
 **Rules:**
-- A completion extends the streak when the previous completion was **yesterday**, and starts a new streak of 1 otherwise.
+- A completion extends a streak when the previous completion was **yesterday**, and starts a new streak of 1 otherwise.
 - Recording twice on the same day is a no-op, so it is safe to call from every completion path.
-- A streak stays **alive** while the last completion was today or yesterday. Any longer gap and `getStreak()` reports `current: 0` — the stored value is only overwritten on the next completion.
+- A streak stays **alive** while the last completion was today or yesterday. Any longer gap and the getters report `current: 0` — the stored value is only overwritten on the next completion.
 - **Wins and manual finishes count**; viewing the solution does not extend a streak (though it does not break an already-live one either).
 
 **Home screen display:**
 
-Each difficulty button carries two badges, splitting "today" from "history" so the two are never confused.
+A single line above the difficulty buttons: a Lucide `flame` icon plus text, e.g. "5 day streak". Hidden entirely when there is no live overall streak.
 
-**Right — the streak badge** (`.btn-streak-badge`): completion icon plus a `×N` count. Geometry is identical in every state so nothing shifts when today's puzzle is completed — only the colours change:
+Tapping the line cycles through every difficulty that currently has a live streak of its own, then wraps back to the overall total:
 
-| State | Badge | Icon |
-|-------|-------|------|
-| Today completed (win or manual finish) | Gold background (`--color-streak-bg` / `--color-streak-text`) | Trophy, or check for a manual finish |
-| Streak alive, today not yet played | Transparent background | Trophy |
-| Solution viewed today | Transparent background | Skull |
-| No live streak, today not played | Hidden | — |
+```
+5 day streak  →  5 day Medium streak  →  3 day Hard streak  →  5 day streak
+```
 
-The count is omitted when the streak is 0, so a solution-viewed day with no prior streak shows the icon alone.
+Difficulties with no live streak are skipped, so a tap never lands on "0 day streak", and the line is inert when there is nothing to cycle to. Cycle order follows the on-screen button order (Easy, Medium, Hard) via the `DIFFICULTIES` constant in `views/home.js`.
 
-**Left — the "completed today" badge** (`.btn-today-badge`): always green (`--color-completed-bg` / `--color-completed-text`), showing a check and how long the puzzle took. Present only when today's puzzle was genuinely completed (a win or a manual finish); viewing the solution does not qualify, since that outcome is already conveyed by the skull on the streak badge. The time comes from `getDailyCompletionTime(difficulty)`, stored under `loop-game:completion-time:<difficulty>` as `{ date, time }` and stale automatically at local midnight.
+This is deliberately styled as plain text, not a control — it is a small reward for the curious rather than a feature that needs discovering.
 
-Classes are applied by `updateDailyButtonState()` in `views/home.js`: `.completed` (today done in some form), `.completed-today` (green badge), `.has-streak` (live streak), `.streak-active` (gold badge).
+The difficulty buttons themselves carry only the existing completion icon: trophy for a win, check for a manual finish, skull for a viewed solution.
 
-**Analytics:** Each update fires `streak_updated` and writes `streak_current_<difficulty>` / `streak_best_<difficulty>` person properties, so retention can be segmented by streak length.
+**Analytics:** Each update fires `streak_updated` carrying both the difficulty and overall streaks, and writes them as person properties (`streak_current_<difficulty>`, `streak_current_overall`, and their `best` equivalents), so retention can be segmented by streak length.
 
 ### Analytics (PostHog)
 
@@ -668,7 +669,7 @@ Classes are applied by `updateDailyButtonState()` in `views/home.js`: `.complete
 | `share_attempted` | `difficulty`, `completion_time` | Fires on share button click; the denominator is `game_completed` |
 | `share_completed` / `share_failed` | `difficulty`, `method` / `error_type` | |
 | `difficulty_selected` | `difficulty`, `source` | Home screen navigation |
-| `streak_updated` | `difficulty`, `streak_current`, `streak_best` | Also written as person properties |
+| `streak_updated` | `difficulty`, `streak_current`, `streak_best`, `streak_overall_current`, `streak_overall_best` | Also written as person properties |
 
 PostHog attaches `$session_id` to every event, which is what makes "how many difficulties per session" answerable.
 

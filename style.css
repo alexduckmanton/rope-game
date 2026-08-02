@@ -512,6 +512,35 @@ button {
   margin: -48px 0 0 0;
 }
 
+/* Streak line above the difficulty buttons.
+ *
+ * Deliberately plain text: tapping it cycles through the per-difficulty
+ * streaks, but it is a small reward for the curious rather than a control, so
+ * it carries no button affordance. The negative bottom margin pulls it in
+ * against the container's 48px gap so it reads as a label on the button list.
+ */
+.home-streak {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 -32px 0;
+  padding: 4px 8px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--color-text-secondary);
+}
+
+.home-streak.visible {
+  display: flex;
+}
+
+.home-streak svg {
+  color: var(--color-streak);
+  flex-shrink: 0;
+}
+
 .home-buttons {
   display: flex;
   flex-direction: column;
@@ -547,80 +576,15 @@ button {
   position: relative;
 }
 
-/* Streak badge - wraps the completion icon and streak count on the RIGHT of a
- * home button. Hidden by default; shown once today's puzzle is completed or
- * while a streak from previous days is still alive.
- *
- * The badge keeps identical geometry in both states - only the colours change
- * - so the icon never shifts when today's puzzle is completed. */
-.btn-streak-badge {
-  display: none;
-  align-items: center;
-  gap: 4px;
-  position: absolute;
-  right: 8px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background-color: transparent;
-  line-height: 1;
-}
-
-/* Today's completion badge - LEFT of a home button. Shown only when today's
- * puzzle has been completed, carrying a check and the time it took. Always
- * green, so "done today" is unmistakable next to the gold streak badge. */
-.btn-today-badge {
-  display: none;
-  align-items: center;
-  gap: 4px;
-  position: absolute;
-  left: 8px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background-color: var(--color-completed-bg);
-  color: var(--color-completed-text);
-  line-height: 1;
-}
-
-.btn-large.completed-today .btn-today-badge {
-  display: inline-flex;
-}
-
-.btn-today-time {
-  font-size: 14px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.btn-today-icon svg {
-  stroke: currentColor;
-  fill: none;
-}
-
-/* Show the badge for a completed puzzle or a live streak */
-.btn-large.completed .btn-streak-badge,
-.btn-large.has-streak .btn-streak-badge {
-  display: inline-flex;
-}
-
-/* Gold badge once today's puzzle has been completed */
-.btn-large.streak-active .btn-streak-badge {
-  background-color: var(--color-streak-bg);
-  color: var(--color-streak-text);
-}
-
-.btn-streak-count {
-  font-size: 14px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Collapse the count entirely when there is no streak to show */
-.btn-streak-count:empty {
-  display: none;
-}
-
-/* Completion icon lives inside the badge */
+/* Completed state icon in buttons - hidden by default, positioned left */
 .btn-complete-icon {
+  display: none;
+  position: absolute;
+  left: 16px;
+}
+
+/* Show completion icon when button has completed class */
+.btn-large.completed .btn-complete-icon {
   display: inline-flex;
 }
 
