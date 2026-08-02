@@ -152,9 +152,13 @@ export function trackEvent(eventName, params = {}) {
 /**
  * Track tutorial opened
  * @param {string} source - Where tutorial was opened from ('home', 'game')
+ * @param {string} [difficulty] - Difficulty being played, when opened from a game
  */
-export function trackTutorialOpened(source) {
-  trackEvent('tutorial_opened', { source });
+export function trackTutorialOpened(source, difficulty) {
+  trackEvent('tutorial_opened', {
+    source,
+    difficulty: difficulty || 'none'
+  });
 }
 
 /**
@@ -200,13 +204,17 @@ export function trackGameStarted(difficulty, mode) {
  * @param {string} mode - Game mode ('daily', 'unlimited')
  * @param {number} completionTimeSeconds - Time in seconds
  * @param {string} completionTimeFormatted - Formatted time (e.g., "Easy • 2:34")
+ * @param {string} [completionType] - How the game ended ('win', 'manual_finish')
+ * @param {number} [score] - Score percentage at completion
  */
-export function trackGameCompleted(difficulty, mode, completionTimeSeconds, completionTimeFormatted) {
+export function trackGameCompleted(difficulty, mode, completionTimeSeconds, completionTimeFormatted, completionType = 'win', score = 100) {
   trackEvent('game_completed', {
     difficulty,
     mode,
     completion_time_seconds: completionTimeSeconds,
-    completion_time_formatted: completionTimeFormatted
+    completion_time_formatted: completionTimeFormatted,
+    completion_type: completionType,
+    score
   });
 }
 

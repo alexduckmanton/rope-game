@@ -547,7 +547,7 @@ button {
   position: relative;
 }
 
-/* Streak badge - wraps the completion icon and streak count on the left of a
+/* Streak badge - wraps the completion icon and streak count on the RIGHT of a
  * home button. Hidden by default; shown once today's puzzle is completed or
  * while a streak from previous days is still alive.
  *
@@ -558,11 +558,42 @@ button {
   align-items: center;
   gap: 4px;
   position: absolute;
-  left: 8px;
+  right: 8px;
   padding: 4px 8px;
   border-radius: 999px;
   background-color: transparent;
   line-height: 1;
+}
+
+/* Today's completion badge - LEFT of a home button. Shown only when today's
+ * puzzle has been completed, carrying a check and the time it took. Always
+ * green, so "done today" is unmistakable next to the gold streak badge. */
+.btn-today-badge {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  position: absolute;
+  left: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background-color: var(--color-completed-bg);
+  color: var(--color-completed-text);
+  line-height: 1;
+}
+
+.btn-large.completed-today .btn-today-badge {
+  display: inline-flex;
+}
+
+.btn-today-time {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.btn-today-icon svg {
+  stroke: currentColor;
+  fill: none;
 }
 
 /* Show the badge for a completed puzzle or a live streak */

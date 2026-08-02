@@ -14,7 +14,7 @@
 | `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
 | `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle (used for hint generation; players can make smaller loops) |
 | `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCellsWithMinDistance()`, `calculateBorderLayers()` |
-| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()`, `getStreak()`, `recordDailyStreak()` |
+| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()`, `getStreak()`, `recordDailyStreak()`, `getDailyCompletionTime()` |
 | `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles; `getPuzzleNumber()` - sequential daily puzzle number |
 | `analytics.js` | PostHog analytics | `trackPageView()`, `trackEvent()`, plus a named `trackX()` helper per game event |
 | `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `parseCellKey()`, `createCellKey()`, `getCellsAlongLine()` - Bresenham with 4-connected enforcement |
@@ -49,6 +49,7 @@
 - Settings: `loop-game:settings` (global, shared across all modes)
 - Manual finish tracking: `loop-game:manually-finished:easy` (tracks early game endings by difficulty, date-based expiration)
 - Streaks: `loop-game:streak:easy` (per difficulty, stores `{ current, best, lastDate }`)
+- Completion time: `loop-game:completion-time:easy` (per difficulty, stores `{ date, time }`, date-based expiration)
 
 -----
 
@@ -274,19 +275,16 @@ When players complete a closed loop, contextual feedback modals appear based on 
 
 **Share Text Format:**
 
-Both partial and perfect completions use a consistent three-line share format:
-
 ```
-💫 Loopy #233 · Medium
-2:34
-https://loopy.wtf
+💫 Medium Loopy 2:34
+26 Dec 2025
 ```
 
-- **Puzzle number**: Days since `CONFIG.DAILY.PUZZLE_NUMBER_EPOCH`, where the epoch date is #1. Gives results a comparable identity between players.
-- **URL**: Included in the share text itself so anyone receiving a share can find the game. Passed inside `text` rather than the Web Share API's separate `url` field, which some targets would append a second time.
-- **Score line**: Shows "\<score\>% in \<time\>" when `ENABLE_EARLY_GAME_ENDING` is on, otherwise just the time.
+- Shows "\<score\>% in \<time\>" on its own line when `ENABLE_EARLY_GAME_ENDING` is on, otherwise difficulty and time on one line
 - Uses Web Share API on mobile devices with clipboard fallback
 - Share button available in both partial win and perfect win modals
+
+**Pending change:** adding a puzzle number and the site URL (`💫 Loopy #233 · Medium / 2:34 / https://loopy.wtf`) is held until `share_attempted` volume is high enough to measure the effect. `getPuzzleNumber()` in `seededRandom.js` and `CONFIG.SITE.URL` already exist for it.
 
 **Validation Optimization:**
 
@@ -613,7 +611,9 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Home screen display:**
 
-The streak appears as a badge on the left of each difficulty button, containing the completion icon and a `×N` count. The badge's geometry is identical in both states so nothing shifts when today's puzzle is completed — only the colours change:
+Each difficulty button carries two badges, splitting "today" from "history" so the two are never confused.
+
+**Right — the streak badge** (`.btn-streak-badge`): completion icon plus a `×N` count. Geometry is identical in every state so nothing shifts when today's puzzle is completed — only the colours change:
 
 | State | Badge | Icon |
 |-------|-------|------|
@@ -622,7 +622,11 @@ The streak appears as a badge on the left of each difficulty button, containing 
 | Solution viewed today | Transparent background | Skull |
 | No live streak, today not played | Hidden | — |
 
-The count is omitted when the streak is 0, so a solution-viewed day with no prior streak shows the icon alone. Classes are applied by `updateDailyButtonState()` in `views/home.js`: `.completed` (today done in some form), `.has-streak` (live streak), `.streak-active` (gold).
+The count is omitted when the streak is 0, so a solution-viewed day with no prior streak shows the icon alone.
+
+**Left — the "completed today" badge** (`.btn-today-badge`): always green (`--color-completed-bg` / `--color-completed-text`), showing a check and how long the puzzle took. Present only when today's puzzle was genuinely completed (a win or a manual finish); viewing the solution does not qualify, since that outcome is already conveyed by the skull on the streak badge. The time comes from `getDailyCompletionTime(difficulty)`, stored under `loop-game:completion-time:<difficulty>` as `{ date, time }` and stale automatically at local midnight.
+
+Classes are applied by `updateDailyButtonState()` in `views/home.js`: `.completed` (today done in some form), `.completed-today` (green badge), `.has-streak` (live streak), `.streak-active` (gold badge).
 
 **Analytics:** Each update fires `streak_updated` and writes `streak_current_<difficulty>` / `streak_best_<difficulty>` person properties, so retention can be segmented by streak length.
 
@@ -647,7 +651,26 @@ The count is omitted when the streak is 0, so a solution-viewed day with no prio
 | `autocapture` | `false` | Explicit events only; autocapture on a canvas game is mostly noise |
 | `capture_pageleave` | `true` | Needed for session duration |
 
-**Tracked events:** `$pageview`, `tutorial_opened`, `tutorial_section_viewed`, `tutorial_completed`, `game_started`, `game_completed`, `game_restarted`, `puzzle_generated`, `validation_error`, `undo_used`, `solution_viewed`, `settings_opened`, `share_attempted`, `share_completed`, `share_failed`, `difficulty_selected`, `streak_updated`.
+**Tracked events:**
+
+| Event | Key properties | Notes |
+|-------|----------------|-------|
+| `$pageview` | `$current_url`, `title`, `previous_page` | Powers DAU, new vs returning, and play frequency |
+| `game_started` | `difficulty`, `mode` | Fires only for a *fresh* puzzle, not when a saved game is restored, so it counts genuine starts |
+| `game_completed` | `difficulty`, `mode`, `completion_time_seconds`, `completion_type`, `score` | `completion_type` is `win` or `manual_finish` |
+| `game_restarted` | `difficulty`, `mode` | Clear button |
+| `puzzle_generated` | `difficulty` | Unlimited mode only |
+| `validation_error` | `difficulty`, `mode` | Closed loop that fails its hints |
+| `undo_used` / `solution_viewed` / `settings_opened` | `difficulty`, `mode` | |
+| `tutorial_opened` | `source` (`home`/`game`), `difficulty` | `difficulty` is `none` when opened from home |
+| `tutorial_section_viewed` | `section_index`, `section_name`, `method` | |
+| `tutorial_completed` | — | |
+| `share_attempted` | `difficulty`, `completion_time` | Fires on share button click; the denominator is `game_completed` |
+| `share_completed` / `share_failed` | `difficulty`, `method` / `error_type` | |
+| `difficulty_selected` | `difficulty`, `source` | Home screen navigation |
+| `streak_updated` | `difficulty`, `streak_current`, `streak_best` | Also written as person properties |
+
+PostHog attaches `$session_id` to every event, which is what makes "how many difficulties per session" answerable.
 
 **Key Files:**
 | File | Purpose |

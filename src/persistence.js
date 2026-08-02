@@ -138,6 +138,15 @@ function getStreakKey(difficulty) {
 }
 
 /**
+ * Get storage key for today's completion time
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {string} localStorage key
+ */
+function getCompletionTimeKey(difficulty) {
+  return `${STORAGE_PREFIX}:completion-time:${difficulty}`;
+}
+
+/**
  * Get storage key for settings
  * @returns {string} localStorage key
  */
@@ -685,6 +694,48 @@ export function isDailyManuallyFinished(difficulty) {
   } catch (error) {
     console.warn('Failed to check manually finished state:', error);
     return false;
+  }
+}
+
+/**
+ * Record how long today's daily puzzle took to complete
+ *
+ * Stored separately from the completion flags so the existing date-string
+ * format of those keys is left untouched. Like them, it is date-stamped and
+ * so becomes stale automatically at local midnight.
+ *
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @param {string} time - Formatted completion time (e.g. "2:34")
+ * @returns {boolean} Whether save was successful
+ */
+export function recordDailyCompletionTime(difficulty, time) {
+  try {
+    localStorage.setItem(
+      getCompletionTimeKey(difficulty),
+      JSON.stringify({ date: getTodayDateString(), time })
+    );
+    return true;
+  } catch (error) {
+    console.warn('Failed to save completion time:', error);
+    return false;
+  }
+}
+
+/**
+ * Get the completion time for today's daily puzzle
+ * @param {string} difficulty - 'easy', 'medium', or 'hard'
+ * @returns {string|null} Formatted time, or null if not completed today
+ */
+export function getDailyCompletionTime(difficulty) {
+  try {
+    const raw = localStorage.getItem(getCompletionTimeKey(difficulty));
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    return parsed.date === getTodayDateString() ? parsed.time : null;
+  } catch (error) {
+    console.warn('Failed to read completion time:', error);
+    return null;
   }
 }
 

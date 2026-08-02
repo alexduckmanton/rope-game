@@ -5,7 +5,7 @@
  */
 
 import { navigate } from '../router.js';
-import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished, getStreak } from '../persistence.js';
+import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished, getStreak, getDailyCompletionTime } from '../persistence.js';
 import { initIcons } from '../icons.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
 import { trackDifficultySelected } from '../analytics.js';
@@ -50,15 +50,32 @@ function updateTutorialButtonState(button) {
 }
 
 /**
- * Update daily puzzle button with completion icon and streak count
+ * Set the "completed today" badge (check + completion time) on a button
+ * @param {HTMLElement} button - The difficulty button element
+ * @param {string|null} time - Formatted completion time, or null if unknown
+ */
+function setTodayBadge(button, time) {
+  const timeElement = button.querySelector('.btn-today-time');
+  if (timeElement) {
+    timeElement.textContent = time || '';
+  }
+}
+
+/**
+ * Update daily puzzle button with today's result and its streak
  *
- * Icon reflects today's result: trophy for a win, check for a manual finish,
- * skull for a viewed solution. When today hasn't been played yet, the trophy
- * stands in for the streak carried over from previous days.
+ * Two badges sit on the button, splitting "today" from "history" so the two
+ * are never confused:
  *
- * The badge turns gold only once today's puzzle has been completed in a way
- * that counts toward the streak, so the button doubles as a "you haven't
- * played today" cue while the streak is still live.
+ * - Left, green: only present when today's puzzle has been completed, showing
+ *   a check and how long it took.
+ * - Right, gold or transparent: the streak. Gold once today counts toward it,
+ *   transparent while the streak is carried over from previous days, so the
+ *   button doubles as a "you haven't played today" cue.
+ *
+ * The streak icon reflects today's result: trophy for a win, check for a
+ * manual finish, skull for a viewed solution. When today hasn't been played,
+ * the trophy stands in for the streak from previous days.
  *
  * @param {HTMLElement} button - The difficulty button element
  * @param {string} difficulty - Difficulty level ('easy', 'medium', 'hard')
@@ -78,11 +95,17 @@ function updateDailyButtonState(button, difficulty) {
     icon = 'skull';
   }
 
+  // The green badge marks a genuine completion, so a viewed solution does not
+  // qualify - that result is conveyed by the skull on the streak badge instead
+  const completedToday = won || manuallyFinished;
+
   button.classList.toggle('completed', isCompleted);
+  button.classList.toggle('completed-today', completedToday);
   button.classList.toggle('has-streak', streak.current > 0);
   button.classList.toggle('streak-active', streak.completedToday);
 
   setButtonBadge(button, icon, streak.current);
+  setTodayBadge(button, completedToday ? getDailyCompletionTime(difficulty) : null);
 }
 
 /**

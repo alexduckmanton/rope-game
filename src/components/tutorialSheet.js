@@ -342,10 +342,11 @@ function initializeVideos() {
  * Can be called from anywhere in the app (home screen, game screens, etc.)
  * Videos are lazy-loaded on first open and cached for subsequent opens
  * @param {string} [source='unknown'] - Where tutorial was opened from ('home', 'game')
+ * @param {string} [difficulty] - Difficulty being played, when opened from a game
  */
-export function showTutorialSheet(source = 'unknown') {
+export function showTutorialSheet(source = 'unknown', difficulty) {
   // Track tutorial opened
-  trackTutorialOpened(source);
+  trackTutorialOpened(source, difficulty);
 
   // Ensure videos are created (only happens once)
   initializeVideos();

@@ -6,7 +6,6 @@
  */
 
 import { CONFIG } from '../config.js';
-import { getPuzzleNumber } from '../seededRandom.js';
 import {
   trackShareAttempted,
   trackShareCompleted,
@@ -14,16 +13,24 @@ import {
 } from '../analytics.js';
 
 /**
+ * Format date as "DD Mon YYYY" (e.g., "26 Jan 2025")
+ * @param {Date} [date] - Date to format (defaults to today)
+ * @returns {string} Formatted date string
+ */
+export function formatShareDate(date = new Date()) {
+  const day = date.getDate();
+  const month = date.toLocaleString('en-US', { month: 'short' });
+  const year = date.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+
+/**
  * Build share text for completed puzzle
  *
- * Format (three short lines so it reads well in any messaging app):
- *   💫 Loopy #233 · Medium
- *   2:34
- *   https://loopy.wtf
- *
- * The puzzle number gives the result a comparable identity ("did you get
- * #233?") and the URL means anyone receiving a share can actually find the
- * game. Both are load-bearing for word-of-mouth growth.
+ * NOTE: Adding a puzzle number and the site URL to this text is a pending
+ * change, held until there is enough `share_attempted` data to measure its
+ * effect. `getPuzzleNumber()` in seededRandom.js and `CONFIG.SITE.URL` are
+ * already in place for it.
  *
  * @param {string} difficulty - Difficulty level
  * @param {string} time - Formatted completion time
@@ -31,16 +38,16 @@ import {
  * @returns {string} Share text
  */
 export function buildShareText(difficulty, time, score = 100) {
+  const dateStr = formatShareDate();
   const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
-  const header = `💫 Loopy #${getPuzzleNumber()} · ${label}`;
 
   // When early game ending is enabled, include score percentage
   // When disabled, use simpler format without score
-  const result = CONFIG.FEATURES.ENABLE_EARLY_GAME_ENDING
-    ? `${score}% in ${time}`
-    : time;
-
-  return `${header}\n${result}\n${CONFIG.SITE.URL}`;
+  if (CONFIG.FEATURES.ENABLE_EARLY_GAME_ENDING) {
+    return `💫 ${label} Loopy\n${score}% in ${time}\n${dateStr}`;
+  } else {
+    return `💫 ${label} Loopy ${time}\n${dateStr}`;
+  }
 }
 
 /**
