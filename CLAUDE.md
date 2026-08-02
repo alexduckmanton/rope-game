@@ -39,15 +39,15 @@
 | Difficulty (label) | Grid Size | Total Cells | Hint Count | Min Distance | Win Requirement | Warnsdorff Attempts |
 |------------|-----------|-------------|------------|--------------|-----------------|---------------------|
 | Easy       | 4x4       | 16          | 2          | 3 cells      | Any valid loop  | 20                  |
-| Hard       | 6x6       | 36          | 5          | 2 cells      | Any valid loop  | 50                  |
+| Tricky     | 6x6       | 36          | 5          | 2 cells      | Any valid loop  | 50                  |
 | Diabolical | 8x8       | 64          | 16         | None (0)     | Any valid loop  | 100                 |
 
-**Labels vs keys:** players see Easy / Hard / Diabolical, but the internal keys are `easy` / `medium` / `hard` and appear unchanged in URLs, storage keys, daily seeds and analytics. Labels live in `CONFIG.DIFFICULTY.LABELS` and are read through `getDifficultyLabel()` / `getDifficultyLabelLower()` in `config.js` — never derive one by capitalising a key, or renaming will silently miss that surface.
+**Labels vs keys:** players see Easy / Tricky / Diabolical, but the internal keys are `easy` / `medium` / `hard` and appear unchanged in URLs, storage keys, daily seeds and analytics. Labels live in `CONFIG.DIFFICULTY.LABELS` and are read through `getDifficultyLabel()` / `getDifficultyLabelLower()` in `config.js` — never derive one by capitalising a key, or renaming will silently miss that surface.
 
 | Key | Label | Grid |
 |-----|-------|------|
 | `easy` | Easy | 4x4 |
-| `medium` | **Hard** | 6x6 |
+| `medium` | **Tricky** | 6x6 |
 | `hard` | **Diabolical** | 8x8 |
 
 ### Storage Keys
@@ -484,7 +484,7 @@ Generates Hamiltonian cycles (paths visiting all cells exactly once forming a lo
 
 | View | Route | Purpose |
 |------|-------|---------|
-| **Home** | `/` | Landing page with current date and navigation buttons (Tutorial, Easy, Medium, Hard) |
+| **Home** | `/` | Landing page with current date and navigation buttons (Tutorial, Easy, Tricky, Diabolical) |
 | **Play** | `/play?difficulty=X` | Main game interface with canvas, controls, timer, settings, help button |
 
 **Tutorial Access:**
@@ -504,7 +504,7 @@ When navigating FROM home to a subpage, the router adds metadata to history stat
 
 **Game Modes:**
 
-**Daily Puzzle Modes (Easy/Medium/Hard)**
+**Daily Puzzle Modes (`easy`/`medium`/`hard`)**
 - Fixed grid sizes per difficulty
 - Everyone sees identical puzzle for same local date
 - Deterministic generation from date-based seed
@@ -610,7 +610,7 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Tracking:** Two kinds of streak, both stored as `{ current, best, lastDate }`:
 
-- **Overall** (`loop-game:streak:overall`) — the one players are asked to protect. Completing *any* of the three daily puzzles extends it, so a busy day costs them the Hard puzzle rather than the whole streak.
+- **Overall** (`loop-game:streak:overall`) — the one players are asked to protect. Completing *any* of the three daily puzzles extends it, so a busy day costs them the Diabolical puzzle rather than the whole streak.
 - **Per difficulty** (`loop-game:streak:<difficulty>`) — kept for players who care about a specific difficulty, and surfaced only through the streak line's tap-to-cycle.
 
 `recordDailyStreak(difficulty)` extends both and returns `{ difficulty, overall }`. Read them with `getStreak(difficulty)` and `getOverallStreak()`.
@@ -642,7 +642,7 @@ Tapping the line cycles through every difficulty that currently has a live strea
 5 day streak  →  5 day medium streak  →  3 day hard streak  →  5 day streak
 ```
 
-Difficulties with no live streak are skipped, so a tap never lands on "0 day streak", and the line is inert when there is nothing to cycle to. Cycle order follows the on-screen button order (Easy, Medium, Hard) via the `DIFFICULTIES` constant in `views/home.js`.
+Difficulties with no live streak are skipped, so a tap never lands on "0 day streak", and the line is inert when there is nothing to cycle to. Cycle order follows the on-screen button order (`easy`, `medium`, `hard`) via the `DIFFICULTIES` constant in `views/home.js`.
 
 This is deliberately styled as plain text, not a control — it is a small reward for the curious rather than a feature that needs discovering.
 
@@ -1144,7 +1144,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 
 **✅ Core Features Complete**
 - Full gameplay loop (draw, validate, win detection)
-- Three difficulty levels (Easy 4x4, Medium 6x6, Hard 8x8)
+- Three difficulty levels (Easy 4x4, Tricky 6x6, Diabolical 8x8)
 - Daily puzzle system with deterministic generation
 - Unlimited practice mode with in-session difficulty switching
 - Settings persistence (hints, borders, solution display)
@@ -1343,14 +1343,14 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 
 **Note:** The game has only two playable modes: Daily Mode and Unlimited Mode. Tutorial is not a game mode—it's a video-based bottom sheet component accessible from any view via button click. Tutorial does not have puzzles, timers, or game state.
 
-| Aspect | Daily Mode (Easy/Medium/Hard) | Unlimited Mode |
+| Aspect | Daily Mode (`easy`/`medium`/`hard`) | Unlimited Mode |
 |--------|-------------------------------|----------------|
 | **Puzzle Source** | Deterministic from date seed | True random generation |
 | **Consistency** | Everyone sees same puzzle on same local date | Each session gets different puzzles |
 | **Entry Point** | Home → Select difficulty → Fixed for session | Home → Unlimited → Defaults to Easy |
 | **New Button** | Hidden (can't regenerate daily puzzle) | Visible (generate fresh puzzle anytime) |
 | **Difficulty** | Fixed by initial selection | Switchable in-session via settings segmented control |
-| **Grid Size** | Easy 4x4, Medium 6x6, Hard 8x8 | Same sizes, switchable within session |
+| **Grid Size** | Easy 4x4, Tricky 6x6, Diabolical 8x8 | Same sizes, switchable within session |
 | **Win Requirement** | Any valid loop satisfying all hints | Same for all difficulties |
 | **Timer Display** | Shows selected difficulty (e.g., "Medium • 0:00") | Shows current difficulty (e.g., "Easy • 0:00") |
 | **Settings** | Numbers, Number behaviour, Borders, Solution (select dropdowns) | Same + difficulty segmented control at top |

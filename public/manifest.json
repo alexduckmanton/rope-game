@@ -43,9 +43,9 @@
       ]
     },
     {
-      "name": "Hard Loopy",
-      "short_name": "Hard",
-      "description": "Play today's hard Loopy (6×6 grid)",
+      "name": "Tricky Loopy",
+      "short_name": "Tricky",
+      "description": "Play today's tricky Loopy (6×6 grid)",
       "url": "/play?difficulty=medium",
       "icons": [
         {

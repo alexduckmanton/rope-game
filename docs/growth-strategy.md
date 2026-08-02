@@ -265,7 +265,7 @@ Project **Loopy** (538478, US cloud). The [**Loopy Overview**](https://us.postho
 
 **Three caveats when reading it:**
 
-0. **Difficulty keys are not the labels.** Events carry `easy` / `medium` / `hard`, but players see **Easy / Hard / Diabolical**. So `medium` in any chart means the puzzle labelled "Hard", and `hard` means "Diabolical". The keys were deliberately left alone so history stays continuous across the rename.
+0. **Difficulty keys are not the labels.** Events carry `easy` / `medium` / `hard`, but players see **Easy / Tricky / Diabolical**. So `medium` in any chart means the puzzle labelled "Tricky", and `hard` means "Diabolical". The keys were deliberately left alone so history stays continuous across the rename.
 
 1. **Timezone.** The project buckets by UTC, but puzzles roll over at each player's *local* midnight. Day-edge numbers will be slightly soft for players outside UTC; totals and trends are unaffected.
 2. **`game_started` fires only for a fresh puzzle**, not when a saved game is restored from localStorage. That makes it a true count of starts, but it means a player who starts on one day and finishes after a reload shows up as a completion without a same-day start.

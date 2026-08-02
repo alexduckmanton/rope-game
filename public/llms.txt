@@ -16,7 +16,7 @@ Loopy is a free browser-based puzzle game available at https://loopy.wtf. Player
 
 ## Game Modes
 
-- **Daily Puzzles**: Three difficulty levels (Easy 4×4, Hard 6×6, Diabolical 8×8) with deterministic generation - everyone gets the same puzzle each day
+- **Daily Puzzles**: Three difficulty levels (Easy 4×4, Tricky 6×6, Diabolical 8×8) with deterministic generation - everyone gets the same puzzle each day
 
 ## Features
 
@@ -35,5 +35,5 @@ Built as a lightweight single-page application using vanilla JavaScript, HTML5 C
 
 - Play Game: https://loopy.wtf
 - Easy Daily Puzzle: https://loopy.wtf/play?difficulty=easy
-- Hard Daily Puzzle: https://loopy.wtf/play?difficulty=medium
+- Tricky Daily Puzzle: https://loopy.wtf/play?difficulty=medium
 - Diabolical Daily Puzzle: https://loopy.wtf/play?difficulty=hard

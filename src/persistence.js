@@ -793,8 +793,8 @@ export function getStreak(difficulty) {
  * Get the overall streak, which any difficulty can extend
  *
  * This is the streak players are asked to protect: completing any one of the
- * three daily puzzles keeps it alive, so a busy day only costs them the Hard
- * puzzle rather than the whole streak.
+ * three daily puzzles keeps it alive, so a busy day only costs them the
+ * Diabolical puzzle rather than the whole streak.
  *
  * @returns {{current: number, best: number, completedToday: boolean}} Streak state
  */
