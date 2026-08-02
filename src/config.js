@@ -170,7 +170,7 @@ export const CONFIG = {
     // Enable early game ending functionality
     // When enabled, shows:
     // - End button (allows players to finish game early with current score)
-    // - Score percentage in timer display (e.g., "Medium • 1:23 • 75%")
+    // - Score percentage in timer display (e.g., "Hard • 1:23 • 75%")
     // When disabled, hides both features for cleaner traditional puzzle experience
     ENABLE_EARLY_GAME_ENDING: false,
   },
