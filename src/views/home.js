@@ -96,15 +96,24 @@ function buildStreakCycle() {
 }
 
 /**
- * Set up the streak line above the difficulty buttons
+ * Fill the slot above the difficulty buttons
  *
- * Hidden entirely when there is no live streak. Tapping the line steps through
- * the per-difficulty streaks and wraps back to the overall one - an easter egg
- * rather than a control, so it carries no button affordance.
+ * The slot holds one of two things, and reserves its height either way so the
+ * difficulty buttons never move:
  *
- * @returns {Function|null} Cleanup function, or null if the line is hidden
+ * 1. The streak line, whenever a streak is live. Tapping it steps through the
+ *    per-difficulty streaks and wraps back to the overall one - an easter egg
+ *    rather than a control, so it carries no button affordance.
+ * 2. The tutorial button, for players with no streak who have not been through
+ *    it yet. Anyone with a streak has plainly worked out how to play, and the
+ *    help button in the game view still reaches the tutorial either way.
+ *
+ * When neither applies the slot simply stays empty.
+ *
+ * @param {HTMLElement} tutorialBtn - The tutorial button element
+ * @returns {Function|null} Cleanup function, or null if nothing was bound
  */
-function initStreakLine() {
+function initHomeSlot(tutorialBtn) {
   const streakEl = document.getElementById('home-streak');
   const textEl = document.getElementById('home-streak-text');
   if (!streakEl || !textEl) return null;
@@ -113,8 +122,11 @@ function initStreakLine() {
 
   if (cycle.length === 0) {
     streakEl.classList.remove('visible');
+    tutorialBtn.classList.toggle('visible', !isTutorialCompleted());
     return null;
   }
+
+  tutorialBtn.classList.remove('visible');
 
   let index = 0;
   textEl.textContent = cycle[index].label;
@@ -147,16 +159,12 @@ export function initHome() {
   // Temporarily hidden - page still works via direct URL
   // const unlimitedBtn = document.getElementById('unlimited-btn');
 
-  // Once the tutorial has been seen it stops earning its place on the home
-  // screen, so hide it rather than marking it complete
-  tutorialBtn.style.display = isTutorialCompleted() ? 'none' : '';
-
   // Update daily puzzle buttons (trophy for wins, skull for viewed solutions)
   updateDailyButtonState(easyBtn, 'easy');
   updateDailyButtonState(mediumBtn, 'medium');
   updateDailyButtonState(hardBtn, 'hard');
 
-  const cleanupStreakLine = initStreakLine();
+  const cleanupSlot = initHomeSlot(tutorialBtn);
 
   // Re-initialize icons after updating attributes
   initIcons();
@@ -188,7 +196,7 @@ export function initHome() {
 
   // Hide the tutorial button as soon as it is completed, without a reload
   const handleTutorialCompleted = () => {
-    tutorialBtn.style.display = 'none';
+    tutorialBtn.classList.remove('visible');
   };
   window.addEventListener('tutorialCompleted', handleTutorialCompleted);
 
@@ -199,7 +207,7 @@ export function initHome() {
     mediumBtn.removeEventListener('click', handleMedium);
     hardBtn.removeEventListener('click', handleHard);
     window.removeEventListener('tutorialCompleted', handleTutorialCompleted);
-    if (cleanupStreakLine) cleanupStreakLine();
+    if (cleanupSlot) cleanupSlot();
     // Temporarily hidden - page still works via direct URL
     // unlimitedBtn.removeEventListener('click', handleUnlimited);
   };

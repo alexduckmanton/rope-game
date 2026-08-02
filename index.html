@@ -68,14 +68,19 @@
       <div class="home-container">
         <h1 class="game-title">Loopy</h1>
         <p class="game-tagline">A daily path-drawing puzzle</p>
-        <p id="home-streak" class="home-streak">
-          <i data-lucide="flame" width="18" height="18"></i>
-          <span id="home-streak-text"></span>
-        </p>
-        <div class="home-buttons">
+        <!-- Fixed-height slot holding either the streak line or the tutorial
+             button. Both start hidden so the space is reserved from first
+             paint and nothing shifts once localStorage has been read. -->
+        <div class="home-slot">
+          <p id="home-streak" class="home-streak">
+            <i data-lucide="flame" width="18" height="18"></i>
+            <span id="home-streak-text"></span>
+          </p>
           <button id="tutorial-btn" class="btn btn-large">
             <span>How to play</span>
           </button>
+        </div>
+        <div class="home-buttons">
           <button id="easy-btn" class="btn btn-large">
             <i class="btn-complete-icon" data-lucide="trophy" width="20" height="20"></i>
             <span>Easy</span>

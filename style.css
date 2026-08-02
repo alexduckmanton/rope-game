@@ -512,19 +512,44 @@ button {
   margin: -48px 0 0 0;
 }
 
-/* Streak line above the difficulty buttons.
+/* Slot above the difficulty buttons holding either the streak line or the
+ * tutorial button - never both, and sometimes neither.
  *
- * Deliberately plain text: tapping it cycles through the per-difficulty
- * streaks, but it is a small reward for the curious rather than a control, so
- * it carries no button affordance. The negative bottom margin pulls it in
- * against the container's 48px gap so it reads as a label on the button list.
+ * Its height is fixed to match a large button, so the difficulty buttons sit
+ * at the same vertical position no matter which of the two ends up here. Both
+ * children start hidden, so the slot is empty at first paint and filling it
+ * once localStorage has been read never moves anything.
+ *
+ * The negative bottom margin pulls the slot in against the container's 48px
+ * gap, leaving the same 16px that separates the buttons from each other.
  */
+.home-slot {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  max-width: 300px;
+  min-height: 56px;
+  margin-bottom: -32px;
+}
+
+.home-slot .btn-large {
+  display: none;
+}
+
+.home-slot .btn-large.visible {
+  display: flex;
+}
+
+/* Streak line. Deliberately plain text: tapping it cycles through the
+ * per-difficulty streaks, but it is a small reward for the curious rather than
+ * a control, so it carries no button affordance. */
 .home-streak {
   display: none;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  margin: 0 0 -32px 0;
+  margin: 0;
   padding: 4px 8px;
   font-size: 15px;
   font-weight: 500;

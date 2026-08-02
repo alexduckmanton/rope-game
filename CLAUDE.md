@@ -482,7 +482,7 @@ Generates Hamiltonian cycles (paths visiting all cells exactly once forming a lo
 **Tutorial Access:**
 
 Tutorial is implemented as a bottom sheet component rather than a dedicated view:
-- **From Home**: Tutorial button opens carousel bottom sheet overlay. The button is hidden once the tutorial has been completed, since it has stopped earning its place on the home screen
+- **From Home**: Tutorial button opens carousel bottom sheet overlay. It shares a fixed-height slot with the streak line (see Streak System) and is hidden once the tutorial is completed, or once a streak exists — a player with a streak has plainly worked out how to play
 - **From Game**: Help icon (circle-help, left of settings) opens same tutorial sheet
 - **No Route**: Tutorial has no URL route - accessible via function call from any view
 
@@ -616,7 +616,17 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Home screen display:**
 
-A single line above the difficulty buttons: a Lucide `flame` icon plus text, e.g. "5 day streak". Hidden entirely when there is no live overall streak.
+A single line above the difficulty buttons: a Lucide `flame` icon plus text, e.g. "5 day streak".
+
+The line shares a fixed-height slot (`.home-slot`, 56px — one large button tall) with the tutorial button. Exactly one of them shows, and sometimes neither:
+
+| Streak live | Tutorial done | Slot shows |
+|---|---|---|
+| yes | either | Streak line |
+| no | no | Tutorial button |
+| no | yes | Nothing |
+
+Both children start hidden in CSS, so the slot is empty at first paint and filling it once localStorage has been read never moves the difficulty buttons. This matters because the router shows the home view before `views/home.js` has finished loading — previously the tutorial button painted during that gap and then vanished, shifting the buttons 36px.
 
 Tapping the line cycles through every difficulty that currently has a live streak of its own, then wraps back to the overall total:
 
