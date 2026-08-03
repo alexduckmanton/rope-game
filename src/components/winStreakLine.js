@@ -12,6 +12,7 @@
  */
 
 import { CONFIG } from '../config.js';
+import { createStreakFlameMarkup } from './streakFlame.js';
 
 /**
  * Create the swapping time/streak line
@@ -42,7 +43,7 @@ export function createWinStreakLine({ timeText, streakText }) {
 
   const streakEl = document.createElement('div');
   streakEl.className = 'win-streak-line-item win-streak-line-streak';
-  streakEl.innerHTML = `<i data-lucide="flame" width="18" height="18"></i><span></span>`;
+  streakEl.innerHTML = `${createStreakFlameMarkup()}<span></span>`;
   streakEl.querySelector('span').textContent = streakText;
 
   track.appendChild(timeEl);

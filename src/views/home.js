@@ -8,6 +8,7 @@ import { navigate } from '../router.js';
 import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished, getStreak, getOverallStreak, formatStreakLabel } from '../persistence.js';
 import { initIcons } from '../icons.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
+import { createStreakFlameMarkup } from '../components/streakFlame.js';
 import { trackDifficultySelected } from '../analytics.js';
 import { getDifficultyLabelLower } from '../config.js';
 
@@ -114,8 +115,7 @@ function buildStreakCycle() {
  */
 function initHomeSlot(tutorialBtn) {
   const streakEl = document.getElementById('home-streak');
-  const textEl = document.getElementById('home-streak-text');
-  if (!streakEl || !textEl) return null;
+  if (!streakEl) return null;
 
   const cycle = buildStreakCycle();
 
@@ -126,6 +126,13 @@ function initHomeSlot(tutorialBtn) {
   }
 
   tutorialBtn.classList.remove('visible');
+
+  // Rebuilt on every visit rather than written into index.html, so the flame
+  // follows the player's current reduced-motion preference. The initIcons()
+  // call in initHome() turns the placeholder into an SVG when the reduced
+  // motion branch is what came back.
+  streakEl.innerHTML = `${createStreakFlameMarkup()}<span class="home-streak-text"></span>`;
+  const textEl = streakEl.querySelector('.home-streak-text');
 
   let index = 0;
   textEl.textContent = cycle[index].label;
