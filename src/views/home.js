@@ -5,7 +5,7 @@
  */
 
 import { navigate } from '../router.js';
-import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished, getStreak, getOverallStreak } from '../persistence.js';
+import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished, getStreak, getOverallStreak, formatStreakLabel } from '../persistence.js';
 import { initIcons } from '../icons.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
 import { trackDifficultySelected } from '../analytics.js';
@@ -82,15 +82,13 @@ function buildStreakCycle() {
   const overall = getOverallStreak();
   if (overall.current === 0) return [];
 
-  const cycle = [{ label: `${overall.current} day streak` }];
+  const cycle = [{ label: formatStreakLabel(overall.current) }];
 
   for (const difficulty of DIFFICULTIES) {
     const streak = getStreak(difficulty);
     if (streak.current === 0) continue;
 
-    // Difficulty stays lowercase so the line reads as a sentence - a
-    // capitalised word mid-phrase reads as a label instead
-    cycle.push({ label: `${streak.current} day ${getDifficultyLabelLower(difficulty)} streak` });
+    cycle.push({ label: formatStreakLabel(streak.current, getDifficultyLabelLower(difficulty)) });
   }
 
   return cycle;

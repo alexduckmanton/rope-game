@@ -14,12 +14,13 @@
 | `gameCore.js` | Game state & pointer events | `createGameCore({ gridSize, canvas, onRender })` - Returns instance with event handlers |
 | `generator.js` | Puzzle generation | `generateSolutionPath(size, randomFn)` - Warnsdorff's heuristic, returns Hamiltonian cycle (used for hint generation; players can make smaller loops) |
 | `renderer.js` | Canvas drawing | `renderGrid()`, `renderPlayerPath()`, `renderCellNumbers()`, `generateHintCellsWithMinDistance()`, `calculateBorderLayers()` |
-| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()`, `getStreak()`, `getOverallStreak()`, `recordDailyStreak()` |
+| `persistence.js` | localStorage persistence | `saveGameState()`, `loadGameState()`, `createThrottledSave()`, `saveSettings()`, `getStreak()`, `getOverallStreak()`, `recordDailyStreak()`, `formatStreakLabel()` |
 | `seededRandom.js` | Deterministic PRNG | `createSeededRandom(seed)` - Mulberry32 for daily puzzles; `getPuzzleNumber()` - sequential daily puzzle number |
 | `analytics.js` | PostHog analytics | `trackPageView()`, `trackEvent()`, plus a named `trackX()` helper per game event |
 | `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `parseCellKey()`, `createCellKey()`, `getCellsAlongLine()` - Bresenham with 4-connected enforcement |
 | `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet()`, `showBottomSheetAsync()` - Factory + async helper with onClose callback |
 | `components/tutorialSheet.js` | Tutorial bottom sheet | `showTutorialSheet()` - Self-contained carousel with video management |
+| `components/winStreakLine.js` | Win sheet time/streak line | `createWinStreakLine()` - Completion time that slides up and out for the streak |
 | `game/timer.js` | Game timer | `createGameTimer({ onUpdate, difficulty })`, `formatTime()` - Encapsulated timer with pause/resume |
 | `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback, score-aware share text |
 | `game/validation.js` | Win validation & scoring | `checkStructuralWin()`, `checkFullWin()`, `validateHints()`, `calculateScore()`, `getScoreLabel()` - Game validation logic and score calculation |
@@ -248,7 +249,7 @@ When players complete a closed loop, contextual feedback modals appear based on 
 
 | Condition | Modal Title | Modal Body | Icon | Color |
 |-----------|-------------|------------|------|-------|
-| All hints satisfied AND all cells visited (100%) | "Perfect loop!" | Completion time | party-popper | Gold/amber |
+| All hints satisfied AND all cells visited (100%) | "Perfect loop!" | Completion time, swapping to the streak (daily only) | party-popper | Gold/amber |
 | Valid loop but incomplete (<100%) | "\<Score Label\> loop!" | "You scored \<score\>% in \<time\>. Make all numbers zero for a perfect score." | circle-check-big | Green |
 
 **Partial Win Modal:**
@@ -262,6 +263,20 @@ When players complete a closed loop, contextual feedback modals appear based on 
 - Celebrates complete puzzle solution
 - Daily mode includes Share button for social features
 - Timer stops permanently on perfect completion
+- Body line opens on the completion time, then swaps itself for the streak (see Win Sheet Streak Reveal)
+
+**Win Sheet Streak Reveal:**
+
+In daily mode the perfect win sheet's body line does not sit still. It opens on "You finished in 2:34.", holds for a beat, then slides that line up and out while the streak line - the same flame icon and "5 day streak" wording as the home screen - slides up into its place. The reward for coming back tomorrow lands in the same moment as the win.
+
+- **Mechanism**: both lines are stacked inside a window exactly one line tall (24px) with `overflow: hidden`, so the swap is a single transform on the track and everything outside the window is cropped. Nothing in the sheet moves.
+- **Timing**: `CONFIG.WIN_STREAK.REVEAL_DELAY_MS` (2000) before the swap, `CONFIG.WIN_STREAK.TRANSITION_MS` (300) for the slide itself, on an easeInOutQuint curve so it reads as snappy rather than as an animation to wait out.
+- **Tap to toggle**: tapping the line switches between the two, and cancels the pending automatic reveal so a tap is never overridden a moment later.
+- **Replays on every open**: a fresh line is built for each sheet, including when a completed daily puzzle is reopened from a saved game, so the reveal always plays from the time.
+- **Overall streak only**: the line never mentions the difficulty. Per-difficulty streaks stay an easter egg on the home screen.
+- **Unlimited mode**: unlimited games do not touch the daily streak, so there the sheet keeps the plain time line with no swap. Same when the overall streak is somehow 0.
+
+The wording comes from `formatStreakLabel()` in `persistence.js`, shared with the home screen line so the two can never drift apart.
 
 **Manual Finish Modal:**
 - Triggered when player uses End button to voluntarily finish game early
@@ -417,7 +432,8 @@ rope-game/
 │   ├── renderer.js        # Canvas rendering (grid, paths, hints, borders)
 │   ├── persistence.js     # localStorage save/load/cleanup with throttled writes
 │   ├── components/        # Reusable UI components
-│   │   └── tutorialSheet.js # Tutorial carousel bottom sheet with video management
+│   │   ├── tutorialSheet.js # Tutorial carousel bottom sheet with video management
+│   │   └── winStreakLine.js # Win sheet line that swaps completion time for streak
 │   ├── game/              # Shared game utilities
 │   │   ├── timer.js       # Encapsulated timer with pause/resume support
 │   │   ├── share.js       # Share functionality (Web Share API + clipboard fallback)
@@ -648,6 +664,10 @@ This is deliberately styled as plain text, not a control — it is a small rewar
 
 The difficulty buttons themselves carry only the existing completion icon: trophy for a win, check for a manual finish, skull for a viewed solution.
 
+**Win sheet display:**
+
+The perfect win sheet shows the overall streak too, revealed a couple of seconds after the sheet opens - see Win Sheet Streak Reveal under Validation Modals. This is the moment the streak has just been extended, so it is the most useful place to show it.
+
 **Analytics:** Each update fires `streak_updated` carrying both the difficulty and overall streaks, and writes them as person properties (`streak_current_<difficulty>`, `streak_current_overall`, and their `best` equivalents), so retention can be segmented by streak length.
 
 ### Analytics (PostHog)
@@ -874,7 +894,7 @@ All dismissal paths wait for hide animation to complete before firing onClose ca
 | Location | Sheet Type | Content | Icon | Color Scheme | Dismiss Label |
 |----------|-----------|---------|------|--------------|---------------|
 | Settings panel | Persistent | HTMLElement | `settings` | `neutral` | "Close" |
-| Perfect win (game) | Transient | HTML string | `party-popper` | `success` | "Yay!" |
+| Perfect win (game) | Transient | HTMLElement (daily) / HTML string | `party-popper` | `success` | "Yay!" |
 | Perfect win (tutorial) | Transient | HTML string | `party-popper` | `success` | "Next" |
 | Partial win (game) | Transient | HTML string | `circle-check-big` | `partial` | "Keep trying" |
 
@@ -1191,6 +1211,12 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 3. **Saved unlimited puzzles**: Will retain their original hint placement when restored (no automatic migration)
 4. **Distance constraint**: Set `minDistance=0` to disable spatial constraints (any cell valid)
 5. **Graceful degradation**: If constraints are too tight, fewer hints will be placed (no error)
+
+**Modify the Win Sheet Streak Reveal:**
+1. **Timings**: `CONFIG.WIN_STREAK.REVEAL_DELAY_MS` and `CONFIG.WIN_STREAK.TRANSITION_MS` in `config.js`. The duration is applied inline to the track, so it overrides the CSS default.
+2. **Easing**: `.win-streak-line-track` transition in `style.css`
+3. **Wording**: `formatStreakLabel()` in `persistence.js` - shared with the home screen line, so a change lands in both
+4. **Line height**: `.win-streak-line-window` height and `.win-streak-line-item` height in `style.css` must stay equal, and match one line of `.bottom-sheet-message` text
 
 **Modify Hint Display:**
 1. **Hint number colors**: Modify hint gradient colors in `tokens.css` (both light and dark mode blocks). The 9-color gradient is defined as `--color-hint-1` through `--color-hint-9` and automatically flows to `CONFIG.COLORS.HINT_COLORS`
