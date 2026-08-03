@@ -1,13 +1,15 @@
 /**
  * Home View
  *
- * Main landing page with game title, streak line and difficulty selection buttons
+ * Main landing page with game title, streak line, difficulty selection buttons
+ * and the hamburger menu holding the secondary destinations
  */
 
 import { navigate } from '../router.js';
 import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished, getStreak, getOverallStreak, formatStreakLabel } from '../persistence.js';
 import { initIcons } from '../icons.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
+import { initHomeMenu } from '../components/homeMenu.js';
 import { trackDifficultySelected } from '../analytics.js';
 import { getDifficultyLabelLower } from '../config.js';
 
@@ -155,8 +157,6 @@ export function initHome() {
   const easyBtn = document.getElementById('easy-btn');
   const mediumBtn = document.getElementById('medium-btn');
   const hardBtn = document.getElementById('hard-btn');
-  // Temporarily hidden - page still works via direct URL
-  // const unlimitedBtn = document.getElementById('unlimited-btn');
 
   // Update daily puzzle buttons (trophy for wins, skull for viewed solutions)
   updateDailyButtonState(easyBtn, 'easy');
@@ -164,6 +164,7 @@ export function initHome() {
   updateDailyButtonState(hardBtn, 'hard');
 
   const cleanupSlot = initHomeSlot(tutorialBtn);
+  const cleanupMenu = initHomeMenu();
 
   // Re-initialize icons after updating attributes
   initIcons();
@@ -182,16 +183,12 @@ export function initHome() {
     trackDifficultySelected('hard');
     navigate('/play?difficulty=hard', false, { fromHome: true });
   };
-  // Temporarily hidden - page still works via direct URL
-  // const handleUnlimited = () => navigate('/play?difficulty=unlimited', false, { fromHome: true });
 
   // Attach listeners
   tutorialBtn.addEventListener('click', handleTutorial);
   easyBtn.addEventListener('click', handleEasy);
   mediumBtn.addEventListener('click', handleMedium);
   hardBtn.addEventListener('click', handleHard);
-  // Temporarily hidden - page still works via direct URL
-  // unlimitedBtn.addEventListener('click', handleUnlimited);
 
   // Hide the tutorial button as soon as it is completed, without a reload
   const handleTutorialCompleted = () => {
@@ -207,7 +204,6 @@ export function initHome() {
     hardBtn.removeEventListener('click', handleHard);
     window.removeEventListener('tutorialCompleted', handleTutorialCompleted);
     if (cleanupSlot) cleanupSlot();
-    // Temporarily hidden - page still works via direct URL
-    // unlimitedBtn.removeEventListener('click', handleUnlimited);
+    if (cleanupMenu) cleanupMenu();
   };
 }

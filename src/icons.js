@@ -7,7 +7,8 @@
  * Icons used:
  * - ArrowLeft: Back navigation button
  * - Settings: Settings/gear button
- * - X: Close button (legacy, now unused after bottom sheet redesign)
+ * - X: Close state of the home screen hamburger menu
+ * - Menu: Open state of the home screen hamburger menu
  * - Dices: New puzzle button
  * - RefreshCcw: Restart puzzle button
  * - Undo2: Undo button in game view
@@ -28,7 +29,7 @@
  * - Flame: Daily streak indicator on home screen and in the win bottom sheet
  */
 
-import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig, HeartCrack, OctagonAlert, ChevronDown, Flame } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Menu, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig, HeartCrack, OctagonAlert, ChevronDown, Flame } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -47,6 +48,7 @@ export function initIcons() {
       ArrowLeft,
       Settings,
       X,
+      Menu,
       Dices,
       RefreshCcw,
       Undo2,

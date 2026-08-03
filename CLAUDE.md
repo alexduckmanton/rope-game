@@ -20,6 +20,7 @@
 | `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `parseCellKey()`, `createCellKey()`, `getCellsAlongLine()` - Bresenham with 4-connected enforcement |
 | `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet()`, `showBottomSheetAsync()` - Factory + async helper with onClose callback |
 | `components/tutorialSheet.js` | Tutorial bottom sheet | `showTutorialSheet()` - Self-contained carousel with video management |
+| `components/homeMenu.js` | Home screen hamburger menu | `initHomeMenu()` - Slide-in sheet holding the secondary destinations |
 | `components/winStreakLine.js` | Win sheet time/streak line | `createWinStreakLine()` - Completion time that slides up and out for the streak |
 | `game/timer.js` | Game timer | `createGameTimer({ onUpdate, difficulty })`, `formatTime()` - Encapsulated timer with pause/resume |
 | `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback, score-aware share text |
@@ -433,6 +434,7 @@ rope-game/
 │   ├── persistence.js     # localStorage save/load/cleanup with throttled writes
 │   ├── components/        # Reusable UI components
 │   │   ├── tutorialSheet.js # Tutorial carousel bottom sheet with video management
+│   │   ├── homeMenu.js      # Home screen hamburger menu and slide-in sheet
 │   │   └── winStreakLine.js # Win sheet line that swaps completion time for streak
 │   ├── game/              # Shared game utilities
 │   │   ├── timer.js       # Encapsulated timer with pause/resume support
@@ -500,13 +502,13 @@ Generates Hamiltonian cycles (paths visiting all cells exactly once forming a lo
 
 | View | Route | Purpose |
 |------|-------|---------|
-| **Home** | `/` | Landing page with current date and navigation buttons (Tutorial, Easy, Tricky, Diabolical) |
+| **Home** | `/` | Landing page with the difficulty buttons (Easy, Tricky, Diabolical), the streak/tutorial slot above them, and the hamburger menu holding everything else |
 | **Play** | `/play?difficulty=X` | Main game interface with canvas, controls, timer, settings, help button |
 
 **Tutorial Access:**
 
 Tutorial is implemented as a bottom sheet component rather than a dedicated view:
-- **From Home**: Tutorial button opens carousel bottom sheet overlay. It shares a fixed-height slot with the streak line (see Streak System) and is hidden once the tutorial is completed, or once a streak exists — a player with a streak has plainly worked out how to play
+- **From Home**: Tutorial button opens carousel bottom sheet overlay. It shares a fixed-height slot with the streak line (see Streak System) and is hidden once the tutorial is completed, or once a streak exists — a player with a streak has plainly worked out how to play. The hamburger menu carries a permanent "How to play" item, so the tutorial stays reachable after the slot button is gone
 - **From Game**: Help icon (circle-help, left of settings) opens same tutorial sheet
 - **No Route**: Tutorial has no URL route - accessible via function call from any view
 
@@ -642,7 +644,7 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 A single line above the difficulty buttons: a Lucide `flame` icon plus text, e.g. "5 day streak".
 
-The line shares a fixed-height slot (`.home-slot`, 56px — one large button tall) with the tutorial button. Exactly one of them shows, and sometimes neither:
+The line shares a fixed-height slot (`.home-slot`, 72px — one large button tall) with the tutorial button. Exactly one of them shows, and sometimes neither:
 
 | Streak live | Tutorial done | Slot shows |
 |---|---|---|
@@ -650,7 +652,7 @@ The line shares a fixed-height slot (`.home-slot`, 56px — one large button tal
 | no | no | Tutorial button |
 | no | yes | Nothing |
 
-Both children start hidden in CSS, so the slot is empty at first paint and filling it once localStorage has been read never moves the difficulty buttons. This matters because the router shows the home view before `views/home.js` has finished loading — previously the tutorial button painted during that gap and then vanished, shifting the buttons 36px.
+Both children start hidden in CSS, so the slot is empty at first paint and filling it once localStorage has been read never moves the difficulty buttons. This matters because the router shows the home view before `views/home.js` has finished loading — previously the tutorial button painted during that gap and then vanished, shifting the buttons.
 
 Tapping the line cycles through every difficulty that currently has a live streak of its own, then wraps back to the overall total:
 
@@ -910,6 +912,28 @@ No built-in state tracking across multiple sheets (only one should be visible at
 
 Component could be extended to support multiple simultaneous sheets with z-index stacking, animation queueing for rapid successive shows, keyboard navigation (Escape to close), focus management (trap focus within sheet, restore on close), and ARIA attributes for screen readers. Current implementation prioritizes simplicity and covers all existing use cases without over-engineering for hypothetical requirements.
 
+### Home Screen Menu
+
+**Purpose:** Holds the destinations that do not earn a place in the main button stack, keeping the home screen down to the three daily puzzles.
+
+A 44px hamburger button is fixed in the top-left of the home screen. Tapping it slides a sheet in from the left over a dimmed scrim.
+
+**Contents:** How to play (opens the tutorial sheet), Unlimited, Support Loopy, Give feedback. The last two moved here from the old home footer, which is gone.
+
+**Mechanics:**
+
+- All open/closed styling hangs off a single `menu-open` class on `#home-view`, so the toggle icon, the scrim and the sheet stay in step without the JavaScript touching each of them.
+- The icon swap is two Lucide icons (`menu` and `x`) stacked in one grid cell. They cross-fade while the stack rotates 180°, so the change reads as a single movement rather than two.
+- Open and close both run 350ms on `cubic-bezier(0.83, 0, 0.17, 1)` — a quint ease-in-out, steep off the mark and slow to settle.
+- `visibility` is delayed by the full duration on the way out, so the sheet finishes sliding before it stops being hit-testable.
+- Closes on the toggle, a scrim tap, or Escape.
+- Menu items carry `tabindex="-1"` while the sheet is closed, so keyboard users never land on a link they cannot see.
+- The view cleanup closes the menu, so navigating back to home never restores a half-open sheet.
+
+**Layering:** scrim 900, sheet 910, toggle 920 — the toggle sits above the sheet so the icon swaps in place rather than being covered, and the whole menu sits below the bottom sheet overlay (1000) so the tutorial stacks over it.
+
+**Reduced motion:** `prefers-reduced-motion` collapses `--menu-duration` to 0.01ms, so the menu changes state without animating.
+
 ### Tutorial Bottom Sheet System
 
 **Architecture:** Self-contained carousel component providing interactive walkthrough accessible from any view without navigation.
@@ -1026,11 +1050,13 @@ For implementation details, see Color Token System in Key Systems section.
 
 **Button Styling:** Minimal flat design, rounded corners (8px), subtle shadow on tap, no heavy borders.
 
+**Home Screen Buttons (`.btn-large`):** Deliberately bigger and softer than the in-game controls — 72px tall, 24px radius, 20px/700 text, 8px apart, capped at 400px wide. No drop shadow: press feedback is carried by opacity (0.85 on hover, 0.7 on press) and a 2px lift alone. The completion icon (trophy / check / skull) is absolutely positioned 24px from the left edge. The same styling covers the tutorial button in the slot above, so the whole stack reads as one set.
+
 **Icons:**
 - **Library**: Lucide icons (tree-shakeable, ~2-3KB for current icons)
 - **Sizing**: 18px inline (button labels), 20px standalone, 24px header buttons
 - **Color**: Inherit via `currentColor`
-- **Usage**: Arrow-left (back), Circle-help (help), Settings (gear), Dices (new puzzle), Refresh-ccw (Clear), Undo2 (undo), Check (End, home completion), Party-popper (win), Octagon-alert (confirmation warning), Circle-off (error), Share2 (share), Trophy/Skull (home completion icons), ChevronDown (settings select indicator)
+- **Usage**: Arrow-left (back), Circle-help (help), Settings (gear), Dices (new puzzle), Refresh-ccw (Clear), Undo2 (undo), Check (End, home completion), Party-popper (win), Octagon-alert (confirmation warning), Circle-off (error), Share2 (share), Trophy/Skull (home completion icons), ChevronDown (settings select indicator), Menu/X (home hamburger menu, cross-fading between the two)
 
 **Settings Bottom Sheet:**
 
@@ -1177,6 +1203,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 - Intelligent drag interactions and path smoothing
 - Automatic dark mode following system preferences
 - Per-difficulty daily streaks with home screen badges
+- Home screen hamburger menu with slide-in sheet for secondary destinations
 - Design token system with CSS-as-source-of-truth architecture
 
 **🚧 Planned Enhancements**
@@ -1373,7 +1400,7 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 |--------|-------------------------------|----------------|
 | **Puzzle Source** | Deterministic from date seed | True random generation |
 | **Consistency** | Everyone sees same puzzle on same local date | Each session gets different puzzles |
-| **Entry Point** | Home → Select difficulty → Fixed for session | Home → Unlimited → Defaults to Easy |
+| **Entry Point** | Home → Select difficulty → Fixed for session | Home → Menu → Unlimited → Defaults to Easy |
 | **New Button** | Hidden (can't regenerate daily puzzle) | Visible (generate fresh puzzle anytime) |
 | **Difficulty** | Fixed by initial selection | Switchable in-session via settings segmented control |
 | **Grid Size** | Easy 4x4, Tricky 6x6, Diabolical 8x8 | Same sizes, switchable within session |

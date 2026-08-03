@@ -512,6 +512,158 @@ button {
   margin: -48px 0 0 0;
 }
 
+/* ----------------------------------------------------------------------------
+ * Home menu (hamburger + slide-in sheet)
+ * ------------------------------------------------------------------------- */
+
+/* Quint ease-in-out - steep acceleration, long settle */
+.home-menu-toggle,
+.home-menu-scrim,
+.home-menu-sheet {
+  --menu-ease: cubic-bezier(0.83, 0, 0.17, 1);
+  --menu-duration: 350ms;
+}
+
+/* Sits above the sheet so the icon swaps in place rather than being covered,
+ * but below the bottom sheet overlay (1000) so the tutorial stacks over it */
+.home-menu-toggle {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  z-index: 920;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The two icons are stacked in a single grid cell and cross-fade in place
+ * while the stack spins, so the swap reads as one movement */
+.home-menu-icon-stack {
+  display: grid;
+  place-items: center;
+  transition: transform var(--menu-duration) var(--menu-ease);
+}
+
+#home-view.menu-open .home-menu-icon-stack {
+  transform: rotate(180deg);
+}
+
+.home-menu-icon {
+  grid-area: 1 / 1;
+  display: flex;
+  transition: opacity var(--menu-duration) var(--menu-ease);
+}
+
+.home-menu-icon-close {
+  opacity: 0;
+}
+
+#home-view.menu-open .home-menu-icon-open {
+  opacity: 0;
+}
+
+#home-view.menu-open .home-menu-icon-close {
+  opacity: 1;
+}
+
+/* Visibility is delayed by the full duration on the way out so the sheet can
+ * finish sliding before it stops being hit-testable */
+.home-menu-scrim {
+  position: fixed;
+  inset: 0;
+  background-color: var(--color-backdrop);
+  z-index: 900;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--menu-duration) var(--menu-ease),
+    visibility 0s linear var(--menu-duration);
+}
+
+#home-view.menu-open .home-menu-scrim {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity var(--menu-duration) var(--menu-ease),
+    visibility 0s;
+}
+
+.home-menu-sheet {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(280px, 80%);
+  padding: 72px 16px 16px;
+  background-color: var(--color-bg-elevated);
+  border-right: 1px solid var(--color-border-light);
+  overflow-y: auto;
+  z-index: 910;
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition:
+    transform var(--menu-duration) var(--menu-ease),
+    visibility 0s linear var(--menu-duration);
+}
+
+#home-view.menu-open .home-menu-sheet {
+  transform: translateX(0);
+  visibility: visible;
+  transition:
+    transform var(--menu-duration) var(--menu-ease),
+    visibility 0s;
+}
+
+.home-menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.home-menu-item {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 16px;
+  background: none;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 200ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.home-menu-item:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.home-menu-item:active {
+  background-color: var(--color-border-light);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-menu-toggle,
+  .home-menu-scrim,
+  .home-menu-sheet {
+    --menu-duration: 0.01ms;
+  }
+}
+
 /* Slot above the difficulty buttons holding either the streak line or the
  * tutorial button - never both, and sometimes neither.
  *
@@ -521,16 +673,16 @@ button {
  * once localStorage has been read never moves anything.
  *
  * The negative bottom margin pulls the slot in against the container's 48px
- * gap, leaving the same 16px that separates the buttons from each other.
+ * gap, leaving the same 8px that separates the buttons from each other.
  */
 .home-slot {
   display: flex;
   flex-direction: column;
   justify-content: center;
   width: 100%;
-  max-width: 300px;
-  min-height: 56px;
-  margin-bottom: -32px;
+  max-width: 400px;
+  min-height: 72px;
+  margin-bottom: -40px;
 }
 
 .home-slot .btn-large {
@@ -569,43 +721,44 @@ button {
 .home-buttons {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
   width: 100%;
-  max-width: 300px;
+  max-width: 400px;
 }
 
-.home-footer {
-  position: fixed;
-  bottom: 16px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  margin: 0;
-}
-
-.home-footer a {
-  color: var(--color-primary);
-  text-decoration: underline;
-}
-
+/* Large home screen buttons. Flat and generously rounded - no drop shadow, so
+ * the press feedback is carried by opacity and lift alone. */
 .btn-large {
-  padding: 16px 32px;
-  font-size: 18px;
-  font-weight: 600;
-  min-height: 56px;
+  padding: 0 2em;
+  font-size: 20px;
+  font-weight: 700;
+  min-height: 72px;
+  border-radius: 24px;
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.btn-large:hover {
+  opacity: 0.85;
+  box-shadow: none;
+  transform: translateY(-2px);
+}
+
+.btn-large:active {
+  opacity: 0.7;
+  box-shadow: none;
+  transform: translateY(0);
 }
 
 /* Completed state icon in buttons - hidden by default, positioned left */
 .btn-complete-icon {
   display: none;
   position: absolute;
-  left: 16px;
+  left: 24px;
 }
 
 /* Show completion icon when button has completed class */

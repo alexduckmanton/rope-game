@@ -65,6 +65,25 @@
   <div id="app">
     <!-- Home View -->
     <div id="home-view" class="view">
+      <!-- Hamburger menu. Sits above the sheet so the icon swaps in place
+           rather than being covered, but below the bottom sheet overlay so
+           the tutorial stacks over it. -->
+      <button id="home-menu-toggle" class="home-menu-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="home-menu-sheet">
+        <span class="home-menu-icon-stack">
+          <span class="home-menu-icon home-menu-icon-open"><i data-lucide="menu" width="24" height="24"></i></span>
+          <span class="home-menu-icon home-menu-icon-close"><i data-lucide="x" width="24" height="24"></i></span>
+        </span>
+      </button>
+      <div id="home-menu-scrim" class="home-menu-scrim" aria-hidden="true"></div>
+      <nav id="home-menu-sheet" class="home-menu-sheet" aria-label="Menu" aria-hidden="true">
+        <ul class="home-menu-list">
+          <li><button id="home-menu-tutorial" class="home-menu-item" tabindex="-1">How to play</button></li>
+          <li><button id="home-menu-unlimited" class="home-menu-item" tabindex="-1">Unlimited</button></li>
+          <li><a class="home-menu-item" href="https://ko-fi.com/alexduckmanton" target="_blank" rel="noopener noreferrer" tabindex="-1">Support Loopy</a></li>
+          <li><a class="home-menu-item" href="https://bsky.app/profile/alexduckmanton.bsky.social" target="_blank" rel="noopener noreferrer" tabindex="-1">Give feedback</a></li>
+        </ul>
+      </nav>
+
       <div class="home-container">
         <h1 class="game-title">Loopy</h1>
         <p class="game-tagline">A daily path-drawing puzzle</p>
@@ -93,11 +112,9 @@
             <i class="btn-complete-icon" data-lucide="trophy" width="20" height="20"></i>
             <span>Diabolical</span>
           </button>
-          <!-- Temporarily hidden - page still works via direct URL -->
-          <!-- <button id="unlimited-btn" class="btn btn-large">Unlimited</button> -->
+          <!-- Unlimited lives in the hamburger menu, not the main stack -->
         </div>
       </div>
-      <p class="home-footer"><a href="https://bsky.app/profile/alexduckmanton.bsky.social" target="_blank" rel="noopener noreferrer">Give feedback</a> and <a href="https://ko-fi.com/alexduckmanton" target="_blank" rel="noopener noreferrer">support</a></p>
     </div>
 
     <!-- Play View (Game) -->
