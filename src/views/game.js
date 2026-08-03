@@ -12,8 +12,9 @@ import { CONFIG, getDifficultyLabel } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
-import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished, isDailyCompleted, recordDailyStreak } from '../persistence.js';
+import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished, isDailyCompleted, recordDailyStreak, getOverallStreak, formatStreakLabel } from '../persistence.js';
 import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
+import { createWinStreakLine } from '../components/winStreakLine.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
@@ -85,6 +86,7 @@ let segmentButtons;
 // Bottom sheet instances
 let settingsSheet;
 let activeGameSheet;  // Track winning/feedback sheets for cleanup
+let activeWinStreakLine;  // Swapping time/streak line inside the win sheet
 
 // Puzzle state
 let solutionPath = [];
@@ -563,13 +565,38 @@ function getNextIncompleteDifficulty(currentDifficulty) {
  * - Daily mode: Shows "Play another" or "Close" button (secondary) + "Share" button (primary)
  * - Unlimited/Tutorial: Shows "Yay!" button (primary), no share option
  *
+ * The body line opens on the completion time and, in daily mode, swaps itself
+ * out for the player's overall streak after a beat - see winStreakLine.js.
+ * Unlimited games do not touch the daily streak, so there they simply show the
+ * time.
+ *
  * @param {string} finalTime - Formatted completion time (e.g., "Easy • 2:34")
  */
 function showWinCelebration(finalTime) {
+  const timeText = `You finished in ${finalTime}.`;
+
+  // A win in daily mode has just recorded the streak, so this reads the value
+  // the player has this second
+  const streakDays = isDailyMode ? getOverallStreak().current : 0;
+
+  if (activeWinStreakLine) {
+    activeWinStreakLine.destroy();
+    activeWinStreakLine = null;
+  }
+
+  if (streakDays > 0) {
+    activeWinStreakLine = createWinStreakLine({
+      timeText,
+      streakText: formatStreakLabel(streakDays)
+    });
+  }
+
   // Build bottom sheet options
   const bottomSheetOptions = {
     title: 'Perfect loop!',
-    content: `<div class="bottom-sheet-message">You finished in ${finalTime}.</div>`,
+    content: activeWinStreakLine
+      ? activeWinStreakLine.element
+      : `<div class="bottom-sheet-message">${timeText}</div>`,
     icon: 'party-popper',
     colorScheme: 'success',
     dismissVariant: isDailyMode ? 'secondary' : 'primary',
@@ -615,6 +642,16 @@ function showWinCelebration(finalTime) {
     activeGameSheet.destroy();
   }
   activeGameSheet = showBottomSheetAsync(bottomSheetOptions);
+
+  // Arm the streak reveal only once the sheet has been told to show, so the
+  // delay runs from the sheet appearing. Mirrors showBottomSheetAsync's own
+  // scheduling, which puts this immediately after its show() call.
+  if (activeWinStreakLine) {
+    const line = activeWinStreakLine;
+    requestAnimationFrame(() => {
+      setTimeout(() => line.start(), 0);
+    });
+  }
 }
 
 /**
@@ -1625,6 +1662,10 @@ export function cleanupGame() {
   if (activeGameSheet) {
     activeGameSheet.destroy();
     activeGameSheet = null;
+  }
+  if (activeWinStreakLine) {
+    activeWinStreakLine.destroy();
+    activeWinStreakLine = null;
   }
 
   // Remove all event listeners

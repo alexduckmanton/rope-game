@@ -822,6 +822,52 @@ button {
   margin-bottom: 0; /* Remove bottom margin from last paragraph */
 }
 
+/* Win sheet streak line. The completion time and the streak are stacked inside
+ * a window exactly one line tall, so sliding the track swaps one for the other
+ * with both crossing the window edge rather than flipping in place. */
+.win-streak-line {
+  display: flex;
+  justify-content: center;
+  padding: 0 20px 16px 20px; /* Matches .bottom-sheet-message */
+}
+
+.win-streak-line-window {
+  height: 24px; /* One line of .bottom-sheet-message text (16px x 1.5) */
+  overflow: hidden;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.win-streak-line-track {
+  display: flex;
+  flex-direction: column;
+  transform: translateY(0);
+  /* easeInOutQuint: slow at both ends, quick through the middle, so the swap
+   * reads as snappy. Duration is set inline from CONFIG.WIN_STREAK. */
+  transition: transform 300ms cubic-bezier(0.83, 0, 0.17, 1);
+}
+
+.win-streak-line-track.showing-streak {
+  transform: translateY(-50%); /* Half the two-item track: exactly one line */
+}
+
+.win-streak-line-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 24px;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.win-streak-line-streak svg {
+  color: var(--color-streak);
+  flex-shrink: 0;
+}
+
 /* Video container - square aspect ratio, matches button width */
 .bottom-sheet-video-container {
   width: calc(100% - 40px); /* Match button width (full width minus 20px margins on each side) */

@@ -803,6 +803,26 @@ export function getOverallStreak() {
 }
 
 /**
+ * Format a streak for display
+ *
+ * The single source of the streak wording, shared by the home screen line and
+ * the win sheet so the two can never drift apart.
+ *
+ * @param {number} days - Streak length in days
+ * @param {string} [difficultyLabel] - Lowercase difficulty label, for the
+ *   per-difficulty streaks the home line cycles through. Left out for the
+ *   overall streak.
+ * @returns {string} e.g. "5 day streak" or "5 day tricky streak"
+ */
+export function formatStreakLabel(days, difficultyLabel) {
+  // Difficulty stays lowercase so the line reads as a sentence - a capitalised
+  // word mid-phrase reads as a label instead
+  return difficultyLabel
+    ? `${days} day ${difficultyLabel} streak`
+    : `${days} day streak`;
+}
+
+/**
  * Record a completed daily puzzle against both the overall streak and the
  * streak for that specific difficulty
  *
