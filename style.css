@@ -567,7 +567,7 @@ button {
   flex-shrink: 0;
 }
 
-/* The animated Fluent fire emoji, beside both streak counts.
+/* The Fluent fire emoji, beside both streak counts.
  *
  * It brings its own colour, so unlike the icon it does not read from
  * --color-streak and looks the same in both themes. Blocked so the line box
@@ -746,7 +746,8 @@ button {
   margin: -40px auto 16px auto; /* Negative margin pulls icon up to straddle top edge */
 }
 
-.bottom-sheet-icon-container svg {
+.bottom-sheet-icon-container svg,
+.bottom-sheet-emoji {
   display: block;
 }
 

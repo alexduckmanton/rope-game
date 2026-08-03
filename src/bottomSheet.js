@@ -7,12 +7,22 @@
 
 import { initIcons } from './icons.js';
 import { semantic } from './tokens.js';
+import { createEmojiMarkup } from './components/fluentEmoji.js';
 
 /**
  * Animation duration for show/hide transitions (must match CSS transition duration)
  * @see style.css .bottom-sheet transition property (line 526)
  */
 const ANIMATION_DURATION_MS = 300;
+
+/**
+ * Rendered size of the emoji in the circle at the top of the sheet
+ *
+ * The same box the Lucide icons used. The emoji fill more of their box than
+ * those icons did, so they read a little bolder at the same measurement -
+ * which is what the moment wants on a win sheet.
+ */
+const SHEET_EMOJI_SIZE = 40;
 
 /**
  * Predefined color schemes for icon and background
@@ -50,7 +60,7 @@ const COLOR_SCHEMES = {
  * @param {Object} options
  * @param {string} options.title - Title displayed in the header
  * @param {HTMLElement|string} options.content - Content to display (HTMLElement or HTML string)
- * @param {string} [options.icon] - Optional Lucide icon name (e.g., 'settings', 'party-popper', 'circle-off')
+ * @param {string} [options.emoji] - Optional Fluent emoji name for the circle at the top (e.g., 'party-popper', 'gear'). See components/fluentEmoji.js
  * @param {string} [options.colorScheme='neutral'] - Color scheme: 'neutral', 'success', 'partial', 'error', 'info', 'warning'
  * @param {string|null} [options.dismissLabel='Close'] - Label for the dismiss button at bottom. Pass null to hide the dismiss button.
  * @param {string} [options.dismissVariant='secondary'] - Dismiss button variant: 'primary' or 'secondary'
@@ -67,7 +77,7 @@ const COLOR_SCHEMES = {
  * @param {Function} [options.onClose] - Optional callback when sheet is closed (via dismiss button or click-outside)
  * @returns {Object} - Object with show(), hide(), destroy() methods
  */
-export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = 'Close', dismissVariant = 'secondary', showCloseIcon = false, primaryButton, secondaryButton, onClose }) {
+export function createBottomSheet({ title, content, emoji, colorScheme = 'neutral', dismissLabel = 'Close', dismissVariant = 'secondary', showCloseIcon = false, primaryButton, secondaryButton, onClose }) {
   // Create overlay (backdrop + container)
   const overlay = document.createElement('div');
   overlay.className = 'bottom-sheet-overlay';
@@ -79,13 +89,19 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   // Get color scheme
   const colors = COLOR_SCHEMES[colorScheme] || COLOR_SCHEMES.neutral;
 
-  // Create optional icon container (if icon is specified)
+  // Create optional emoji container (if an emoji is specified)
   let iconContainer = null;
-  if (icon) {
+  if (emoji) {
     iconContainer = document.createElement('div');
     iconContainer.className = 'bottom-sheet-icon-container';
     iconContainer.style.backgroundColor = colors.backgroundColor;
-    iconContainer.innerHTML = `<i data-lucide="${icon}" width="40" height="40" style="color: ${colors.iconColor}"></i>`;
+    // The scheme's icon colour only reaches the reduced-motion fallback - the
+    // emoji itself brings its own, which is why the circle behind it stays
+    iconContainer.innerHTML = createEmojiMarkup(emoji, {
+      size: SHEET_EMOJI_SIZE,
+      className: 'bottom-sheet-emoji',
+      fallbackColor: colors.iconColor
+    });
   }
 
   // Create optional close icon button (top-right corner)

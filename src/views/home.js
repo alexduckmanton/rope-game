@@ -8,7 +8,7 @@ import { navigate } from '../router.js';
 import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished, getStreak, getOverallStreak, formatStreakLabel } from '../persistence.js';
 import { initIcons } from '../icons.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
-import { createStreakFlameMarkup } from '../components/streakFlame.js';
+import { createStreakFlameMarkup } from '../components/fluentEmoji.js';
 import { trackDifficultySelected } from '../analytics.js';
 import { getDifficultyLabelLower } from '../config.js';
 

@@ -597,7 +597,7 @@ function showWinCelebration(finalTime) {
     content: activeWinStreakLine
       ? activeWinStreakLine.element
       : `<div class="bottom-sheet-message">${timeText}</div>`,
-    icon: 'party-popper',
+    emoji: 'party-popper',
     colorScheme: 'success',
     dismissVariant: isDailyMode ? 'secondary' : 'primary',
     showCloseIcon: true
@@ -1081,7 +1081,7 @@ function loadOrGeneratePuzzle() {
       const bottomSheetOptions = {
         title: `You got ${scorePercentage}% in ${finalTime}`,
         content: `<div class="bottom-sheet-message">Make a loop where all numbers are zero for a perfect score. Try again tomorrow!</div>`,
-        icon: 'shell',
+        emoji: 'spiral-shell',
         colorScheme: 'partial',
         dismissLabel: 'Close',
         showCloseIcon: true,
@@ -1225,7 +1225,7 @@ function showFinishConfirmation() {
   const confirmationOptions = {
     title: 'End this game?',
     content: bodyMessage ? `<div class="bottom-sheet-message">${bodyMessage}</div>` : '',
-    icon: 'octagon-alert',
+    emoji: 'warning',
     colorScheme: 'error',
     dismissLabel: 'Keep playing',
     dismissVariant: 'secondary',
@@ -1299,7 +1299,7 @@ function finishGame() {
   const bottomSheetOptions = {
     title: `You got ${scorePercentage}% in ${finalTime}`,
     content: `<div class="bottom-sheet-message">Make a loop where all numbers are zero for a perfect score. Try again tomorrow!</div>`,
-    icon: 'shell',
+    emoji: 'spiral-shell',
     colorScheme: 'partial',
     dismissLabel: 'Close',
     showCloseIcon: true,
@@ -1416,7 +1416,7 @@ export function initGame(difficulty) {
   settingsSheet = createBottomSheet({
     title: 'Settings',
     content: settingsContent,
-    icon: 'settings',
+    emoji: 'gear',
     colorScheme: 'neutral',
     dismissLabel: 'Close',
     primaryButton: {

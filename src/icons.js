@@ -6,14 +6,14 @@
  *
  * Icons used:
  * - ArrowLeft: Back navigation button
- * - Settings: Settings/gear button
+ * - Settings: Settings/gear button in the game header
  * - X: Close button (legacy, now unused after bottom sheet redesign)
  * - Dices: New puzzle button
  * - RefreshCcw: Restart puzzle button
  * - Undo2: Undo button in game view
- * - PartyPopper: Win/celebration bottom sheets
+ * - PartyPopper: Perfect win bottom sheet, for players on reduced motion
  * - CircleOff: Error/incorrect feedback bottom sheets (legacy)
- * - Shell: Partial win bottom sheets
+ * - Shell: Partial win bottom sheet, for players on reduced motion
  * - Share2: Share button in win bottom sheet
  * - Check: Tutorial completed icon on home screen
  * - Trophy: Daily puzzle completed icon on home screen
@@ -23,13 +23,12 @@
  * - CircleHelp: Help button in tutorial navigation to re-open lesson sheet
  * - CircleCheckBig: End/Finish button in game view (legacy)
  * - HeartCrack: End/Finish button in game view (legacy)
- * - OctagonAlert: End game confirmation modal icon
  * - ChevronDown: Settings select dropdown indicator
  * - Flame: Daily streak indicator, for players on reduced motion. Everyone
- *   else gets the animated emoji instead - see components/streakFlame.js
+ *   else gets the animated emoji instead - see components/fluentEmoji.js
  */
 
-import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig, HeartCrack, OctagonAlert, ChevronDown, Flame } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig, HeartCrack, ChevronDown, Flame } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -63,7 +62,6 @@ export function initIcons() {
       CircleHelp,
       CircleCheckBig,
       HeartCrack,
-      OctagonAlert,
       ChevronDown,
       Flame
     },
