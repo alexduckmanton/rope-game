@@ -12,7 +12,7 @@ their licences ship inside `node_modules` and stay attached to the packages.
 
 Derived from `assets/Fire/animated/fire_animated.png` in
 [microsoft/fluentui-emoji-animated](https://github.com/microsoft/fluentui-emoji-animated),
-resized from 256x256 to 64x64 and re-encoded from APNG to animated WebP
+resized from 256x256 to 96x96 and re-encoded from APNG to animated WebP
 (quality 85). All 48 frames and the original 2.016s loop are kept.
 
 To regenerate it, download the source APNG and run:
@@ -24,7 +24,7 @@ curl -L -o fire_animated.png \
 
 python3 - <<'EOF'
 from PIL import Image, ImageSequence
-frames = [f.convert('RGBA').resize((64, 64), Image.LANCZOS)
+frames = [f.convert('RGBA').resize((96, 96), Image.LANCZOS)
           for f in ImageSequence.Iterator(Image.open('fire_animated.png'))]
 frames[0].save('streak-flame.webp', save_all=True, append_images=frames[1:],
                duration=42, loop=0, quality=85, method=6)

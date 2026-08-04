@@ -619,10 +619,7 @@ function showWinCelebration(finalTime) {
       // All difficulties complete - no dismiss button, just X icon to close
       bottomSheetOptions.dismissLabel = null;
     }
-    bottomSheetOptions.secondaryButton = {
-      label: 'Support Loopy',
-      href: 'https://ko-fi.com/alexduckmanton'
-    };
+    // Support link lives in the home screen menu, not in the win sheet
   } else {
     bottomSheetOptions.dismissLabel = 'Yay!';
   }

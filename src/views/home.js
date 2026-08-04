@@ -1,13 +1,15 @@
 /**
  * Home View
  *
- * Main landing page with game title, streak line and difficulty selection buttons
+ * Main landing page with game title, streak line, difficulty selection buttons
+ * and the hamburger menu holding the secondary destinations
  */
 
 import { navigate } from '../router.js';
 import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished, getStreak, getOverallStreak, formatStreakLabel } from '../persistence.js';
 import { initIcons } from '../icons.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
+import { initHomeMenu } from '../components/homeMenu.js';
 import { createStreakFlameMarkup } from '../components/streakFlame.js';
 import { trackDifficultySelected } from '../analytics.js';
 import { getDifficultyLabelLower } from '../config.js';
@@ -17,6 +19,15 @@ import { getDifficultyLabelLower } from '../config.js';
  * streak line cycles through them
  */
 const DIFFICULTIES = ['easy', 'medium', 'hard'];
+
+/**
+ * Rendered size of the streak flame on the home screen, in CSS pixels
+ *
+ * The line is set at the tagline's 20px, so the flame is scaled up to hold its
+ * own beside it. The win sheet keeps the component's default, its line being
+ * smaller and its window unable to take more.
+ */
+const STREAK_FLAME_SIZE = 28;
 
 /**
  * Update button completed state based on completion status
@@ -131,7 +142,7 @@ function initHomeSlot(tutorialBtn) {
   // follows the player's current reduced-motion preference. The initIcons()
   // call in initHome() turns the placeholder into an SVG when the reduced
   // motion branch is what came back.
-  streakEl.innerHTML = `${createStreakFlameMarkup()}<span class="home-streak-text"></span>`;
+  streakEl.innerHTML = `${createStreakFlameMarkup(STREAK_FLAME_SIZE)}<span class="home-streak-text"></span>`;
   const textEl = streakEl.querySelector('.home-streak-text');
 
   let index = 0;
@@ -162,8 +173,6 @@ export function initHome() {
   const easyBtn = document.getElementById('easy-btn');
   const mediumBtn = document.getElementById('medium-btn');
   const hardBtn = document.getElementById('hard-btn');
-  // Temporarily hidden - page still works via direct URL
-  // const unlimitedBtn = document.getElementById('unlimited-btn');
 
   // Update daily puzzle buttons (trophy for wins, skull for viewed solutions)
   updateDailyButtonState(easyBtn, 'easy');
@@ -171,6 +180,7 @@ export function initHome() {
   updateDailyButtonState(hardBtn, 'hard');
 
   const cleanupSlot = initHomeSlot(tutorialBtn);
+  const cleanupMenu = initHomeMenu();
 
   // Re-initialize icons after updating attributes
   initIcons();
@@ -189,16 +199,12 @@ export function initHome() {
     trackDifficultySelected('hard');
     navigate('/play?difficulty=hard', false, { fromHome: true });
   };
-  // Temporarily hidden - page still works via direct URL
-  // const handleUnlimited = () => navigate('/play?difficulty=unlimited', false, { fromHome: true });
 
   // Attach listeners
   tutorialBtn.addEventListener('click', handleTutorial);
   easyBtn.addEventListener('click', handleEasy);
   mediumBtn.addEventListener('click', handleMedium);
   hardBtn.addEventListener('click', handleHard);
-  // Temporarily hidden - page still works via direct URL
-  // unlimitedBtn.addEventListener('click', handleUnlimited);
 
   // Hide the tutorial button as soon as it is completed, without a reload
   const handleTutorialCompleted = () => {
@@ -214,7 +220,6 @@ export function initHome() {
     hardBtn.removeEventListener('click', handleHard);
     window.removeEventListener('tutorialCompleted', handleTutorialCompleted);
     if (cleanupSlot) cleanupSlot();
-    // Temporarily hidden - page still works via direct URL
-    // unlimitedBtn.removeEventListener('click', handleUnlimited);
+    if (cleanupMenu) cleanupMenu();
   };
 }

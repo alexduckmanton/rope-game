@@ -20,6 +20,7 @@
 | `utils.js` | Validation & pathfinding | `buildSolutionTurnMap()`, `countTurnsInArea()`, `checkStructuralLoop()`, `parseCellKey()`, `createCellKey()`, `getCellsAlongLine()` - Bresenham with 4-connected enforcement |
 | `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet()`, `showBottomSheetAsync()` - Factory + async helper with onClose callback |
 | `components/tutorialSheet.js` | Tutorial bottom sheet | `showTutorialSheet()` - Self-contained carousel with video management |
+| `components/homeMenu.js` | Home screen hamburger menu | `initHomeMenu()` - Slide-in sheet holding the secondary destinations |
 | `components/winStreakLine.js` | Win sheet time/streak line | `createWinStreakLine()` - Completion time that slides up and out for the streak |
 | `components/streakFlame.js` | Streak flame markup | `createStreakFlameMarkup()` - Animated Fluent fire emoji, or the Lucide icon under reduced motion |
 | `game/timer.js` | Game timer | `createGameTimer({ onUpdate, difficulty })`, `formatTime()` - Encapsulated timer with pause/resume |
@@ -436,6 +437,7 @@ rope-game/
 │   ├── persistence.js     # localStorage save/load/cleanup with throttled writes
 │   ├── components/        # Reusable UI components
 │   │   ├── tutorialSheet.js # Tutorial carousel bottom sheet with video management
+│   │   ├── homeMenu.js      # Home screen hamburger menu and slide-in sheet
 │   │   ├── winStreakLine.js # Win sheet line that swaps completion time for streak
 │   │   └── streakFlame.js   # Streak flame: animated emoji, or icon under reduced motion
 │   ├── game/              # Shared game utilities
@@ -504,13 +506,13 @@ Generates Hamiltonian cycles (paths visiting all cells exactly once forming a lo
 
 | View | Route | Purpose |
 |------|-------|---------|
-| **Home** | `/` | Landing page with current date and navigation buttons (Tutorial, Easy, Tricky, Diabolical) |
+| **Home** | `/` | Landing page with the difficulty buttons (Easy, Tricky, Diabolical), the streak/tutorial slot above them, and the hamburger menu holding everything else |
 | **Play** | `/play?difficulty=X` | Main game interface with canvas, controls, timer, settings, help button |
 
 **Tutorial Access:**
 
 Tutorial is implemented as a bottom sheet component rather than a dedicated view:
-- **From Home**: Tutorial button opens carousel bottom sheet overlay. It shares a fixed-height slot with the streak line (see Streak System) and is hidden once the tutorial is completed, or once a streak exists — a player with a streak has plainly worked out how to play
+- **From Home**: Tutorial button opens carousel bottom sheet overlay. It shares a fixed-height slot with the streak line (see Streak System) and is hidden once the tutorial is completed, or once a streak exists — a player with a streak has plainly worked out how to play. The hamburger menu carries a permanent "How to play" item, so the tutorial stays reachable after the slot button is gone
 - **From Game**: Help icon (circle-help, left of settings) opens same tutorial sheet
 - **No Route**: Tutorial has no URL route - accessible via function call from any view
 
@@ -644,9 +646,9 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Home screen display:**
 
-A single line above the difficulty buttons: a flame plus text, e.g. "5 day streak".
+A single line above the difficulty buttons: a flame plus text, e.g. "5 day streak". The text matches the tagline above it exactly - 20px, weight 700 - with the flame at 28px beside it. The line carries 24px of padding on its right against 8px on its left: the flame sits only on the left, so centring the group on its true middle leaves the text reading right of centre, and the extra padding pulls it most of the way back. The flame itself is nudged up 2px, its artwork being bottom-heavy enough to read low against the count when the two boxes are aligned.
 
-The line shares a fixed-height slot (`.home-slot`, 56px — one large button tall) with the tutorial button. Exactly one of them shows, and sometimes neither:
+The line shares a fixed-height slot (`.home-slot`, 72px — one large button tall) with the tutorial button. Exactly one of them shows, and sometimes neither:
 
 | Streak live | Tutorial done | Slot shows |
 |---|---|---|
@@ -654,7 +656,7 @@ The line shares a fixed-height slot (`.home-slot`, 56px — one large button tal
 | no | no | Tutorial button |
 | no | yes | Nothing |
 
-Both children start hidden in CSS, so the slot is empty at first paint and filling it once localStorage has been read never moves the difficulty buttons. This matters because the router shows the home view before `views/home.js` has finished loading — previously the tutorial button painted during that gap and then vanished, shifting the buttons 36px.
+Both children start hidden in CSS, so the slot is empty at first paint and filling it once localStorage has been read never moves the difficulty buttons. This matters because the router shows the home view before `views/home.js` has finished loading — previously the tutorial button painted during that gap and then vanished, shifting the buttons.
 
 Tapping the line cycles through every difficulty that currently has a live streak of its own, then wraps back to the overall total:
 
@@ -676,13 +678,15 @@ The perfect win sheet shows the overall streak too, revealed a couple of seconds
 
 Both streak lines get their flame from `createStreakFlameMarkup()` in `components/streakFlame.js`, so the home screen and the win sheet can never end up showing different ones.
 
-Normally it is Microsoft's animated Fluent fire emoji (`public/streak-flame.webp`) at 20px — an animated WebP that loops by itself with no JavaScript driving it. It is two pixels larger than the icon it replaced because the emoji is authored with transparent padding around the flame, so matching the icon's box would have left the artwork looking smaller.
+Normally it is Microsoft's animated Fluent fire emoji (`public/streak-flame.webp`) — an animated WebP that loops by itself with no JavaScript driving it. It is authored with transparent padding around the flame, so it is rendered two pixels larger than the icon it stands in for; matching the icon's box would leave the artwork looking smaller.
 
-Players who have asked their system for **reduced motion** get the Lucide `flame` icon instead, still at 18px and still tinted with `--color-streak`. That branch is chosen in JavaScript rather than CSS specifically so those players never download the 75KB animation. The preference is read once per call, which is enough: a fresh line is built every time the home view initialises or the win sheet opens.
+`createStreakFlameMarkup(size)` takes the rendered size, because the two lines it appears in are set at different sizes: **28px on the home screen**, whose line matches the tagline's 20px text, and **20px in the win sheet**, whose line is one 16px line of sheet copy inside a 24px window it must not outgrow.
+
+Players who have asked their system for **reduced motion** get the Lucide `flame` icon instead, two pixels smaller than the emoji it replaces and tinted with `--color-streak`. That branch is chosen in JavaScript rather than CSS specifically so those players never download the 75KB animation. The preference is read once per call, which is enough: a fresh line is built every time the home view initialises or the win sheet opens.
 
 The emoji carries its own colour, so unlike the icon it looks identical in light and dark mode. It is decorative — the count beside it carries the meaning — so it has an empty `alt`.
 
-The asset is 64x64 (3.2x the rendered size), all 48 frames of the original, 75KB. It is MIT licensed; the notice and the command to regenerate it live in `ATTRIBUTION.md`.
+The asset is 96x96, all 48 frames of the original, 122KB. That resolution is set by the largest render (28px) on the densest common screen (3x): 28 x 3 = 84 device pixels, so 96 covers it with a little headroom and the emoji never has to be upscaled. Anything above a 32px render needs the asset regenerating larger. It is MIT licensed; the notice and the command live in `ATTRIBUTION.md`.
 
 **Analytics:** Each update fires `streak_updated` carrying both the difficulty and overall streaks, and writes them as person properties (`streak_current_<difficulty>`, `streak_current_overall`, and their `best` equivalents), so retention can be segmented by streak length.
 
@@ -926,6 +930,30 @@ No built-in state tracking across multiple sheets (only one should be visible at
 
 Component could be extended to support multiple simultaneous sheets with z-index stacking, animation queueing for rapid successive shows, keyboard navigation (Escape to close), focus management (trap focus within sheet, restore on close), and ARIA attributes for screen readers. Current implementation prioritizes simplicity and covers all existing use cases without over-engineering for hypothetical requirements.
 
+### Home Screen Menu
+
+**Purpose:** Holds the destinations that do not earn a place in the main button stack, keeping the home screen down to the three daily puzzles.
+
+A 44px hamburger button is fixed in the top-left of the home screen. Tapping it slides a sheet in from the left over a dimmed scrim.
+
+**Contents:** How to play (opens the tutorial sheet), Unlimited, Support Loopy, Give feedback. The last two moved here from the old home footer, which is gone.
+
+This menu is the **only** place the support link appears. It used to also sit as a secondary button on the daily perfect win sheet, which put an ask in front of the player at the moment they had just won. `secondaryButton` remains available on the bottom sheet component but now has no callers.
+
+**Mechanics:**
+
+- All open/closed styling hangs off a single `menu-open` class on `#home-view`, so the toggle icon, the scrim and the sheet stay in step without the JavaScript touching each of them.
+- The icon swap is two Lucide icons (`menu` and `x`) stacked in one grid cell. They cross-fade while the stack rotates 180°, so the change reads as a single movement rather than two.
+- Open and close both run 350ms on `cubic-bezier(0.83, 0, 0.17, 1)` — a quint ease-in-out, steep off the mark and slow to settle.
+- `visibility` is delayed by the full duration on the way out, so the sheet finishes sliding before it stops being hit-testable.
+- Closes on the toggle, a scrim tap, or Escape.
+- Menu items carry `tabindex="-1"` while the sheet is closed, so keyboard users never land on a link they cannot see.
+- The view cleanup closes the menu, so navigating back to home never restores a half-open sheet.
+
+**Layering:** scrim 900, sheet 910, toggle 920 — the toggle sits above the sheet so the icon swaps in place rather than being covered, and the whole menu sits below the bottom sheet overlay (1000) so the tutorial stacks over it.
+
+**Reduced motion:** `prefers-reduced-motion` collapses `--menu-duration` to 0.01ms, so the menu changes state without animating.
+
 ### Tutorial Bottom Sheet System
 
 **Architecture:** Self-contained carousel component providing interactive walkthrough accessible from any view without navigation.
@@ -1042,11 +1070,21 @@ For implementation details, see Color Token System in Key Systems section.
 
 **Button Styling:** Minimal flat design, rounded corners (8px), subtle shadow on tap, no heavy borders.
 
+**Home Screen Layout:** The home view is split into two equal halves — `.home-title-section` and `.home-actions`, each `flex: 1`. The wordmark and tagline centre in the top half (nudged down 48px), the streak/tutorial slot and difficulty buttons centre in the bottom half. Centring the lot as one group instead, which is what it used to do, floats the buttons too far up the screen.
+
+The wordmark sizes itself fluidly: `clamp(60px, 20.5vw, 72px)`. Monoton renders roughly 3.9× the font size wide, so any fixed size that fits a 390px phone would overflow a 320px one. The `vw` term only does work below roughly 350px — from there up the wordmark holds at the 72px cap rather than growing with the viewport.
+
+The wordmark also sets `font-kerning: none`. Monoton ships one kern pair that lands in "Loopy" and it *widens* o-o by 0.073em, more than double every other gap in the word, which reads as a hole at display size - presumably meant to stop two concentric rings merging at text sizes. No other pair in the word is kerned, so switching the feature off changes nothing else.
+
+The tagline holds at 20px on every width, matching Tilbo's. It fits on one line down to 320px, so the home screen carries no size breakpoints at all. `line-height: 1` trims Monoton's generous line box so the 16px gap to the tagline is the real gap rather than 16px plus leading. Only the tagline steps at the 600px/400px breakpoints.
+
+**Home Screen Buttons (`.btn-large`):** Deliberately bigger and softer than the in-game controls — 72px tall, 24px radius, 20px/700 text, 8px apart, capped at 400px wide. No drop shadow: press feedback is carried by opacity (0.85 on hover, 0.7 on press) and a 2px lift alone. The completion icon (trophy / check / skull) is absolutely positioned 24px from the left edge. The same styling covers the tutorial button in the slot above, so the whole stack reads as one set.
+
 **Icons:**
 - **Library**: Lucide icons (tree-shakeable, ~2-3KB for current icons)
 - **Sizing**: 18px inline (button labels), 20px standalone, 24px header buttons
 - **Color**: Inherit via `currentColor`
-- **Usage**: Arrow-left (back), Circle-help (help), Settings (gear), Dices (new puzzle), Refresh-ccw (Clear), Undo2 (undo), Check (End, home completion), Party-popper (win), Octagon-alert (confirmation warning), Circle-off (error), Share2 (share), Trophy/Skull (home completion icons), ChevronDown (settings select indicator)
+- **Usage**: Arrow-left (back), Circle-help (help), Settings (gear), Dices (new puzzle), Refresh-ccw (Clear), Undo2 (undo), Check (End, home completion), Party-popper (win), Octagon-alert (confirmation warning), Circle-off (error), Share2 (share), Trophy/Skull (home completion icons), ChevronDown (settings select indicator), Menu/X (home hamburger menu, cross-fading between the two)
 
 **Settings Bottom Sheet:**
 
@@ -1193,6 +1231,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 - Intelligent drag interactions and path smoothing
 - Automatic dark mode following system preferences
 - Per-difficulty daily streaks with home screen badges
+- Home screen hamburger menu with slide-in sheet for secondary destinations
 - Design token system with CSS-as-source-of-truth architecture
 
 **🚧 Planned Enhancements**
@@ -1236,7 +1275,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 
 **Modify the Streak Flame:**
 1. **Swap the emoji for a different one**: replace `public/streak-flame.webp`, following the regeneration command in `ATTRIBUTION.md` with a different `assets/<Name>/animated/` source. Update the licence notice if it comes from somewhere other than Fluent Emoji
-2. **Rendered size**: `FLAME_SIZE` in `components/streakFlame.js`. Going above 24px means also raising `.win-streak-line-window` / `.win-streak-line-item` in `style.css`, or the win sheet crops it
+2. **Rendered size**: the `size` argument at each call site - `STREAK_FLAME_SIZE` in `views/home.js`, and the `FLAME_SIZE` default in `components/streakFlame.js` for the win sheet. Taking the win sheet's above 24px means also raising `.win-streak-line-window` / `.win-streak-line-item` in `style.css`, or it crops. Taking either above 32px means regenerating the asset larger, or it goes soft on 3x screens
 3. **Reduced-motion fallback**: the `prefersReducedMotion()` branch in `components/streakFlame.js`. It returns a `data-lucide` placeholder, so any replacement icon must be registered in `icons.js` and both call sites must still run `initIcons()` afterwards
 4. **Both call sites at once**: `views/home.js` (rebuilds the line on every visit) and `components/winStreakLine.js` - neither writes its own flame markup, so a change here lands in both
 
@@ -1395,7 +1434,7 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 |--------|-------------------------------|----------------|
 | **Puzzle Source** | Deterministic from date seed | True random generation |
 | **Consistency** | Everyone sees same puzzle on same local date | Each session gets different puzzles |
-| **Entry Point** | Home → Select difficulty → Fixed for session | Home → Unlimited → Defaults to Easy |
+| **Entry Point** | Home → Select difficulty → Fixed for session | Home → Menu → Unlimited → Defaults to Easy |
 | **New Button** | Hidden (can't regenerate daily puzzle) | Visible (generate fresh puzzle anytime) |
 | **Difficulty** | Fixed by initial selection | Switchable in-session via settings segmented control |
 | **Grid Size** | Easy 4x4, Tricky 6x6, Diabolical 8x8 | Same sizes, switchable within session |
