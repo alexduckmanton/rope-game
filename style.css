@@ -729,9 +729,12 @@ button {
   justify-content: center;
   gap: 6px;
   margin: 0;
-  padding: 4px 8px;
+  /* The flame sits to the left of the count, so the group reads as
+   * left-heavy when centred on its true middle. The extra padding on the
+   * right nudges it back so the text lands nearer the optical centre. */
+  padding: 4px 24px 4px 8px;
   font-size: 20px; /* Matches .game-tagline */
-  font-weight: 500;
+  font-weight: 700; /* Matches .game-tagline */
   line-height: 1;
   color: var(--color-text-primary);
 }

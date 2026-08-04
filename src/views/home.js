@@ -23,11 +23,11 @@ const DIFFICULTIES = ['easy', 'medium', 'hard'];
 /**
  * Rendered size of the streak flame on the home screen, in CSS pixels
  *
- * The line is set at the tagline's 20px, so the flame is scaled to keep the
- * proportion it had against the smaller text it used to sit beside. The win
- * sheet keeps the component's default, its line being smaller.
+ * The line is set at the tagline's 20px, so the flame is scaled up to hold its
+ * own beside it. The win sheet keeps the component's default, its line being
+ * smaller and its window unable to take more.
  */
-const STREAK_FLAME_SIZE = 26;
+const STREAK_FLAME_SIZE = 28;
 
 /**
  * Update button completed state based on completion status
