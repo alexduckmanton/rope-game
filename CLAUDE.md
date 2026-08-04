@@ -646,7 +646,7 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Home screen display:**
 
-A single line above the difficulty buttons: a flame plus text, e.g. "5 day streak". The text matches the tagline above it exactly - 20px, weight 700 - with the flame at 28px beside it. The line carries 24px of padding on its right against 8px on its left: the flame sits only on the left, so centring the group on its true middle leaves the text reading right of centre, and the extra padding pulls it most of the way back. The flame itself is nudged up 2px, its artwork being bottom-heavy enough to read low against the count when the two boxes are aligned.
+A single line above the difficulty buttons: a flame plus text, e.g. "5 day streak". The text matches the tagline above it exactly - 20px, weight 600 - with the flame at 28px beside it. The line carries 24px of padding on its right against 8px on its left: the flame sits only on the left, so centring the group on its true middle leaves the text reading right of centre, and the extra padding pulls it most of the way back. The flame itself is nudged up 2px, its artwork being bottom-heavy enough to read low against the count when the two boxes are aligned.
 
 The line shares a fixed-height slot (`.home-slot`, 72px — one large button tall) with the tutorial button. Exactly one of them shows, and sometimes neither:
 
@@ -666,7 +666,7 @@ Tapping the line cycles through every difficulty that currently has a live strea
 
 Difficulties with no live streak are skipped, so a tap never lands on "0 day streak", and the line is inert when there is nothing to cycle to. Cycle order follows the on-screen button order (`easy`, `medium`, `hard`) via the `DIFFICULTIES` constant in `views/home.js`.
 
-This is deliberately styled as plain text, not a control — it is a small reward for the curious rather than a feature that needs discovering. The count is set in `--color-text-primary`, the same weight as the app's headings, rather than the quieter `--color-text-secondary` the taglines use. The win sheet's streak half matches it; the completion time it slides up over stays secondary.
+This is deliberately styled as plain text, not a control — it is a small reward for the curious rather than a feature that needs discovering. The count is set in `--color-text-primary`, rather than the quieter `--color-text-secondary` the taglines use. The win sheet's streak half matches it; the completion time it slides up over stays secondary.
 
 The difficulty buttons themselves carry only the existing completion icon: trophy for a win, check for a manual finish, skull for a viewed solution.
 
