@@ -21,6 +21,15 @@ import { getDifficultyLabelLower } from '../config.js';
 const DIFFICULTIES = ['easy', 'medium', 'hard'];
 
 /**
+ * Rendered size of the streak flame on the home screen, in CSS pixels
+ *
+ * The line is set at the tagline's 20px, so the flame is scaled to keep the
+ * proportion it had against the smaller text it used to sit beside. The win
+ * sheet keeps the component's default, its line being smaller.
+ */
+const STREAK_FLAME_SIZE = 26;
+
+/**
  * Update button completed state based on completion status
  * @param {HTMLElement} button - The button element
  * @param {boolean} isCompleted - Whether the associated puzzle is completed
@@ -133,7 +142,7 @@ function initHomeSlot(tutorialBtn) {
   // follows the player's current reduced-motion preference. The initIcons()
   // call in initHome() turns the placeholder into an SVG when the reduced
   // motion branch is what came back.
-  streakEl.innerHTML = `${createStreakFlameMarkup()}<span class="home-streak-text"></span>`;
+  streakEl.innerHTML = `${createStreakFlameMarkup(STREAK_FLAME_SIZE)}<span class="home-streak-text"></span>`;
   const textEl = streakEl.querySelector('.home-streak-text');
 
   let index = 0;

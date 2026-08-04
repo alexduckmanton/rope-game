@@ -20,16 +20,21 @@
 const FLAME_SRC = '/streak-flame.webp';
 
 /**
- * Rendered size of the emoji, in CSS pixels
+ * Default rendered size of the emoji, in CSS pixels
  *
- * Two pixels larger than the Lucide icon it replaces. The emoji is authored
- * with transparent padding around the flame, so matching the icon's box would
- * leave the artwork itself looking smaller than the one it replaced.
+ * Two pixels larger than the Lucide icon it stands in for. The emoji is
+ * authored with transparent padding around the flame, so matching the icon's
+ * box would leave the artwork itself looking smaller than the one it replaced -
+ * hence ICON_INSET below rather than one shared number.
+ *
+ * The source WebP is 96x96, so the emoji stays sharp on a 3x display up to a
+ * 32px render. Going beyond that means regenerating the asset larger - see
+ * ATTRIBUTION.md for the command.
  */
 const FLAME_SIZE = 20;
 
-/** Rendered size of the reduced-motion icon, matching the rest of the UI */
-const ICON_SIZE = 18;
+/** How much smaller the reduced-motion icon is than the emoji beside it */
+const ICON_INSET = 2;
 
 /**
  * Whether the player has asked their system for reduced motion
@@ -56,13 +61,20 @@ function prefersReducedMotion() {
  * the emoji is given an empty alt rather than a description a screen reader
  * would have to read out before the number.
  *
+ * The size is a parameter because the two call sites sit beside text of
+ * different sizes: the home screen line is set at the tagline's 20px, while
+ * the win sheet's is one 16px line of sheet copy inside a window it must not
+ * outgrow. Both still share this one source of truth for everything else.
+ *
+ * @param {number} [size=FLAME_SIZE] - Rendered size in CSS pixels
  * @returns {string} HTML for either the animated emoji or the static icon
  */
-export function createStreakFlameMarkup() {
+export function createStreakFlameMarkup(size = FLAME_SIZE) {
   if (prefersReducedMotion()) {
-    return `<i data-lucide="flame" width="${ICON_SIZE}" height="${ICON_SIZE}"></i>`;
+    const iconSize = size - ICON_INSET;
+    return `<i data-lucide="flame" width="${iconSize}" height="${iconSize}"></i>`;
   }
 
   return `<img class="streak-flame" src="${FLAME_SRC}" alt="" `
-    + `width="${FLAME_SIZE}" height="${FLAME_SIZE}">`;
+    + `width="${size}" height="${size}">`;
 }

@@ -646,7 +646,7 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Home screen display:**
 
-A single line above the difficulty buttons: a flame plus text, e.g. "5 day streak".
+A single line above the difficulty buttons: a flame plus text, e.g. "5 day streak". The text is set at 20px, the same as the tagline above it, with the flame scaled to 26px to keep its proportion against it.
 
 The line shares a fixed-height slot (`.home-slot`, 72px — one large button tall) with the tutorial button. Exactly one of them shows, and sometimes neither:
 
@@ -678,13 +678,15 @@ The perfect win sheet shows the overall streak too, revealed a couple of seconds
 
 Both streak lines get their flame from `createStreakFlameMarkup()` in `components/streakFlame.js`, so the home screen and the win sheet can never end up showing different ones.
 
-Normally it is Microsoft's animated Fluent fire emoji (`public/streak-flame.webp`) at 20px — an animated WebP that loops by itself with no JavaScript driving it. It is two pixels larger than the icon it replaced because the emoji is authored with transparent padding around the flame, so matching the icon's box would have left the artwork looking smaller.
+Normally it is Microsoft's animated Fluent fire emoji (`public/streak-flame.webp`) — an animated WebP that loops by itself with no JavaScript driving it. It is authored with transparent padding around the flame, so it is rendered two pixels larger than the icon it stands in for; matching the icon's box would leave the artwork looking smaller.
 
-Players who have asked their system for **reduced motion** get the Lucide `flame` icon instead, still at 18px and still tinted with `--color-streak`. That branch is chosen in JavaScript rather than CSS specifically so those players never download the 75KB animation. The preference is read once per call, which is enough: a fresh line is built every time the home view initialises or the win sheet opens.
+`createStreakFlameMarkup(size)` takes the rendered size, because the two lines it appears in are set at different sizes: **26px on the home screen**, whose line matches the tagline's 20px text, and **20px in the win sheet**, whose line is one 16px line of sheet copy inside a 24px window it must not outgrow.
+
+Players who have asked their system for **reduced motion** get the Lucide `flame` icon instead, two pixels smaller than the emoji it replaces and tinted with `--color-streak`. That branch is chosen in JavaScript rather than CSS specifically so those players never download the 75KB animation. The preference is read once per call, which is enough: a fresh line is built every time the home view initialises or the win sheet opens.
 
 The emoji carries its own colour, so unlike the icon it looks identical in light and dark mode. It is decorative — the count beside it carries the meaning — so it has an empty `alt`.
 
-The asset is 64x64 (3.2x the rendered size), all 48 frames of the original, 75KB. It is MIT licensed; the notice and the command to regenerate it live in `ATTRIBUTION.md`.
+The asset is 96x96, all 48 frames of the original, 122KB. That resolution is set by the largest render (26px) on the densest common screen (3x): 26 x 3 = 78 device pixels, so 96 covers it with a little headroom and the emoji never has to be upscaled. Anything above a 32px render needs the asset regenerating larger. It is MIT licensed; the notice and the command live in `ATTRIBUTION.md`.
 
 **Analytics:** Each update fires `streak_updated` carrying both the difficulty and overall streaks, and writes them as person properties (`streak_current_<difficulty>`, `streak_current_overall`, and their `best` equivalents), so retention can be segmented by streak length.
 
@@ -1271,7 +1273,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 
 **Modify the Streak Flame:**
 1. **Swap the emoji for a different one**: replace `public/streak-flame.webp`, following the regeneration command in `ATTRIBUTION.md` with a different `assets/<Name>/animated/` source. Update the licence notice if it comes from somewhere other than Fluent Emoji
-2. **Rendered size**: `FLAME_SIZE` in `components/streakFlame.js`. Going above 24px means also raising `.win-streak-line-window` / `.win-streak-line-item` in `style.css`, or the win sheet crops it
+2. **Rendered size**: the `size` argument at each call site - `STREAK_FLAME_SIZE` in `views/home.js`, and the `FLAME_SIZE` default in `components/streakFlame.js` for the win sheet. Taking the win sheet's above 24px means also raising `.win-streak-line-window` / `.win-streak-line-item` in `style.css`, or it crops. Taking either above 32px means regenerating the asset larger, or it goes soft on 3x screens
 3. **Reduced-motion fallback**: the `prefersReducedMotion()` branch in `components/streakFlame.js`. It returns a `data-lucide` placeholder, so any replacement icon must be registered in `icons.js` and both call sites must still run `initIcons()` afterwards
 4. **Both call sites at once**: `views/home.js` (rebuilds the line on every visit) and `components/winStreakLine.js` - neither writes its own flame markup, so a change here lands in both
 

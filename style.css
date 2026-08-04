@@ -730,7 +730,7 @@ button {
   gap: 6px;
   margin: 0;
   padding: 4px 8px;
-  font-size: 15px;
+  font-size: 20px; /* Matches .game-tagline */
   font-weight: 500;
   line-height: 1;
   color: var(--color-text-primary);
