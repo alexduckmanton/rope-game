@@ -522,11 +522,11 @@ button {
 .game-title {
   font-family: 'Monoton', 'Impact', 'Arial Black', cursive, sans-serif;
   /* Fluid rather than stepped: Monoton renders roughly 3.9x the font size
-   * wide, so a fixed size that fits a 390px phone either overflows a 320px
-   * one or wastes half the width on a 430px one. 20.5vw lands on 80px at
-   * 390px and keeps clear of the container padding at every width, capping
-   * at 104px so it stops growing on desktop. */
-  font-size: clamp(60px, 20.5vw, 104px);
+   * wide, so a fixed size that fits a 390px phone would overflow a 320px one.
+   * 20.5vw keeps the wordmark clear of the container padding on narrow
+   * screens and reaches the 80px cap at around 390px, holding there on
+   * everything wider. */
+  font-size: clamp(60px, 20.5vw, 80px);
   font-weight: 400;
   color: var(--color-text-primary);
   margin: 0;
