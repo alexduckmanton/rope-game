@@ -21,6 +21,7 @@
 | `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet()`, `showBottomSheetAsync()` - Factory + async helper with onClose callback |
 | `components/tutorialSheet.js` | Tutorial bottom sheet | `showTutorialSheet()` - Self-contained carousel with video management |
 | `components/winStreakLine.js` | Win sheet time/streak line | `createWinStreakLine()` - Completion time that slides up and out for the streak |
+| `components/streakFlame.js` | Streak flame markup | `createStreakFlameMarkup()` - Animated Fluent fire emoji, or the Lucide icon under reduced motion |
 | `game/timer.js` | Game timer | `createGameTimer({ onUpdate, difficulty })`, `formatTime()` - Encapsulated timer with pause/resume |
 | `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback, score-aware share text |
 | `game/validation.js` | Win validation & scoring | `checkStructuralWin()`, `checkFullWin()`, `validateHints()`, `calculateScore()`, `getScoreLabel()` - Game validation logic and score calculation |
@@ -267,7 +268,7 @@ When players complete a closed loop, contextual feedback modals appear based on 
 
 **Win Sheet Streak Reveal:**
 
-In daily mode the perfect win sheet's body line does not sit still. It opens on "You finished in 2:34.", holds for a beat, then slides that line up and out while the streak line - the same flame icon and "5 day streak" wording as the home screen - slides up into its place. The reward for coming back tomorrow lands in the same moment as the win.
+In daily mode the perfect win sheet's body line does not sit still. It opens on "You finished in 2:34.", holds for a beat, then slides that line up and out while the streak line - the same flame and "5 day streak" wording as the home screen - slides up into its place. The reward for coming back tomorrow lands in the same moment as the win.
 
 - **Mechanism**: both lines are stacked inside a window exactly one line tall (24px) with `overflow: hidden`, so the swap is a single transform on the track and everything outside the window is cropped. Nothing in the sheet moves.
 - **Timing**: `CONFIG.WIN_STREAK.REVEAL_DELAY_MS` (2000) before the swap, `CONFIG.WIN_STREAK.TRANSITION_MS` (300) for the slide itself, on an easeInOutQuint curve so it reads as snappy rather than as an animation to wait out.
@@ -416,8 +417,10 @@ rope-game/
 ├── index.html              # Single-page app with two view containers (home, play)
 ├── style.css               # Global styles + view-specific styles
 ├── netlify.toml           # Netlify deployment configuration
+├── ATTRIBUTION.md         # Licences for third-party assets committed to the repo
 ├── public/
 │   ├── _redirects         # SPA routing for Netlify (serves index.html for all routes)
+│   ├── streak-flame.webp  # Animated Fluent fire emoji for the streak lines (75KB)
 │   └── videos/            # Tutorial demonstration videos (mp4/webm, ~688KB total)
 ├── src/
 │   ├── main.js            # App entry point, initializes router and icons
@@ -433,7 +436,8 @@ rope-game/
 │   ├── persistence.js     # localStorage save/load/cleanup with throttled writes
 │   ├── components/        # Reusable UI components
 │   │   ├── tutorialSheet.js # Tutorial carousel bottom sheet with video management
-│   │   └── winStreakLine.js # Win sheet line that swaps completion time for streak
+│   │   ├── winStreakLine.js # Win sheet line that swaps completion time for streak
+│   │   └── streakFlame.js   # Streak flame: animated emoji, or icon under reduced motion
 │   ├── game/              # Shared game utilities
 │   │   ├── timer.js       # Encapsulated timer with pause/resume support
 │   │   ├── share.js       # Share functionality (Web Share API + clipboard fallback)
@@ -640,7 +644,7 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Home screen display:**
 
-A single line above the difficulty buttons: a Lucide `flame` icon plus text, e.g. "5 day streak".
+A single line above the difficulty buttons: a flame plus text, e.g. "5 day streak".
 
 The line shares a fixed-height slot (`.home-slot`, 56px — one large button tall) with the tutorial button. Exactly one of them shows, and sometimes neither:
 
@@ -660,13 +664,25 @@ Tapping the line cycles through every difficulty that currently has a live strea
 
 Difficulties with no live streak are skipped, so a tap never lands on "0 day streak", and the line is inert when there is nothing to cycle to. Cycle order follows the on-screen button order (`easy`, `medium`, `hard`) via the `DIFFICULTIES` constant in `views/home.js`.
 
-This is deliberately styled as plain text, not a control — it is a small reward for the curious rather than a feature that needs discovering.
+This is deliberately styled as plain text, not a control — it is a small reward for the curious rather than a feature that needs discovering. The count is set in `--color-text-primary`, the same weight as the app's headings, rather than the quieter `--color-text-secondary` the taglines use. The win sheet's streak half matches it; the completion time it slides up over stays secondary.
 
 The difficulty buttons themselves carry only the existing completion icon: trophy for a win, check for a manual finish, skull for a viewed solution.
 
 **Win sheet display:**
 
 The perfect win sheet shows the overall streak too, revealed a couple of seconds after the sheet opens - see Win Sheet Streak Reveal under Validation Modals. This is the moment the streak has just been extended, so it is the most useful place to show it.
+
+**The flame:**
+
+Both streak lines get their flame from `createStreakFlameMarkup()` in `components/streakFlame.js`, so the home screen and the win sheet can never end up showing different ones.
+
+Normally it is Microsoft's animated Fluent fire emoji (`public/streak-flame.webp`) at 20px — an animated WebP that loops by itself with no JavaScript driving it. It is two pixels larger than the icon it replaced because the emoji is authored with transparent padding around the flame, so matching the icon's box would have left the artwork looking smaller.
+
+Players who have asked their system for **reduced motion** get the Lucide `flame` icon instead, still at 18px and still tinted with `--color-streak`. That branch is chosen in JavaScript rather than CSS specifically so those players never download the 75KB animation. The preference is read once per call, which is enough: a fresh line is built every time the home view initialises or the win sheet opens.
+
+The emoji carries its own colour, so unlike the icon it looks identical in light and dark mode. It is decorative — the count beside it carries the meaning — so it has an empty `alt`.
+
+The asset is 64x64 (3.2x the rendered size), all 48 frames of the original, 75KB. It is MIT licensed; the notice and the command to regenerate it live in `ATTRIBUTION.md`.
 
 **Analytics:** Each update fires `streak_updated` carrying both the difficulty and overall streaks, and writes them as person properties (`streak_current_<difficulty>`, `streak_current_overall`, and their `best` equivalents), so retention can be segmented by streak length.
 
@@ -1216,7 +1232,13 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 1. **Timings**: `CONFIG.WIN_STREAK.REVEAL_DELAY_MS` and `CONFIG.WIN_STREAK.TRANSITION_MS` in `config.js`. The duration is applied inline to the track, so it overrides the CSS default.
 2. **Easing**: `.win-streak-line-track` transition in `style.css`
 3. **Wording**: `formatStreakLabel()` in `persistence.js` - shared with the home screen line, so a change lands in both
-4. **Line height**: `.win-streak-line-window` height and `.win-streak-line-item` height in `style.css` must stay equal, and match one line of `.bottom-sheet-message` text
+4. **Line height**: `.win-streak-line-window` height and `.win-streak-line-item` height in `style.css` must stay equal, and match one line of `.bottom-sheet-message` text. The flame is rendered at 20px inside a 24px line, so anything shorter clips it.
+
+**Modify the Streak Flame:**
+1. **Swap the emoji for a different one**: replace `public/streak-flame.webp`, following the regeneration command in `ATTRIBUTION.md` with a different `assets/<Name>/animated/` source. Update the licence notice if it comes from somewhere other than Fluent Emoji
+2. **Rendered size**: `FLAME_SIZE` in `components/streakFlame.js`. Going above 24px means also raising `.win-streak-line-window` / `.win-streak-line-item` in `style.css`, or the win sheet crops it
+3. **Reduced-motion fallback**: the `prefersReducedMotion()` branch in `components/streakFlame.js`. It returns a `data-lucide` placeholder, so any replacement icon must be registered in `icons.js` and both call sites must still run `initIcons()` afterwards
+4. **Both call sites at once**: `views/home.js` (rebuilds the line on every visit) and `components/winStreakLine.js` - neither writes its own flame markup, so a change here lands in both
 
 **Modify Hint Display:**
 1. **Hint number colors**: Modify hint gradient colors in `tokens.css` (both light and dark mode blocks). The 9-color gradient is defined as `--color-hint-1` through `--color-hint-9` and automatically flows to `CONFIG.COLORS.HINT_COLORS`
