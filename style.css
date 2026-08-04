@@ -554,7 +554,7 @@ button {
   font-size: 15px;
   font-weight: 500;
   line-height: 1;
-  color: var(--color-text-secondary);
+  color: var(--color-streak-text);
 }
 
 .home-streak.visible {
@@ -872,6 +872,13 @@ button {
   line-height: 24px;
   color: var(--color-text-secondary);
   white-space: nowrap;
+}
+
+/* The streak half of the line matches the home screen count rather than the
+ * completion time it slides up over, so the reward reads as the stronger of
+ * the two. */
+.win-streak-line-streak {
+  color: var(--color-streak-text);
 }
 
 /* Only rendered under reduced motion - see .streak-flame for the usual case */
