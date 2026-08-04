@@ -26,7 +26,8 @@
  * - HeartCrack: End/Finish button in game view (legacy)
  * - OctagonAlert: End game confirmation modal icon
  * - ChevronDown: Settings select dropdown indicator
- * - Flame: Daily streak indicator on home screen and in the win bottom sheet
+ * - Flame: Daily streak indicator, for players on reduced motion. Everyone
+ *   else gets the animated emoji instead - see components/streakFlame.js
  */
 
 import { createIcons, ArrowLeft, Settings, X, Menu, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig, HeartCrack, OctagonAlert, ChevronDown, Flame } from 'lucide';

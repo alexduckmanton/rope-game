@@ -733,15 +733,26 @@ button {
   font-size: 15px;
   font-weight: 500;
   line-height: 1;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
 
 .home-streak.visible {
   display: flex;
 }
 
+/* Only rendered under reduced motion - see .streak-flame for the usual case */
 .home-streak svg {
   color: var(--color-streak);
+  flex-shrink: 0;
+}
+
+/* The animated Fluent fire emoji, beside both streak counts.
+ *
+ * It brings its own colour, so unlike the icon it does not read from
+ * --color-streak and looks the same in both themes. Blocked so the line box
+ * of an inline image cannot add height to the row it sits in. */
+.streak-flame {
+  display: block;
   flex-shrink: 0;
 }
 
@@ -1036,6 +1047,14 @@ button {
   white-space: nowrap;
 }
 
+/* The streak half of the line matches the home screen count rather than the
+ * completion time it slides up over, so the reward reads as the stronger of
+ * the two. */
+.win-streak-line-streak {
+  color: var(--color-text-primary);
+}
+
+/* Only rendered under reduced motion - see .streak-flame for the usual case */
 .win-streak-line-streak svg {
   color: var(--color-streak);
   flex-shrink: 0;
