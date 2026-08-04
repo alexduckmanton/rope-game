@@ -21,7 +21,7 @@
 | `bottomSheet.js` | Reusable bottom sheet UI | `createBottomSheet()`, `showBottomSheetAsync()` - Factory + async helper with onClose callback |
 | `components/tutorialSheet.js` | Tutorial bottom sheet | `showTutorialSheet()` - Self-contained carousel with video management |
 | `components/winStreakLine.js` | Win sheet time/streak line | `createWinStreakLine()` - Completion time that slides up and out for the streak |
-| `components/fluentEmoji.js` | Fluent emoji registry | `createEmojiMarkup()`, `createStreakFlameMarkup()` - Emoji asset, or the Lucide icon it replaced under reduced motion |
+| `components/streakFlame.js` | Streak flame markup | `createStreakFlameMarkup()` - Animated Fluent fire emoji, or the Lucide icon under reduced motion |
 | `game/timer.js` | Game timer | `createGameTimer({ onUpdate, difficulty })`, `formatTime()` - Encapsulated timer with pause/resume |
 | `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback, score-aware share text |
 | `game/validation.js` | Win validation & scoring | `checkStructuralWin()`, `checkFullWin()`, `validateHints()`, `calculateScore()`, `getScoreLabel()` - Game validation logic and score calculation |
@@ -250,8 +250,8 @@ When players complete a closed loop, contextual feedback modals appear based on 
 
 | Condition | Modal Title | Modal Body | Icon | Color |
 |-----------|-------------|------------|------|-------|
-| All hints satisfied AND all cells visited (100%) | "Perfect loop!" | Completion time, swapping to the streak (daily only) | 🎉 party popper | Gold/amber |
-| Valid loop but incomplete (<100%) | "\<Score Label\> loop!" | "You scored \<score\>% in \<time\>. Make all numbers zero for a perfect score." | 🐚 spiral shell | Green |
+| All hints satisfied AND all cells visited (100%) | "Perfect loop!" | Completion time, swapping to the streak (daily only) | party-popper | Gold/amber |
+| Valid loop but incomplete (<100%) | "\<Score Label\> loop!" | "You scored \<score\>% in \<time\>. Make all numbers zero for a perfect score." | circle-check-big | Green |
 
 **Partial Win Modal:**
 - Shows player's current score percentage and time
@@ -289,7 +289,7 @@ The wording comes from `formatStreakLabel()` in `persistence.js`, shared with th
 
 **End Game Confirmation Modal:**
 - Appears before manual finish to prevent accidental endings
-- Icon: ⚠️ warning emoji (still, using the error color scheme)
+- Icon: Octagon-alert (red warning icon using error color scheme)
 - Title: "End this game?"
 - Body (daily mode only): "You won't be able to play the [Difficulty] Loopy until tomorrow."
 - Primary button: "End game" (destructive red styling)
@@ -420,7 +420,7 @@ rope-game/
 ├── ATTRIBUTION.md         # Licences for third-party assets committed to the repo
 ├── public/
 │   ├── _redirects         # SPA routing for Netlify (serves index.html for all routes)
-│   ├── emoji/             # Fluent emoji: streak flame and the bottom sheet icons (~430KB)
+│   ├── streak-flame.webp  # Animated Fluent fire emoji for the streak lines (75KB)
 │   └── videos/            # Tutorial demonstration videos (mp4/webm, ~688KB total)
 ├── src/
 │   ├── main.js            # App entry point, initializes router and icons
@@ -437,7 +437,7 @@ rope-game/
 │   ├── components/        # Reusable UI components
 │   │   ├── tutorialSheet.js # Tutorial carousel bottom sheet with video management
 │   │   ├── winStreakLine.js # Win sheet line that swaps completion time for streak
-│   │   └── fluentEmoji.js   # Fluent emoji registry, with reduced-motion fallbacks
+│   │   └── streakFlame.js   # Streak flame: animated emoji, or icon under reduced motion
 │   ├── game/              # Shared game utilities
 │   │   ├── timer.js       # Encapsulated timer with pause/resume support
 │   │   ├── share.js       # Share functionality (Web Share API + clipboard fallback)
@@ -674,7 +674,15 @@ The perfect win sheet shows the overall streak too, revealed a couple of seconds
 
 **The flame:**
 
-Both streak lines get their flame from `createStreakFlameMarkup()` in `components/fluentEmoji.js`, so the home screen and the win sheet can never end up showing different ones. It is the animated Fluent fire emoji at 20px — two pixels larger than the icon it replaced, because that emoji carries more transparent padding than most and matching the icon's box would have left the flame itself looking smaller. See Fluent Emoji for the rest.
+Both streak lines get their flame from `createStreakFlameMarkup()` in `components/streakFlame.js`, so the home screen and the win sheet can never end up showing different ones.
+
+Normally it is Microsoft's animated Fluent fire emoji (`public/streak-flame.webp`) at 20px — an animated WebP that loops by itself with no JavaScript driving it. It is two pixels larger than the icon it replaced because the emoji is authored with transparent padding around the flame, so matching the icon's box would have left the artwork looking smaller.
+
+Players who have asked their system for **reduced motion** get the Lucide `flame` icon instead, still at 18px and still tinted with `--color-streak`. That branch is chosen in JavaScript rather than CSS specifically so those players never download the 75KB animation. The preference is read once per call, which is enough: a fresh line is built every time the home view initialises or the win sheet opens.
+
+The emoji carries its own colour, so unlike the icon it looks identical in light and dark mode. It is decorative — the count beside it carries the meaning — so it has an empty `alt`.
+
+The asset is 64x64 (3.2x the rendered size), all 48 frames of the original, 75KB. It is MIT licensed; the notice and the command to regenerate it live in `ATTRIBUTION.md`.
 
 **Analytics:** Each update fires `streak_updated` carrying both the difficulty and overall streaks, and writes them as person properties (`streak_current_<difficulty>`, `streak_current_overall`, and their `best` equivalents), so retention can be segmented by streak length.
 
@@ -806,34 +814,6 @@ The app automatically follows the user's system-wide dark mode preference withou
 - **User experience**: Respects system preferences without forcing users to configure app-level settings
 - **Future-proof**: Easy to add theme variations, high-contrast modes, or custom color schemes
 
-### Fluent Emoji
-
-**Purpose:** The large icon in the circle at the top of every bottom sheet, and the flame beside both streak counts, are Microsoft's Fluent emoji rather than flat Lucide icons. These are the app's celebratory moments — a win, a streak — and a rendered emoji that moves carries them better than a two-pixel stroke.
-
-**Registry:** Every emoji is declared in `components/fluentEmoji.js`, so the whole set can be resized, swapped or removed in one place:
-
-| Key | Emoji | Where | Animated | Reduced-motion fallback | Size |
-|-----|-------|-------|----------|------------------------|------|
-| `fire` | 🔥 | Streak lines (home + win sheet), 20px | yes, 48 frames | `flame` | 76KB |
-| `party-popper` | 🎉 | Perfect win sheet, 40px | yes, 61 frames | `party-popper` | 192KB |
-| `spiral-shell` | 🐚 | Partial win and manual finish sheets, 40px | yes, 72 frames | `shell` | 157KB |
-| `warning` | ⚠️ | End game confirmation sheet, 40px | no | — | 2.4KB |
-| `gear` | ⚙️ | Settings sheet, 40px | no | — | 3.7KB |
-
-**Why two of them do not move:** only a minority of Fluent Emoji have animated versions, and that set leans heavily towards faces — most objects and symbols are stills. There is no animated gear or warning, so those two use the 3D stills from the non-animated repo. Same artwork, same style, no motion. `ATTRIBUTION.md` records how to check whether a given emoji animates before reaching for one.
-
-**Reduced motion:** players who have asked their system for it get the Lucide icon each animated emoji replaced. The branch is chosen in JavaScript rather than CSS specifically so those players never download the animation — at 192KB the party popper is by far the largest thing the win sheet would fetch. The two stills have nothing to avoid, so everybody sees them.
-
-One consequence worth knowing: under reduced motion the sheets mix the two visual languages — a flat Lucide party popper on the win sheet, a Fluent gear on settings. Falling back to a still frame of each animation instead would keep them consistent, at the cost of two more assets and a download those players do not otherwise need.
-
-**Loading:** nothing is fetched up front. Each `<img>` is only created when its sheet opens, and the streak flame only when a streak exists — so a player with no streak never downloads any of it.
-
-**Colour:** emoji bring their own, which is why they look identical in light and dark mode while the icons they replaced read from `--color-streak` or the sheet's `colorScheme`. The coloured circle behind the sheet emoji still comes from the scheme, so the sheets keep their success/partial/error/neutral identity.
-
-**Accessibility:** all of them are decorative — the sheet title or the streak count beside them carries the meaning — so they take an empty `alt` rather than a description a screen reader would read out first.
-
-**Assets:** `public/emoji/`, resized to 96x96 (64x64 for the flame, which renders much smaller) and re-encoded from APNG to animated WebP, keeping every frame and the original loop duration. That takes the party popper from 1.6MB to 192KB. MIT licensed; the notice and the regeneration commands live in `ATTRIBUTION.md`.
-
 ### Bottom Sheet Component System
 
 **Purpose:** Unified modal overlay system replacing browser alerts throughout the application. Provides consistent animations, dismissal methods, visual design with icons and color schemes for all transient notifications and persistent settings panels.
@@ -912,15 +892,12 @@ All dismissal paths wait for hide animation to complete before firing onClose ca
 
 **Resource Management:** Destroy method removes overlay from DOM and handles content cleanup. For HTMLElement content, restores element to original location with display:none to prevent FOUC. For string content, simply removes overlay. Settings sheet persists across game sessions (created once, show/hide many times), while notification sheets are destroyed immediately after use.
 
-**Icon Integration:** Bottom sheets render an optional Fluent emoji in a centered container that straddles the top edge of the sheet. The container uses a negative margin to position 40px above and 40px below the sheet edge, creating a visual pop-out effect. The emoji is named through the `emoji` option and resolved by `components/fluentEmoji.js`, which returns either an `<img>` or - under reduced motion, for the ones that animate - a Lucide placeholder. The component calls initIcons after DOM insertion either way, so the placeholder becomes an SVG.
+**Icon Integration:** Bottom sheets render optional Lucide icons in centered containers that straddle the top edge of the sheet. Icon container uses negative margin to position 40px above and 40px below the sheet edge, creating a visual pop-out effect. Component calls project's initIcons function after DOM insertion to convert icon placeholders into SVG elements. This maintains tree-shaking benefits while ensuring icons render correctly.
 
-The circle behind the emoji keeps taking its colour from the sheet's `colorScheme`. The scheme's `iconColor` now only reaches the reduced-motion fallback, since the emoji bring their own colour - which is also why they look identical in light and dark mode.
-
-**Emoji Usage:**
-- `gear` - Settings sheet (still)
-- `party-popper` - Perfect win, with golden celebration colours (animated)
-- `spiral-shell` - Partial win and manual finish (animated)
-- `warning` - End game confirmation (still)
+**Icon Usage:**
+- `settings` - Settings sheet
+- `party-popper` - Win notifications with golden celebration colors
+- `circle-off` - Incorrect loop feedback with error colors
 
 **Spacing Architecture:** Consistent 40px total gap between content and dismiss button across all sheet types. Achieved through content bottom padding plus button top margin. Settings items use 20px sides/top with 16px bottom. Messages use 0 top and 16px bottom. Header uses 8px top/bottom when icon present, 24px top when no icon. Button uses uniform 24px top margin for all sheets.
 
@@ -932,10 +909,10 @@ The circle behind the emoji keeps taking its colour from the sheet's `colorSchem
 
 | Location | Sheet Type | Content | Icon | Color Scheme | Dismiss Label |
 |----------|-----------|---------|------|--------------|---------------|
-| Settings panel | Persistent | HTMLElement | `gear` | `neutral` | "Close" |
+| Settings panel | Persistent | HTMLElement | `settings` | `neutral` | "Close" |
 | Perfect win (game) | Transient | HTMLElement (daily) / HTML string | `party-popper` | `success` | "Yay!" |
 | Perfect win (tutorial) | Transient | HTML string | `party-popper` | `success` | "Next" |
-| Partial win (game) | Transient | HTML string | `spiral-shell` | `partial` | "Keep trying" |
+| Partial win (game) | Transient | HTML string | `circle-check-big` | `partial` | "Keep trying" |
 
 **Integration Points:**
 
@@ -1069,8 +1046,7 @@ For implementation details, see Color Token System in Key Systems section.
 - **Library**: Lucide icons (tree-shakeable, ~2-3KB for current icons)
 - **Sizing**: 18px inline (button labels), 20px standalone, 24px header buttons
 - **Color**: Inherit via `currentColor`
-- **Usage**: Arrow-left (back), Circle-help (help), Settings (gear button in the game header), Dices (new puzzle), Refresh-ccw (Clear), Undo2 (undo), Check (End, home completion), Share2 (share), Trophy/Skull (home completion icons), ChevronDown (settings select indicator)
-- **Reduced motion only**: Flame, Party-popper and Shell stand in for the animated emoji that normally fill those spots (see Fluent Emoji)
+- **Usage**: Arrow-left (back), Circle-help (help), Settings (gear), Dices (new puzzle), Refresh-ccw (Clear), Undo2 (undo), Check (End, home completion), Party-popper (win), Octagon-alert (confirmation warning), Circle-off (error), Share2 (share), Trophy/Skull (home completion icons), ChevronDown (settings select indicator)
 
 **Settings Bottom Sheet:**
 
@@ -1258,12 +1234,11 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 3. **Wording**: `formatStreakLabel()` in `persistence.js` - shared with the home screen line, so a change lands in both
 4. **Line height**: `.win-streak-line-window` height and `.win-streak-line-item` height in `style.css` must stay equal, and match one line of `.bottom-sheet-message` text. The flame is rendered at 20px inside a 24px line, so anything shorter clips it.
 
-**Modify the Fluent Emoji:**
-1. **Swap one for a different emoji**: add or edit its entry in the `EMOJI` registry in `components/fluentEmoji.js` and drop the new asset in `public/emoji/`, following the regeneration commands in `ATTRIBUTION.md`. Check first whether the emoji you want animates at all - most objects and symbols do not
-2. **Add a new one**: register it, then pass its key as the `emoji` option to `createBottomSheet()`. Give animated ones a `fallbackIcon` that exists in `icons.js`; stills need none
-3. **Rendered size**: `SHEET_EMOJI_SIZE` in `bottomSheet.js` for the sheets, `createStreakFlameMarkup()` in `fluentEmoji.js` for the flame. Taking the flame above 24px means also raising `.win-streak-line-window` / `.win-streak-line-item` in `style.css`, or the win sheet crops it
-4. **Reduced-motion behaviour**: the `prefersReducedMotion()` branch in `components/fluentEmoji.js`. It returns a `data-lucide` placeholder, so every call site must still run `initIcons()` after inserting the markup - the bottom sheet and `views/home.js` both do
-5. **Both streak call sites at once**: `views/home.js` (rebuilds the line on every visit) and `components/winStreakLine.js` - neither writes its own flame markup, so a change lands in both
+**Modify the Streak Flame:**
+1. **Swap the emoji for a different one**: replace `public/streak-flame.webp`, following the regeneration command in `ATTRIBUTION.md` with a different `assets/<Name>/animated/` source. Update the licence notice if it comes from somewhere other than Fluent Emoji
+2. **Rendered size**: `FLAME_SIZE` in `components/streakFlame.js`. Going above 24px means also raising `.win-streak-line-window` / `.win-streak-line-item` in `style.css`, or the win sheet crops it
+3. **Reduced-motion fallback**: the `prefersReducedMotion()` branch in `components/streakFlame.js`. It returns a `data-lucide` placeholder, so any replacement icon must be registered in `icons.js` and both call sites must still run `initIcons()` afterwards
+4. **Both call sites at once**: `views/home.js` (rebuilds the line on every visit) and `components/winStreakLine.js` - neither writes its own flame markup, so a change here lands in both
 
 **Modify Hint Display:**
 1. **Hint number colors**: Modify hint gradient colors in `tokens.css` (both light and dark mode blocks). The 9-color gradient is defined as `--color-hint-1` through `--color-hint-9` and automatically flows to `CONFIG.COLORS.HINT_COLORS`

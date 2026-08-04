@@ -12,7 +12,7 @@
  */
 
 import { CONFIG } from '../config.js';
-import { createStreakFlameMarkup } from './fluentEmoji.js';
+import { createStreakFlameMarkup } from './streakFlame.js';
 
 /**
  * Create the swapping time/streak line
