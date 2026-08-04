@@ -531,9 +531,15 @@ button {
   color: var(--color-text-primary);
   margin: 0;
   letter-spacing: 0;
-  /* Monoton's line box carries a lot of slack; trimming it makes the 24px
-   * gap to the tagline the real gap rather than 24px plus leading */
+  /* Monoton's line box carries a lot of slack; trimming it makes the 16px
+   * gap to the tagline the real gap rather than 16px plus leading */
   line-height: 1;
+  /* Monoton ships one kern pair that lands in "Loopy", and it *widens* o-o by
+   * 0.073em - more than double every other gap in the word, which reads as a
+   * hole at this size. Presumably meant to stop two concentric rings merging
+   * at text sizes; it is not wanted on a wordmark. No other pair here is
+   * kerned, so switching the feature off changes nothing else. */
+  font-kerning: none;
 }
 
 .game-tagline {

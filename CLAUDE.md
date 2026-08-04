@@ -1074,6 +1074,8 @@ For implementation details, see Color Token System in Key Systems section.
 
 The wordmark sizes itself fluidly: `clamp(60px, 20.5vw, 72px)`. Monoton renders roughly 3.9× the font size wide, so any fixed size that fits a 390px phone would overflow a 320px one. The `vw` term only does work below roughly 350px — from there up the wordmark holds at the 72px cap rather than growing with the viewport.
 
+The wordmark also sets `font-kerning: none`. Monoton ships one kern pair that lands in "Loopy" and it *widens* o-o by 0.073em, more than double every other gap in the word, which reads as a hole at display size - presumably meant to stop two concentric rings merging at text sizes. No other pair in the word is kerned, so switching the feature off changes nothing else.
+
 The tagline holds at 20px on every width, matching Tilbo's. It fits on one line down to 320px, so the home screen carries no size breakpoints at all. `line-height: 1` trims Monoton's generous line box so the 16px gap to the tagline is the real gap rather than 16px plus leading. Only the tagline steps at the 600px/400px breakpoints.
 
 **Home Screen Buttons (`.btn-large`):** Deliberately bigger and softer than the in-game controls — 72px tall, 24px radius, 20px/700 text, 8px apart, capped at 400px wide. No drop shadow: press feedback is carried by opacity (0.85 on hover, 0.7 on press) and a 2px lift alone. The completion icon (trophy / check / skull) is absolutely positioned 24px from the left edge. The same styling covers the tutorial button in the slot above, so the whole stack reads as one set.
