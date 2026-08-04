@@ -524,9 +524,9 @@ button {
   /* Fluid rather than stepped: Monoton renders roughly 3.9x the font size
    * wide, so a fixed size that fits a 390px phone would overflow a 320px one.
    * 20.5vw keeps the wordmark clear of the container padding on narrow
-   * screens and reaches the 80px cap at around 390px, holding there on
+   * screens and reaches the 72px cap at around 350px, holding there on
    * everything wider. */
-  font-size: clamp(60px, 20.5vw, 80px);
+  font-size: clamp(60px, 20.5vw, 72px);
   font-weight: 400;
   color: var(--color-text-primary);
   margin: 0;
@@ -815,19 +815,8 @@ button {
   fill: none;
 }
 
-/* Mobile adjustments for home. The title sizes itself fluidly (see
- * .game-title), so only the tagline steps down here. */
-@media (max-width: 600px) {
-  .game-tagline {
-    font-size: 18px;
-  }
-}
-
-@media (max-width: 400px) {
-  .game-tagline {
-    font-size: 16px;
-  }
-}
+/* The title sizes itself fluidly (see .game-title) and the tagline holds at
+ * 20px on every width, so the home screen needs no size breakpoints. */
 
 /* ============================================================================
  * PLAY VIEW
