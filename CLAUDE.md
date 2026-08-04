@@ -936,6 +936,8 @@ A 44px hamburger button is fixed in the top-left of the home screen. Tapping it 
 
 **Contents:** How to play (opens the tutorial sheet), Unlimited, Support Loopy, Give feedback. The last two moved here from the old home footer, which is gone.
 
+This menu is the **only** place the support link appears. It used to also sit as a secondary button on the daily perfect win sheet, which put an ask in front of the player at the moment they had just won. `secondaryButton` remains available on the bottom sheet component but now has no callers.
+
 **Mechanics:**
 
 - All open/closed styling hangs off a single `menu-open` class on `#home-view`, so the toggle icon, the scrim and the sheet stay in step without the JavaScript touching each of them.
