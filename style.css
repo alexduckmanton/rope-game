@@ -504,7 +504,7 @@ button {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
   margin-top: 48px;
 }
 
@@ -747,6 +747,14 @@ button {
 .home-streak svg {
   color: var(--color-streak);
   flex-shrink: 0;
+}
+
+/* The emoji's flame is bottom-heavy, so sitting it on the text baseline box
+ * leaves it reading low against the count. Nudged up to sit optically level.
+ * Scoped to the home line: the win sheet's flame is smaller and sits inside a
+ * fixed window where a shift would show. */
+.home-streak .streak-flame {
+  transform: translateY(-2px);
 }
 
 /* The animated Fluent fire emoji, beside both streak counts.

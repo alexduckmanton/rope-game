@@ -646,7 +646,7 @@ Auto-saves game state to localStorage (client-side, no backend).
 
 **Home screen display:**
 
-A single line above the difficulty buttons: a flame plus text, e.g. "5 day streak". The text matches the tagline above it exactly - 20px, weight 700 - with the flame at 28px beside it. The line carries 24px of padding on its right against 8px on its left: the flame sits only on the left, so centring the group on its true middle leaves the text reading right of centre, and the extra padding pulls it most of the way back.
+A single line above the difficulty buttons: a flame plus text, e.g. "5 day streak". The text matches the tagline above it exactly - 20px, weight 700 - with the flame at 28px beside it. The line carries 24px of padding on its right against 8px on its left: the flame sits only on the left, so centring the group on its true middle leaves the text reading right of centre, and the extra padding pulls it most of the way back. The flame itself is nudged up 2px, its artwork being bottom-heavy enough to read low against the count when the two boxes are aligned.
 
 The line shares a fixed-height slot (`.home-slot`, 72px — one large button tall) with the tutorial button. Exactly one of them shows, and sometimes neither:
 
@@ -1074,7 +1074,7 @@ For implementation details, see Color Token System in Key Systems section.
 
 The wordmark sizes itself fluidly: `clamp(60px, 20.5vw, 72px)`. Monoton renders roughly 3.9× the font size wide, so any fixed size that fits a 390px phone would overflow a 320px one. The `vw` term only does work below roughly 350px — from there up the wordmark holds at the 72px cap rather than growing with the viewport.
 
-The tagline holds at 20px on every width, matching Tilbo's. It fits on one line down to 320px, so the home screen carries no size breakpoints at all. `line-height: 1` trims Monoton's generous line box so the 24px gap to the tagline is the real gap rather than 24px plus leading. Only the tagline steps at the 600px/400px breakpoints.
+The tagline holds at 20px on every width, matching Tilbo's. It fits on one line down to 320px, so the home screen carries no size breakpoints at all. `line-height: 1` trims Monoton's generous line box so the 16px gap to the tagline is the real gap rather than 16px plus leading. Only the tagline steps at the 600px/400px breakpoints.
 
 **Home Screen Buttons (`.btn-large`):** Deliberately bigger and softer than the in-game controls — 72px tall, 24px radius, 20px/700 text, 8px apart, capped at 400px wide. No drop shadow: press feedback is carried by opacity (0.85 on hover, 0.7 on press) and a 2px lift alone. The completion icon (trophy / check / skull) is absolutely positioned 24px from the left edge. The same styling covers the tutorial button in the slot above, so the whole stack reads as one set.
 
