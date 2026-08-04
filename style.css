@@ -544,7 +544,7 @@ button {
 
 .game-tagline {
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-text-primary);
   margin: 0;
 }
@@ -740,7 +740,7 @@ button {
    * right nudges it back so the text lands nearer the optical centre. */
   padding: 4px 24px 4px 8px;
   font-size: 20px; /* Matches .game-tagline */
-  font-weight: 700; /* Matches .game-tagline */
+  font-weight: 600; /* Matches .game-tagline */
   line-height: 1;
   color: var(--color-text-primary);
 }
