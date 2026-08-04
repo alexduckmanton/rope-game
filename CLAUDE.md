@@ -664,7 +664,7 @@ Tapping the line cycles through every difficulty that currently has a live strea
 
 Difficulties with no live streak are skipped, so a tap never lands on "0 day streak", and the line is inert when there is nothing to cycle to. Cycle order follows the on-screen button order (`easy`, `medium`, `hard`) via the `DIFFICULTIES` constant in `views/home.js`.
 
-This is deliberately styled as plain text, not a control — it is a small reward for the curious rather than a feature that needs discovering. The count is set in `--color-streak-text` (neutral 900, so pure black in light mode and pure white in dark), which makes it the strongest text on the home screen rather than the quiet grey the rest of the secondary copy uses. The win sheet's streak half matches it; the completion time it slides up over stays secondary.
+This is deliberately styled as plain text, not a control — it is a small reward for the curious rather than a feature that needs discovering. The count is set in `--color-text-primary`, the same weight as the app's headings, rather than the quieter `--color-text-secondary` the taglines use. The win sheet's streak half matches it; the completion time it slides up over stays secondary.
 
 The difficulty buttons themselves carry only the existing completion icon: trophy for a win, check for a manual finish, skull for a viewed solution.
 

@@ -127,11 +127,8 @@
   --color-partial: var(--color-green-500);           /* Partial completion icon */
   --color-partial-bg: var(--color-green-100);        /* Partial completion background */
 
-  /* Streak line: amber flame, black count. Neutral 900 inverts to pure white
-   * in dark mode, so the count stays the strongest text on the screen either
-   * way rather than turning invisible. */
+  /* Streak flame on the home screen */
   --color-streak: var(--color-amber-500);
-  --color-streak-text: var(--color-neutral-900);
 
   --color-error: var(--color-red-500);
   --color-error-bg: var(--color-red-100);

@@ -554,7 +554,7 @@ button {
   font-size: 15px;
   font-weight: 500;
   line-height: 1;
-  color: var(--color-streak-text);
+  color: var(--color-text-primary);
 }
 
 .home-streak.visible {
@@ -878,7 +878,7 @@ button {
  * completion time it slides up over, so the reward reads as the stronger of
  * the two. */
 .win-streak-line-streak {
-  color: var(--color-streak-text);
+  color: var(--color-text-primary);
 }
 
 /* Only rendered under reduced motion - see .streak-flame for the usual case */
