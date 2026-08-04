@@ -1050,6 +1050,10 @@ For implementation details, see Color Token System in Key Systems section.
 
 **Button Styling:** Minimal flat design, rounded corners (8px), subtle shadow on tap, no heavy borders.
 
+**Home Screen Layout:** The home view is split into two equal halves — `.home-title-section` and `.home-actions`, each `flex: 1`. The wordmark and tagline centre in the top half (nudged down 48px), the streak/tutorial slot and difficulty buttons centre in the bottom half. Centring the lot as one group instead, which is what it used to do, floats the buttons too far up the screen.
+
+The wordmark sizes itself fluidly: `clamp(60px, 20.5vw, 104px)`. Monoton renders roughly 3.9× the font size wide, so any fixed size that fits a 390px phone either overflows a 320px one or wastes half the width on a 430px one. The cap stops it growing past 104px on desktop. `line-height: 1` trims Monoton's generous line box so the 24px gap to the tagline is the real gap rather than 24px plus leading. Only the tagline steps at the 600px/400px breakpoints.
+
 **Home Screen Buttons (`.btn-large`):** Deliberately bigger and softer than the in-game controls — 72px tall, 24px radius, 20px/700 text, 8px apart, capped at 400px wide. No drop shadow: press feedback is carried by opacity (0.85 on hover, 0.7 on press) and a 2px lift alone. The completion icon (trophy / check / skull) is absolutely positioned 24px from the left edge. The same styling covers the tutorial button in the slot above, so the whole stack reads as one set.
 
 **Icons:**
