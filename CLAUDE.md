@@ -272,7 +272,7 @@ When players complete a closed loop, contextual feedback modals appear based on 
 In daily mode the perfect win sheet's body line does not sit still. It opens on "You finished in 2:34.", holds for a beat, then slides that line up and out while the streak line - the same flame and "5 day streak" wording as the home screen - slides up into its place. The reward for coming back tomorrow lands in the same moment as the win.
 
 - **Mechanism**: both lines are stacked inside a window exactly one line tall (24px) with `overflow: hidden`, so the swap is a single transform on the track and everything outside the window is cropped. Nothing in the sheet moves.
-- **Timing**: `CONFIG.WIN_STREAK.REVEAL_DELAY_MS` (2000) before the swap, `CONFIG.WIN_STREAK.TRANSITION_MS` (300) for the slide itself, on an easeInOutQuint curve so it reads as snappy rather than as an animation to wait out.
+- **Timing**: `CONFIG.WIN_STREAK.REVEAL_DELAY_MS` (1500) before the swap, `CONFIG.WIN_STREAK.TRANSITION_MS` (300) for the slide itself, on an easeInOutQuint curve so it reads as snappy rather than as an animation to wait out.
 - **Tap to toggle**: tapping the line switches between the two, and cancels the pending automatic reveal so a tap is never overridden a moment later.
 - **Replays on every open**: a fresh line is built for each sheet, including when a completed daily puzzle is reopened from a saved game, so the reveal always plays from the time.
 - **Overall streak only**: the line never mentions the difficulty. Per-difficulty streaks stay an easter egg on the home screen.

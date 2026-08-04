@@ -169,7 +169,7 @@ export const CONFIG = {
   WIN_STREAK: {
     // How long the completion time stays on screen before the streak slides in.
     // Measured from the moment the sheet starts sliding up.
-    REVEAL_DELAY_MS: 2000,
+    REVEAL_DELAY_MS: 1500,
     // Length of the slide itself. Kept short so the swap reads as snappy
     // rather than as an animation the player has to wait out.
     TRANSITION_MS: 300,
