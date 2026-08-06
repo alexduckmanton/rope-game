@@ -6,7 +6,7 @@
  */
 
 import { navigate } from '../router.js';
-import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, isDailyManuallyFinished, getStreak, getOverallStreak, formatStreakLabel } from '../persistence.js';
+import { isDailyCompleted, isTutorialCompleted, isDailyCompletedWithViewedSolution, getStreak, getOverallStreak, formatStreakLabel } from '../persistence.js';
 import { initIcons } from '../icons.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
 import { initHomeMenu } from '../components/homeMenu.js';
@@ -58,27 +58,17 @@ function updateCompletedState(button, isCompleted, icon = 'trophy') {
 
 /**
  * Update daily puzzle button with appropriate completion icon
- * Shows trophy for legitimate wins, check for manually finished, skull for viewed solutions
- * Priority: trophy > check > skull
+ * Shows trophy for wins, skull for viewed solutions
  *
  * @param {HTMLElement} button - The difficulty button element
  * @param {string} difficulty - Difficulty level ('easy', 'medium', 'hard')
  */
 function updateDailyButtonState(button, difficulty) {
   const won = isDailyCompleted(difficulty);
-  const manuallyFinished = isDailyManuallyFinished(difficulty);
   const viewedSolution = isDailyCompletedWithViewedSolution(difficulty);
-  const isCompleted = won || manuallyFinished || viewedSolution;
+  const isCompleted = won || viewedSolution;
 
-  // Priority: trophy > check > skull
-  let icon = 'skull'; // default
-  if (won) {
-    icon = 'trophy';
-  } else if (manuallyFinished) {
-    icon = 'check';
-  }
-
-  updateCompletedState(button, isCompleted, icon);
+  updateCompletedState(button, isCompleted, won ? 'trophy' : 'skull');
 }
 
 /**

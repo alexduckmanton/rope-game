@@ -187,14 +187,53 @@ export function trackTutorialCompleted() {
  * ========================================================================= */
 
 /**
+ * Flatten a puzzle's measured shape into event properties
+ *
+ * Sent with every game lifecycle event so puzzle characteristics can be
+ * correlated with completion directly. This is what makes it possible to tell
+ * "this difficulty is mistuned" from "that particular day's puzzle was unlucky"
+ * - a distinction the difficulty label alone can never make.
+ *
+ * @param {Object|null} shape - From describePuzzle() in generation/hintPlacement.js
+ * @param {{variant: string, source: string}|null} assignment - Experiment arm actually used
+ * @returns {Object} Event properties (empty when nothing is known)
+ */
+function puzzleProperties(shape, assignment) {
+  const props = {};
+
+  if (assignment) {
+    // The arm the puzzle was really generated with. Analyse on this rather than
+    // PostHog's $feature/... property: the two can differ when a puzzle is
+    // generated before the flag response lands, or is restored from a save that
+    // pinned an older assignment. See experiment.js.
+    props.generator_variant = assignment.variant;
+    props.variant_source = assignment.source;
+  }
+
+  if (shape) {
+    props.hint_count = shape.hintCount;
+    props.expected_turns_total = shape.expectedTurnsTotal;
+    props.hint_coverage_percent = shape.coveragePercent;
+    props.hint_redundancy = shape.redundancy;
+    props.anchor_hints = shape.anchorHints;
+    props.solution_turns = shape.solutionTurns;
+  }
+
+  return props;
+}
+
+/**
  * Track game started
  * @param {string} difficulty - Difficulty level ('easy', 'medium', 'hard')
  * @param {string} mode - Game mode ('daily', 'unlimited')
+ * @param {Object} [shape] - Measured puzzle shape from describePuzzle()
+ * @param {{variant: string, source: string}} [assignment] - Experiment arm used
  */
-export function trackGameStarted(difficulty, mode) {
+export function trackGameStarted(difficulty, mode, shape = null, assignment = null) {
   trackEvent('game_started', {
     difficulty,
-    mode
+    mode,
+    ...puzzleProperties(shape, assignment)
   });
 }
 
@@ -204,17 +243,52 @@ export function trackGameStarted(difficulty, mode) {
  * @param {string} mode - Game mode ('daily', 'unlimited')
  * @param {number} completionTimeSeconds - Time in seconds
  * @param {string} completionTimeFormatted - Formatted time (e.g., "Easy • 2:34")
- * @param {string} [completionType] - How the game ended ('win', 'manual_finish')
- * @param {number} [score] - Score percentage at completion
+ * @param {number} score - Score percentage at completion
+ * @param {Object} [shape] - Measured puzzle shape from describePuzzle()
+ * @param {{variant: string, source: string}} [assignment] - Experiment arm used
  */
-export function trackGameCompleted(difficulty, mode, completionTimeSeconds, completionTimeFormatted, completionType = 'win', score = 100) {
+export function trackGameCompleted(difficulty, mode, completionTimeSeconds, completionTimeFormatted, score, shape = null, assignment = null) {
   trackEvent('game_completed', {
     difficulty,
     mode,
     completion_time_seconds: completionTimeSeconds,
     completion_time_formatted: completionTimeFormatted,
-    completion_type: completionType,
-    score
+    score,
+    ...puzzleProperties(shape, assignment)
+  });
+}
+
+/**
+ * Track a game left unfinished
+ *
+ * The counterpart to game_completed, and the piece that was missing: without
+ * it, "started and never completed" is indistinguishable from "still playing",
+ * so a completion rate says nothing about *where* players give up. The progress
+ * fields turn a drop-off into a diagnosis - a player who left at 20% never got
+ * going, one who left at 90% got stuck on the last constraint.
+ *
+ * Fires on navigation away or tab close while a puzzle has been touched but not
+ * finished. Best effort by nature: a hard tab kill may not deliver it, so treat
+ * the count as a lower bound.
+ *
+ * @param {string} difficulty - Difficulty level
+ * @param {string} mode - Game mode ('daily', 'unlimited')
+ * @param {number} elapsedSeconds - Time spent on the puzzle
+ * @param {number} score - Score percentage when the player left
+ * @param {number} cellsDrawn - Cells in the player's path at exit
+ * @param {number} hintsSatisfied - Hints reading zero at exit
+ * @param {Object} [shape] - Measured puzzle shape from describePuzzle()
+ * @param {{variant: string, source: string}} [assignment] - Experiment arm used
+ */
+export function trackGameAbandoned(difficulty, mode, elapsedSeconds, score, cellsDrawn, hintsSatisfied, shape = null, assignment = null) {
+  trackEvent('game_abandoned', {
+    difficulty,
+    mode,
+    elapsed_seconds: elapsedSeconds,
+    score,
+    cells_drawn: cellsDrawn,
+    hints_satisfied: hintsSatisfied,
+    ...puzzleProperties(shape, assignment)
   });
 }
 
@@ -372,15 +446,83 @@ export function trackStreakUpdated(difficulty, difficultyStreak, overallStreak) 
     streak_overall_best: overallStreak.best
   });
 
+  setPersonProperties({
+    [`streak_current_${difficulty}`]: difficultyStreak.current,
+    [`streak_best_${difficulty}`]: difficultyStreak.best,
+    streak_current_overall: overallStreak.current,
+    streak_best_overall: overallStreak.best
+  });
+}
+
+/* ============================================================================
+ * PERSON PROPERTIES & FEATURE FLAGS
+ * ========================================================================= */
+
+/**
+ * Set person properties, no-op when PostHog is unavailable
+ *
+ * @param {Object} properties - Properties to set on the person profile
+ */
+export function setPersonProperties(properties) {
   try {
-    if (isInitialized) {
-      posthog.setPersonProperties({
-        [`streak_current_${difficulty}`]: difficultyStreak.current,
-        [`streak_best_${difficulty}`]: difficultyStreak.best,
-        streak_current_overall: overallStreak.current,
-        streak_best_overall: overallStreak.best
-      });
+    if (DEBUG_ANALYTICS) {
+      console.log('[Analytics] setPersonProperties', properties);
     }
+
+    if (!isInitialized) return;
+
+    posthog.setPersonProperties(properties);
+  } catch (error) {
+    // Silent fail - never interrupt gameplay
+    console.debug('[Analytics] Error:', error);
+  }
+}
+
+/**
+ * Read a feature flag's value
+ *
+ * Returns undefined when PostHog has not answered yet, is blocked, or failed to
+ * initialise - all of which are indistinguishable from the caller's point of
+ * view and all of which mean "no assignment available right now". Callers must
+ * handle that case rather than treating it as a variant.
+ *
+ * Calling this also emits PostHog's `$feature_flag_called` event, which is what
+ * an Experiment uses to count exposure.
+ *
+ * @param {string} key - Feature flag key
+ * @returns {string|boolean|undefined} Flag value, or undefined if unresolved
+ */
+export function getFeatureFlag(key) {
+  try {
+    if (!isInitialized) return undefined;
+
+    return posthog.getFeatureFlag(key);
+  } catch (error) {
+    console.debug('[Analytics] Error:', error);
+    return undefined;
+  }
+}
+
+/**
+ * Register a callback for when feature flags first resolve
+ *
+ * PostHog fires this once the flag response arrives, and again if flags are
+ * later reloaded. Never fires when PostHog is blocked, so anything depending on
+ * it needs its own fallback.
+ *
+ * @param {function(): void} callback - Invoked after flags are available
+ */
+export function onFeatureFlags(callback) {
+  try {
+    if (!isInitialized) return;
+
+    posthog.onFeatureFlags(() => {
+      try {
+        callback();
+      } catch (error) {
+        console.debug('[Analytics] Feature flag callback error:', error);
+      }
+    });
   } catch (error) {
     console.debug('[Analytics] Error:', error);
   }

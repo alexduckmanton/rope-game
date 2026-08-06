@@ -137,9 +137,23 @@ export const CONFIG = {
       hard: 'Diabolical',
     },
 
-    // Hint generation configuration per difficulty level
+    // Hint generation configuration per difficulty level - CONTROL arm
+    //
+    // This is the placement that has always shipped: shuffle every cell, take
+    // the first N that are at least minDistance apart. It is retained as the
+    // control arm of the hint-generation experiment (see EXPERIMENT below) and
+    // should not be tuned while that experiment is running - changing it would
+    // move the baseline mid-test.
+    //
     // count: fixed number of hints to place
     // minDistance: minimum Chebyshev distance between hints (0 = no constraint)
+    //
+    // Known quirks, left deliberately intact so the control keeps behaving as
+    // it did for the players already measured against it:
+    //   - easy places 1.73 hints on average, not 2: minDistance 3 is
+    //     unsatisfiable from any interior cell of a 4x4, so roughly a quarter
+    //     of days ship a single-hint Easy.
+    //   - minDistance 1 would be a no-op (Chebyshev >= 1 is any distinct cell).
     HINT_CONFIG: {
       easy: {
         count: 2,         // 2 hints on 4x4 grid
@@ -153,6 +167,70 @@ export const CONFIG = {
         count: 16,        // 16 hints on 8x8 grid
         minDistance: 0,   // No distance constraint
       },
+    },
+
+    // Hint generation configuration per difficulty level - DENSE arm
+    //
+    // Used by generateHintCellsCovering() in generation/hintPlacement.js, which
+    // guarantees every cell sits inside at least one hint area and then spends
+    // the remaining budget on overlap and on low-value "anchor" hints.
+    //
+    // count:           total hints to place
+    // lowValueAnchors: hints reading <= anchorMaxValue to guarantee, budget and
+    //                  solution permitting
+    // anchorMaxValue:  turn count at or below which a hint counts as an anchor
+    //
+    // Measured over 365 daily seeds, against the control above:
+    //
+    //   |            | hints       | coverage      | redundancy  | anchors     |
+    //   |------------|-------------|---------------|-------------|-------------|
+    //   | Easy       | 1.73 -> 4   | 62.6% -> 100% | 1.00 -> 1.87| n/a         |
+    //   | Tricky     | 5    -> 8   | 77.2% -> 100% | 1.24 -> 1.69| 0.31 -> 1.82|
+    //   | Diabolical | 16   -> 16  | 88.9% -> 100% | 2.13 -> 1.97| 2.29 -> 2.45|
+    //
+    // Easy asks for no anchors because it cannot have any: a 4x4 Hamiltonian
+    // cycle packs ~11 turns into 16 cells, so every 3x3 window on it holds at
+    // least two turns. Tricky uses a threshold of 2 rather than 1 for a milder
+    // version of the same constraint - only 2.0 positions per 6x6 puzzle read
+    // 0 or 1, so a quota of two at threshold 1 would be demanding both of them.
+    HINT_CONFIG_DENSE: {
+      easy: {
+        count: 4,              // 4 hints fully cover a 4x4
+        lowValueAnchors: 0,    // Impossible on this grid - see above
+      },
+      medium: {
+        count: 8,              // 8 hints fully cover a 6x6 on every seed tested
+        lowValueAnchors: 2,
+        anchorMaxValue: 2,
+      },
+      hard: {
+        count: 16,             // Unchanged, so Diabolical's density looks the same
+        lowValueAnchors: 2,
+        anchorMaxValue: 1,
+      },
+    },
+  },
+
+  // Hint generation experiment
+  //
+  // A/B test of the two HINT_CONFIG blocks above. Motivated by the observation
+  // that Tricky completes at 37% while Diabolical - a bigger grid - completes
+  // at 53% and solves faster, which traced back to Diabolical's hint areas
+  // overlapping enough to make deduction possible where Tricky's do not.
+  //
+  // Assignment is per person via PostHog and is pinned into each saved game, so
+  // a puzzle already in progress can never be regenerated under a player.
+  //
+  // See "Hint generation experiment" in CLAUDE.md for the teardown checklist.
+  EXPERIMENT: {
+    HINT_GENERATION: {
+      FLAG_KEY: 'hint-generation-density',
+      CONTROL: 'control',
+      VARIANT: 'dense',
+      // Cached in localStorage so first paint never waits on the PostHog
+      // response, and so a blocked or failed PostHog load still yields a stable
+      // assignment rather than silently reverting everyone to control.
+      STORAGE_KEY: 'loop-game:experiment:hint-generation',
     },
   },
 
@@ -175,15 +253,6 @@ export const CONFIG = {
     TRANSITION_MS: 300,
   },
 
-  // Feature flags
-  FEATURES: {
-    // Enable early game ending functionality
-    // When enabled, shows:
-    // - End button (allows players to finish game early with current score)
-    // - Score percentage in timer display (e.g., "Tricky • 1:23 • 75%")
-    // When disabled, hides both features for cleaner traditional puzzle experience
-    ENABLE_EARLY_GAME_ENDING: false,
-  },
 };
 
 /**
