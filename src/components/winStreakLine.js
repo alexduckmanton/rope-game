@@ -24,9 +24,12 @@ import { createStreakFlameMarkup } from './streakFlame.js';
  * @param {Object} options
  * @param {string} options.timeText - Line shown first (e.g. "You finished in 2:34.")
  * @param {string} options.streakText - Line revealed after the delay (e.g. "5 day streak")
+ * @param {Function} [options.onToggle] - Called with true when a tap lands on the
+ *   streak half, false for the time half. Only fires for taps, never for the
+ *   automatic reveal, so the caller can report deliberate interaction alone.
  * @returns {{element: HTMLElement, start: Function, destroy: Function}} Line instance
  */
-export function createWinStreakLine({ timeText, streakText }) {
+export function createWinStreakLine({ timeText, streakText, onToggle }) {
   const element = document.createElement('div');
   element.className = 'win-streak-line';
 
@@ -64,6 +67,7 @@ export function createWinStreakLine({ timeText, streakText }) {
     // undo the player's choice a moment later
     cancelReveal();
     setShowingStreak(!showingStreak);
+    if (onToggle) onToggle(showingStreak);
   };
 
   function cancelReveal() {

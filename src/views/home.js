@@ -11,7 +11,7 @@ import { initIcons } from '../icons.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
 import { initHomeMenu } from '../components/homeMenu.js';
 import { createStreakFlameMarkup } from '../components/streakFlame.js';
-import { trackDifficultySelected } from '../analytics.js';
+import { trackDifficultySelected, trackStreakLineShown, trackStreakCycled } from '../analytics.js';
 import { getDifficultyLabelLower } from '../config.js';
 
 /**
@@ -88,19 +88,30 @@ function updateDailyButtonState(button, difficulty) {
  * has a live streak of its own. Difficulties with no streak are left out, so
  * tapping never lands on "0 day streak".
  *
- * @returns {Array<{label: string}>} Streaks to cycle through, overall first
+ * Each entry carries the difficulty and day count alongside its label so a tap
+ * can report what the player actually landed on.
+ *
+ * @returns {Array<{label: string, difficulty: string, days: number}>} Streaks to cycle through, overall first
  */
 function buildStreakCycle() {
   const overall = getOverallStreak();
   if (overall.current === 0) return [];
 
-  const cycle = [{ label: formatStreakLabel(overall.current) }];
+  const cycle = [{
+    label: formatStreakLabel(overall.current),
+    difficulty: 'overall',
+    days: overall.current
+  }];
 
   for (const difficulty of DIFFICULTIES) {
     const streak = getStreak(difficulty);
     if (streak.current === 0) continue;
 
-    cycle.push({ label: formatStreakLabel(streak.current, getDifficultyLabelLower(difficulty)) });
+    cycle.push({
+      label: formatStreakLabel(streak.current, getDifficultyLabelLower(difficulty)),
+      difficulty,
+      days: streak.current
+    });
   }
 
   return cycle;
@@ -149,12 +160,27 @@ function initHomeSlot(tutorialBtn) {
   textEl.textContent = cycle[index].label;
   streakEl.classList.add('visible');
 
+  // Reported even when the line is inert, so the share of home views showing a
+  // streak at all is measurable, and so tap rate has a denominator
+  trackStreakLineShown(cycle[0].days, cycle.length);
+
   // A single entry means there is nothing to cycle to
   if (cycle.length === 1) return null;
+
+  let tapCount = 0;
 
   const handleCycle = () => {
     index = (index + 1) % cycle.length;
     textEl.textContent = cycle[index].label;
+
+    tapCount += 1;
+    trackStreakCycled({
+      difficulty: cycle[index].difficulty,
+      streakDays: cycle[index].days,
+      cycleIndex: index,
+      cycleLength: cycle.length,
+      tapCount
+    });
   };
 
   streakEl.addEventListener('click', handleCycle);

@@ -385,3 +385,69 @@ export function trackStreakUpdated(difficulty, difficultyStreak, overallStreak) 
     console.debug('[Analytics] Error:', error);
   }
 }
+
+/**
+ * Track the home screen streak line being shown
+ *
+ * `streak_updated` only fires at the moment a puzzle is completed, so on its
+ * own it cannot say how many players arrive at the home screen already
+ * carrying a streak - which is the thing the feature is meant to move. This
+ * fires on every home view that displays the line, giving both that count and
+ * the distribution of streak lengths among returning players.
+ *
+ * It is also the denominator for `streak_cycled`: tap rate is meaningless
+ * without knowing how often the line was there to be tapped.
+ *
+ * @param {number} streakDays - Current overall streak being shown
+ * @param {number} cycleLength - Entries in the tap cycle (1 means it is inert)
+ */
+export function trackStreakLineShown(streakDays, cycleLength) {
+  trackEvent('streak_line_shown', {
+    streak_days: streakDays,
+    cycle_length: cycleLength,
+    is_cyclable: cycleLength > 1
+  });
+}
+
+/**
+ * Track a tap on the home screen streak line
+ *
+ * The line cycles through the per-difficulty streaks and wraps back to the
+ * overall one. It carries no button affordance by design, so this is the only
+ * way to tell whether players ever discover it.
+ *
+ * @param {Object} params
+ * @param {string} params.difficulty - Difficulty landed on, or 'overall'
+ * @param {number} params.streakDays - Streak length now shown
+ * @param {number} params.cycleIndex - Position in the cycle (0 is overall)
+ * @param {number} params.cycleLength - Total entries in the cycle
+ * @param {number} params.tapCount - Taps so far this visit, this one included
+ */
+export function trackStreakCycled({ difficulty, streakDays, cycleIndex, cycleLength, tapCount }) {
+  trackEvent('streak_cycled', {
+    difficulty,
+    streak_days: streakDays,
+    cycle_index: cycleIndex,
+    cycle_length: cycleLength,
+    tap_count: tapCount
+  });
+}
+
+/**
+ * Track a tap on the win sheet's time/streak line
+ *
+ * The sheet reveals the streak by itself after a beat; tapping toggles back
+ * and forth. A tap therefore means the player deliberately went looking at
+ * one of the two lines rather than letting the reveal play.
+ *
+ * @param {string} difficulty - Difficulty just completed
+ * @param {number} streakDays - Overall streak shown on the line
+ * @param {boolean} showingStreak - Whether the tap landed on the streak half
+ */
+export function trackWinStreakToggled(difficulty, streakDays, showingStreak) {
+  trackEvent('win_streak_toggled', {
+    difficulty,
+    streak_days: streakDays,
+    showing: showingStreak ? 'streak' : 'time'
+  });
+}

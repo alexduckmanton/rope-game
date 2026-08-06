@@ -29,7 +29,8 @@ import {
   trackSolutionViewed,
   trackSettingsOpened,
   trackValidationError,
-  trackStreakUpdated
+  trackStreakUpdated,
+  trackWinStreakToggled
 } from '../analytics.js';
 
 /* ============================================================================
@@ -587,7 +588,8 @@ function showWinCelebration(finalTime) {
   if (streakDays > 0) {
     activeWinStreakLine = createWinStreakLine({
       timeText,
-      streakText: formatStreakLabel(streakDays)
+      streakText: formatStreakLabel(streakDays),
+      onToggle: (showingStreak) => trackWinStreakToggled(currentGameDifficulty, streakDays, showingStreak)
     });
   }
 
