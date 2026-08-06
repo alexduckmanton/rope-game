@@ -120,15 +120,6 @@ function getViewedSolutionKey(difficulty) {
 }
 
 /**
- * Get storage key for manual finish tracking
- * @param {string} difficulty - 'easy', 'medium', or 'hard'
- * @returns {string} localStorage key
- */
-function getManuallyFinishedKey(difficulty) {
-  return `${STORAGE_PREFIX}:manually-finished:${difficulty}`;
-}
-
-/**
  * Get storage key for streak tracking
  * @param {string} difficulty - 'easy', 'medium', or 'hard'
  * @returns {string} localStorage key
@@ -211,7 +202,7 @@ function serializeGameState(state) {
     hintCells,
     hasWon,
     hasViewedSolution,
-    hasManuallyFinished
+    generatorVariant
   } = state;
 
   // Convert Set to Array
@@ -236,7 +227,12 @@ function serializeGameState(state) {
     elapsedSeconds,
     hasWon: hasWon || false,
     hasViewedSolution: hasViewedSolution || false,
-    hasManuallyFinished: hasManuallyFinished || false,
+    // Which hint generation arm built this puzzle. Daily saves hold no puzzle
+    // data - the hints come back from the date seed on every load - so without
+    // this a player whose experiment assignment changed between visits would
+    // find their part-finished puzzle rearranged. Absent on saves written
+    // before the experiment shipped, which fall back to the live assignment.
+    generatorVariant: generatorVariant || null,
     savedAt: Date.now()
   };
 
@@ -267,7 +263,7 @@ function deserializeGameState(saved) {
     hintCells,
     hasWon,
     hasViewedSolution,
-    hasManuallyFinished
+    generatorVariant
   } = saved;
 
   // Convert Array to Set
@@ -291,7 +287,7 @@ function deserializeGameState(saved) {
     elapsedSeconds,
     hasWon: hasWon || false,
     hasViewedSolution: hasViewedSolution || false,
-    hasManuallyFinished: hasManuallyFinished || false
+    generatorVariant: generatorVariant || null
   };
 
   // For unlimited mode, restore the puzzle data
@@ -656,43 +652,6 @@ export function isDailyCompletedWithViewedSolution(difficulty) {
   }
 }
 
-/**
- * Mark a daily puzzle as manually finished (ended via End button)
- * Stores the completion date, which automatically becomes stale the next day
- * @param {string} difficulty - 'easy', 'medium', or 'hard'
- * @returns {boolean} Whether save was successful
- */
-export function markDailyManuallyFinished(difficulty) {
-  const today = getTodayDateString();
-  const key = getManuallyFinishedKey(difficulty);
-
-  try {
-    localStorage.setItem(key, today);
-    return true;
-  } catch (error) {
-    console.warn('Failed to save manually finished state:', error);
-    return false;
-  }
-}
-
-/**
- * Check if a daily puzzle was manually finished (ended via End button)
- * @param {string} difficulty - 'easy', 'medium', or 'hard'
- * @returns {boolean} Whether the difficulty was manually finished today
- */
-export function isDailyManuallyFinished(difficulty) {
-  const today = getTodayDateString();
-  const key = getManuallyFinishedKey(difficulty);
-
-  try {
-    const completedDate = localStorage.getItem(key);
-    return completedDate === today;
-  } catch (error) {
-    console.warn('Failed to check manually finished state:', error);
-    return false;
-  }
-}
-
 /* ============================================================================
  * STREAK TRACKING
  * ========================================================================= */
@@ -858,7 +817,7 @@ export function reconcileStreaks() {
 
   for (const difficulty of ['easy', 'medium', 'hard']) {
     // A viewed solution does not count, matching the live completion path
-    if (!isDailyCompleted(difficulty) && !isDailyManuallyFinished(difficulty)) {
+    if (!isDailyCompleted(difficulty)) {
       continue;
     }
 

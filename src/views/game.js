@@ -7,12 +7,12 @@
 
 import { renderGrid, clearCanvas, renderPath, renderCellNumbers, generateHintCellsWithMinDistance, renderPlayerPath, buildPlayerTurnMap, calculateBorderLayers } from '../renderer.js';
 import { generateSolutionPath } from '../generator.js';
-import { buildSolutionTurnMap, countTurnsInArea, parseCellKey, checkPartialStructuralLoop } from '../utils.js';
+import { buildSolutionTurnMap, countTurnsInArea, parseCellKey } from '../utils.js';
 import { CONFIG, getDifficultyLabel } from '../config.js';
 import { navigate } from '../router.js';
 import { createGameCore } from '../gameCore.js';
 import { createSeededRandom, getDailySeed, getPuzzleId } from '../seededRandom.js';
-import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, markDailyManuallyFinished, isDailyCompleted, recordDailyStreak, getOverallStreak, formatStreakLabel } from '../persistence.js';
+import { saveGameState, loadGameState, clearGameState, createThrottledSave, saveSettings, loadSettings, markDailyCompleted, markDailyCompletedWithViewedSolution, isDailyCompleted, recordDailyStreak, getOverallStreak, formatStreakLabel } from '../persistence.js';
 import { createBottomSheet, showBottomSheetAsync } from '../bottomSheet.js';
 import { createWinStreakLine } from '../components/winStreakLine.js';
 import { createGameTimer, formatTime } from '../game/timer.js';
@@ -20,9 +20,12 @@ import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
 import { checkPartialStructuralWin, validateHints, computeStateKey, calculateScore } from '../game/validation.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
+import { generateHintCellsCovering, describePuzzle } from '../generation/hintPlacement.js';
+import { getHintGenerationAssignment, variantForSavedGame, isDenseVariant } from '../experiment.js';
 import {
   trackGameStarted,
   trackGameCompleted,
+  trackGameAbandoned,
   trackGameRestarted,
   trackPuzzleGenerated,
   trackUndoUsed,
@@ -67,7 +70,6 @@ let ctx;
 let gameTitle;
 let gameTimerEl;
 let newBtn;
-let finishBtn;
 let clearBtn;
 let undoBtn;
 let hintsSelect;
@@ -95,9 +97,7 @@ let hintMode = 'partial';
 let borderMode = 'off';
 let countdown = 'on';
 let hasWon = false;
-let hasShownPartialWinFeedback = false;
 let hasViewedSolution = false;
-let hasManuallyFinished = false;
 let lastValidatedStateKey = '';  // Track state to avoid redundant validation
 
 // Cached values for performance (recalculated when puzzle changes)
@@ -141,6 +141,74 @@ let undoHistory = [];
 // Score tracking
 let currentScore = null;  // { percentage: number, label: string } | null
 
+// Hint generation experiment - the arm this puzzle was actually generated with,
+// and where that assignment came from. Both ride along on every game event so
+// the experiment can be analysed on what was really played rather than on what
+// PostHog would report now (see experiment.js).
+let currentVariant = null;
+let currentVariantSource = null;
+
+// Measured shape of the current puzzle (hint count, coverage, redundancy...).
+// Sent with game_started / game_completed / game_abandoned so puzzle quality can
+// be correlated with completion independently of the experiment.
+let currentPuzzleShape = null;
+
+// Whether the player has touched the current puzzle and not yet finished it.
+// Drives the abandon event on exit.
+let hasUnfinishedProgress = false;
+
+/* ============================================================================
+ * EXPERIMENT & ANALYTICS HELPERS
+ * ========================================================================= */
+
+/**
+ * The arm the current puzzle was generated with, shaped for analytics
+ *
+ * @returns {{variant: string, source: string}|null} Assignment, or null before a puzzle exists
+ */
+function currentAssignment() {
+  if (!currentVariant) return null;
+  return { variant: currentVariant, source: currentVariantSource };
+}
+
+/**
+ * Report a puzzle left unfinished, if there is one
+ *
+ * Called when the player navigates away or the tab goes away for good. Clears
+ * the flag first so a navigation that also triggers a page hide cannot report
+ * the same abandonment twice.
+ */
+function reportAbandonmentIfAny() {
+  if (!hasUnfinishedProgress) return;
+  hasUnfinishedProgress = false;
+
+  const { playerDrawnCells, playerConnections } = gameCore.state;
+
+  // validateHints() answers all-or-nothing; the useful signal on an abandon is
+  // how far they got, so count the satisfied hints here
+  let hintsSatisfied = 0;
+  if (cachedSolutionTurnMap) {
+    const playerTurnMap = buildPlayerTurnMap(playerDrawnCells, playerConnections);
+    for (const cellKey of hintCells) {
+      const { row, col } = parseCellKey(cellKey);
+      const expected = countTurnsInArea(row, col, gridSize, cachedSolutionTurnMap);
+      const actual = countTurnsInArea(row, col, gridSize, playerTurnMap);
+      if (expected === actual) hintsSatisfied++;
+    }
+  }
+
+  trackGameAbandoned(
+    currentGameDifficulty,
+    isDailyMode ? 'daily' : 'unlimited',
+    gameTimer ? gameTimer.getElapsedSeconds() : 0,
+    currentScore ? currentScore.percentage : 0,
+    playerDrawnCells.size,
+    hintsSatisfied,
+    currentPuzzleShape,
+    currentAssignment()
+  );
+}
+
 /* ============================================================================
  * PERSISTENCE HELPERS
  * ========================================================================= */
@@ -163,7 +231,9 @@ function captureGameState() {
     hintCells,
     hasWon,
     hasViewedSolution,
-    hasManuallyFinished
+    // Pinned so a daily puzzle, whose hints are rebuilt from the seed on every
+    // load, can never be regenerated under a different arm mid-game
+    generatorVariant: currentVariant
   };
 }
 
@@ -199,7 +269,6 @@ function captureUndoState() {
       Array.from(playerConnections.entries()).map(([key, val]) => [key, new Set(val)])
     ),
     hasWon,
-    hasShownPartialWinFeedback,
     lastValidatedStateKey
   };
 }
@@ -266,7 +335,6 @@ function performUndo() {
     Array.from(previousState.playerConnections.entries()).map(([key, val]) => [key, new Set(val)])
   );
   hasWon = previousState.hasWon;
-  hasShownPartialWinFeedback = previousState.hasShownPartialWinFeedback;
   lastValidatedStateKey = previousState.lastValidatedStateKey;
 
   // Update UI based on restored state
@@ -289,7 +357,7 @@ function updateButtonState(button, enabledCondition) {
   if (!button) return;
 
   // Always disable if game is already completed
-  if (hasWon || hasViewedSolution || hasManuallyFinished) {
+  if (hasWon || hasViewedSolution) {
     button.disabled = true;
     return;
   }
@@ -304,28 +372,6 @@ function updateButtonState(button, enabledCondition) {
  */
 function updateUndoButton() {
   updateButtonState(undoBtn, () => undoHistory.length > 0);
-}
-
-/**
- * Check if all drawn cells form a single valid closed loop
- * Returns true only when:
- * - At least one cell is drawn
- * - Every drawn cell has exactly 2 connections (no branches, no dead ends)
- * - All drawn cells form a single connected loop
- * @returns {boolean} Whether there's a valid single closed loop
- */
-function hasValidSingleLoop() {
-  if (!gameCore) return false;
-  const { playerDrawnCells, playerConnections } = gameCore.state;
-  return checkPartialStructuralLoop(playerDrawnCells, playerConnections);
-}
-
-/**
- * Update finish button enabled/disabled state
- * Button is enabled only when there's a valid single closed loop AND game is not completed
- */
-function updateFinishButton() {
-  updateButtonState(finishBtn, hasValidSingleLoop);
 }
 
 /**
@@ -370,10 +416,7 @@ function setGameUIState(state) {
   const viewSolutionBtn = getViewSolutionBtn();
 
   if (state === GAME_STATE.IN_PROGRESS || state === GAME_STATE.NEW) {
-    // Enable finish and Clear buttons, show view solution button
-    if (finishBtn) {
-      finishBtn.disabled = false;
-    }
+    // Enable Clear button, show view solution button
     if (clearBtn) {
       clearBtn.disabled = false;
     }
@@ -381,10 +424,7 @@ function setGameUIState(state) {
       viewSolutionBtn.style.display = '';
     }
   } else if (state === GAME_STATE.WON || state === GAME_STATE.VIEWED_SOLUTION) {
-    // Disable finish and Clear buttons, hide view solution button
-    if (finishBtn) {
-      finishBtn.disabled = true;
-    }
+    // Disable Clear button, hide view solution button
     if (clearBtn) {
       clearBtn.disabled = true;
     }
@@ -629,7 +669,7 @@ function showWinCelebration(finalTime) {
     bottomSheetOptions.primaryButton = {
       label: 'Share',
       icon: 'share-2',
-      onClick: (buttonEl) => handleShare(buttonEl, finalTime, 100)
+      onClick: (buttonEl) => handleShare(buttonEl, finalTime)
     };
   }
 
@@ -654,8 +694,8 @@ function showWinCelebration(finalTime) {
 /**
  * Handle share button click - delegates to share module
  */
-async function handleShare(buttonEl, finalTime, score) {
-  await handleShareUtil(buttonEl, currentGameDifficulty, finalTime, score);
+async function handleShare(buttonEl, finalTime) {
+  await handleShareUtil(buttonEl, currentGameDifficulty, finalTime);
 }
 
 function updateSegmentedControlState() {
@@ -834,13 +874,11 @@ function render(triggerSave = true, animationMode = 'auto') {
     if (isCurrentlyWinning && scorePercentage === 100) {
       // PERFECT WIN (100%) - all hints satisfied AND all cells visited
       hasWon = true;
-      hasShownPartialWinFeedback = false;
       stopTimer();
 
       // Update UI state for completed game
       setGameUIState(GAME_STATE.WON);
       updateUndoButton();
-      updateFinishButton();
       updateClearButton();
 
       // Capture time BEFORE any rendering that might cause re-renders
@@ -854,13 +892,19 @@ function render(triggerSave = true, animationMode = 'auto') {
         trackStreakUpdated(currentGameDifficulty, streak.difficulty, streak.overall);
       }
 
-      // Track game completion
+      // Track game completion. The score is passed explicitly rather than left
+      // to a default: it is always 100 today, because the win gate below is
+      // `scorePercentage === 100`, but a hardcoded value would silently start
+      // lying the moment that gate changes.
+      hasUnfinishedProgress = false;
       trackGameCompleted(
         currentGameDifficulty,
         isDailyMode ? 'daily' : 'unlimited',
         completionTimeSeconds,
         finalTime,
-        'win'
+        scorePercentage,
+        currentPuzzleShape,
+        currentAssignment()
       );
 
       // Re-render path with win color (already green from visual validation, but ensures consistency)
@@ -873,13 +917,18 @@ function render(triggerSave = true, animationMode = 'auto') {
   }
 
   // Update finish and Clear button states based on current path
-  updateFinishButton();
   updateClearButton();
 
   // Save game state (throttled to max once per 5 seconds)
   // Only save if triggered by user interaction, not by restore/display changes
   if (triggerSave) {
     throttledSave(captureGameState());
+
+    // triggerSave marks a real player action, which is exactly the condition
+    // that makes leaving worth reporting as an abandon
+    if (!hasWon && !hasViewedSolution && gameCore.state.playerDrawnCells.size > 0) {
+      hasUnfinishedProgress = true;
+    }
   }
 
   // Schedule next animation frame if there are active animations (numbers or path)
@@ -905,36 +954,75 @@ function render(triggerSave = true, animationMode = 'auto') {
  * Clears any saved progress, resets game state, and starts a fresh timer.
  * Only available in unlimited mode (daily puzzles are fixed per day).
  */
+/**
+ * Build a puzzle with whichever hint placement this player's arm calls for
+ *
+ * Both arms consume the random source in the same order - solution first, hints
+ * second - so on any given day the two arms share an identical solution loop
+ * and differ only in where the hints sit on it. That keeps the comparison to
+ * the one thing being tested.
+ *
+ * @param {number} size - Grid size
+ * @param {string} difficulty - Difficulty key for hint configuration
+ * @param {function(): number} randomFn - Seeded random (daily) or Math.random
+ * @param {string} variant - Experiment arm
+ * @returns {{solution: Array, turnMap: Map<string, boolean>, hints: Set<string>, shape: Object}} Puzzle
+ */
+function buildPuzzle(size, difficulty, randomFn, variant) {
+  const solution = generateSolutionPath(size, randomFn);
+
+  // The dense placement needs to know what each candidate hint would read, so
+  // the turn map has to exist before hints are chosen rather than after
+  const turnMap = buildSolutionTurnMap(solution);
+
+  let hints;
+  let anchorMaxValue;
+
+  if (isDenseVariant(variant)) {
+    const hintConfig = CONFIG.DIFFICULTY.HINT_CONFIG_DENSE[difficulty];
+    hints = generateHintCellsCovering(size, hintConfig, turnMap, randomFn);
+    anchorMaxValue = hintConfig.anchorMaxValue;
+  } else {
+    const hintConfig = CONFIG.DIFFICULTY.HINT_CONFIG[difficulty];
+    hints = generateHintCellsWithMinDistance(size, hintConfig.count, hintConfig.minDistance, randomFn);
+  }
+
+  return { solution, turnMap, hints, shape: describePuzzle(size, hints, turnMap, anchorMaxValue) };
+}
+
 function generateNewPuzzle() {
   // Clear any saved progress when generating a new puzzle
   // (Important for unlimited mode when user clicks "New")
   clearGameState(currentPuzzleId, currentGameDifficulty, isUnlimitedMode);
   clearUndoHistory(); // New puzzle = fresh start
 
+  // A fresh puzzle always takes the player's current assignment, and pins it
+  // (see captureGameState) so reloading this puzzle regenerates it identically
+  const assignment = getHintGenerationAssignment();
+  currentVariant = assignment.variant;
+  currentVariantSource = assignment.source;
+
+  let puzzle;
   if (isDailyMode) {
     // Generate daily puzzle with seeded random
     const seed = getDailySeed(currentGameDifficulty);
-    const random = createSeededRandom(seed);
-
-    solutionPath = generateSolutionPath(gridSize, random);
-    const hintConfig = CONFIG.DIFFICULTY.HINT_CONFIG[currentGameDifficulty];
-    hintCells = generateHintCellsWithMinDistance(gridSize, hintConfig.count, hintConfig.minDistance, random);
+    puzzle = buildPuzzle(gridSize, currentGameDifficulty, createSeededRandom(seed), currentVariant);
   } else {
     // Unlimited mode - truly random puzzles
-    solutionPath = generateSolutionPath(gridSize);
-    const hintConfig = CONFIG.DIFFICULTY.HINT_CONFIG[currentUnlimitedDifficulty];
-    hintCells = generateHintCellsWithMinDistance(gridSize, hintConfig.count, hintConfig.minDistance, Math.random);
+    puzzle = buildPuzzle(gridSize, currentUnlimitedDifficulty, Math.random, currentVariant);
   }
 
+  solutionPath = puzzle.solution;
+  hintCells = puzzle.hints;
+  currentPuzzleShape = puzzle.shape;
+
   // Cache values that don't change during gameplay for performance
-  cachedSolutionTurnMap = buildSolutionTurnMap(solutionPath);
+  cachedSolutionTurnMap = puzzle.turnMap;
   cachedBorderLayers = calculateBorderLayers(hintCells, gridSize);
 
   gameCore.clearPuzzle();
   hasWon = false;
-  hasShownPartialWinFeedback = false;
   hasViewedSolution = false;
-  hasManuallyFinished = false;
   lastValidatedStateKey = '';
 
   // Update UI state for new puzzle
@@ -951,7 +1039,16 @@ function generateNewPuzzle() {
     trackPuzzleGenerated(currentUnlimitedDifficulty);
   }
   // Track game started (both daily and unlimited for fresh puzzles)
-  trackGameStarted(currentGameDifficulty, isDailyMode ? 'daily' : 'unlimited');
+  trackGameStarted(
+    currentGameDifficulty,
+    isDailyMode ? 'daily' : 'unlimited',
+    currentPuzzleShape,
+    currentAssignment()
+  );
+
+  // A fresh puzzle is unfinished by definition, but nothing has been drawn yet,
+  // so opening a puzzle and immediately leaving is not counted as an abandon
+  hasUnfinishedProgress = false;
 
   startTimer();
   render();
@@ -962,17 +1059,26 @@ function generateNewPuzzle() {
  * @param {Object|null} savedState - Saved game state, or null to skip restoration
  */
 function restorePuzzleData(savedState) {
+  // A daily save holds no puzzle data - the hints are rebuilt from the date
+  // seed every time - so the arm the save was created under has to be honoured
+  // here, or a player whose assignment changed between visits would find their
+  // half-finished puzzle rearranged around the path they had already drawn.
+  const assignment = variantForSavedGame(savedState?.generatorVariant);
+  currentVariant = assignment.variant;
+  currentVariantSource = assignment.source;
+
   if (isDailyMode) {
     // For daily puzzles, regenerate from seed (deterministic)
     const seed = getDailySeed(currentGameDifficulty);
-    const random = createSeededRandom(seed);
-    solutionPath = generateSolutionPath(gridSize, random);
-    const hintConfig = CONFIG.DIFFICULTY.HINT_CONFIG[currentGameDifficulty];
-    hintCells = generateHintCellsWithMinDistance(gridSize, hintConfig.count, hintConfig.minDistance, random);
+    const puzzle = buildPuzzle(gridSize, currentGameDifficulty, createSeededRandom(seed), currentVariant);
+    solutionPath = puzzle.solution;
+    hintCells = puzzle.hints;
+    currentPuzzleShape = puzzle.shape;
   } else if (savedState) {
     // For unlimited mode, restore saved puzzle data (was truly random)
     solutionPath = savedState.solutionPath;
     hintCells = savedState.hintCells;
+    currentPuzzleShape = describePuzzle(gridSize, hintCells, buildSolutionTurnMap(solutionPath));
   }
 }
 
@@ -996,9 +1102,7 @@ function restorePlayerProgress(savedState) {
 
   // Restore game state flags
   hasWon = savedState.hasWon;
-  hasShownPartialWinFeedback = savedState.hasShownPartialWinFeedback || false;
   hasViewedSolution = savedState.hasViewedSolution || false;
-  hasManuallyFinished = savedState.hasManuallyFinished || false;
 }
 
 /**
@@ -1016,7 +1120,7 @@ function restoreTimerState(savedState) {
     if (gameTimerEl) {
       gameTimerEl.textContent = 'Viewed solution';
     }
-  } else if (hasWon || hasManuallyFinished) {
+  } else if (hasWon) {
     // Show final completion time (but don't resume timer)
     stopTimer();
     if (gameTimer) {
@@ -1048,7 +1152,7 @@ function loadOrGeneratePuzzle() {
     // Update UI based on completion status
     if (hasViewedSolution) {
       setGameUIState(GAME_STATE.VIEWED_SOLUTION);
-    } else if (hasWon || hasManuallyFinished) {
+    } else if (hasWon) {
       setGameUIState(GAME_STATE.WON);
     } else {
       setGameUIState(GAME_STATE.IN_PROGRESS);
@@ -1064,41 +1168,6 @@ function loadOrGeneratePuzzle() {
     if (hasWon && !hasViewedSolution) {
       const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
       showWinCelebration(finalTime);
-    } else if (hasManuallyFinished) {
-      // Show partial win modal for manually finished games
-      const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
-      const scorePercentage = currentScore ? currentScore.percentage : 0;
-
-      // Destroy any previous game sheet before showing new one
-      if (activeGameSheet) {
-        activeGameSheet.destroy();
-      }
-
-      // Build bottom sheet options
-      const bottomSheetOptions = {
-        title: `You got ${scorePercentage}% in ${finalTime}`,
-        content: `<div class="bottom-sheet-message">Make a loop where all numbers are zero for a perfect score. Try again tomorrow!</div>`,
-        icon: 'shell',
-        colorScheme: 'partial',
-        dismissLabel: 'Close',
-        showCloseIcon: true,
-        onClose: () => {
-          // Don't resume timer - game is finished
-        }
-      };
-
-      // Add Share button only for daily mode
-      if (isDailyMode) {
-        bottomSheetOptions.primaryButton = {
-          label: 'Share',
-          icon: 'share-2',
-          onClick: async (buttonEl) => {
-            await handleShare(buttonEl, finalTime, scorePercentage);
-          }
-        };
-      }
-
-      activeGameSheet = showBottomSheetAsync(bottomSheetOptions);
     }
   } else {
     // No saved state - generate fresh puzzle
@@ -1131,20 +1200,17 @@ function clearPuzzle() {
 
   // Only restart timer if the game was already won or manually finished (timer was stopped)
   // If game is in progress, keep the timer running
-  if (hasWon || hasManuallyFinished) {
+  if (hasWon) {
     startTimer();
   }
 
   hasWon = false;
-  hasShownPartialWinFeedback = false;
-  hasManuallyFinished = false;
   lastValidatedStateKey = '';
 
   // Update UI state for in-progress game
   setGameUIState(GAME_STATE.IN_PROGRESS);
 
   updateUndoButton(); // Button becomes enabled after hasWon reset
-  updateFinishButton(); // Button becomes disabled after clearing
   updateClearButton(); // Button becomes disabled after clearing (no cells drawn)
 
   render();
@@ -1181,7 +1247,6 @@ function viewSolution() {
 
   // Disable undo, finish, and Clear buttons
   updateUndoButton();
-  updateFinishButton();
   updateClearButton();
 
   // For daily puzzles, mark as completed with viewed solution (skull icon)
@@ -1199,131 +1264,7 @@ function viewSolution() {
   render();
 }
 
-/**
- * Show confirmation modal before ending the game
- * Prevents accidental game endings by requiring confirmation
- */
-function showFinishConfirmation() {
-  // Get display name for difficulty
-  const difficultyName = getDifficultyLabel(currentGameDifficulty);
 
-  // Build confirmation message - only show "until tomorrow" for daily mode
-  let bodyMessage = '';
-  if (isDailyMode) {
-    bodyMessage = `You won't be able to play the ${difficultyName} Loopy until tomorrow.`;
-  }
-
-  // Destroy any previous game sheet before showing new one
-  if (activeGameSheet) {
-    activeGameSheet.destroy();
-  }
-
-  // Build bottom sheet options for confirmation
-  const confirmationOptions = {
-    title: 'End this game?',
-    content: bodyMessage ? `<div class="bottom-sheet-message">${bodyMessage}</div>` : '',
-    icon: 'octagon-alert',
-    colorScheme: 'error',
-    dismissLabel: 'Keep playing',
-    dismissVariant: 'secondary',
-    primaryButton: {
-      label: 'End game',
-      variant: 'destructive',
-      onClick: () => {
-        // finishGame() will handle closing this modal and showing the result modal
-        finishGame();
-      }
-    }
-  };
-
-  activeGameSheet = showBottomSheetAsync(confirmationOptions);
-}
-
-/**
- * Finish the current puzzle manually (player commits to ending with current score)
- *
- * This function:
- * - Marks the puzzle as manually finished
- * - Stops the timer permanently
- * - Shows partial win modal with current score
- * - Locks the game (prevents further drawing/erasing)
- * - Disables finish and Clear buttons
- */
-function finishGame() {
-  // Set manually finished flag
-  hasManuallyFinished = true;
-
-  // Stop timer permanently
-  stopTimer();
-
-  // Update UI state to lock game
-  setGameUIState(GAME_STATE.WON); // Reuse WON state for locking behavior
-
-  // Disable undo, finish, and Clear buttons
-  updateUndoButton();
-  updateFinishButton();
-  updateClearButton();
-
-  // Capture current score and time
-  const finalTime = gameTimer ? gameTimer.getFormattedTime() : '0:00';
-  const scorePercentage = currentScore ? currentScore.percentage : 0;
-
-  // Mark as manually finished for daily puzzles
-  if (isDailyMode) {
-    markDailyManuallyFinished(currentGameDifficulty);
-    const streak = recordDailyStreak(currentGameDifficulty);
-    trackStreakUpdated(currentGameDifficulty, streak.difficulty, streak.overall);
-  }
-
-  // A manual finish still ends the puzzle, so it counts as a completion for
-  // analytics - the completion_type property separates it from a real win
-  trackGameCompleted(
-    currentGameDifficulty,
-    isDailyMode ? 'daily' : 'unlimited',
-    gameTimer ? gameTimer.getElapsedSeconds() : 0,
-    finalTime,
-    'manual_finish',
-    scorePercentage
-  );
-
-  // Show partial win modal with "Close" button (no timer resume)
-  // Destroy any previous game sheet before showing new one
-  if (activeGameSheet) {
-    activeGameSheet.destroy();
-  }
-
-  // Build bottom sheet options
-  const bottomSheetOptions = {
-    title: `You got ${scorePercentage}% in ${finalTime}`,
-    content: `<div class="bottom-sheet-message">Make a loop where all numbers are zero for a perfect score. Try again tomorrow!</div>`,
-    icon: 'shell',
-    colorScheme: 'partial',
-    dismissLabel: 'Close',
-    showCloseIcon: true,
-    onClose: () => {
-      // Don't resume timer - game is finished
-    }
-  };
-
-  // Add Share button only for daily mode
-  if (isDailyMode) {
-    bottomSheetOptions.primaryButton = {
-      label: 'Share',
-      icon: 'share-2',
-      onClick: async (buttonEl) => {
-        await handleShare(buttonEl, finalTime, scorePercentage);
-      }
-    };
-  }
-
-  activeGameSheet = showBottomSheetAsync(bottomSheetOptions);
-
-  // Save game state
-  saveGameState(captureGameState());
-
-  // Re-render to ensure UI is correct
-  render(false);
-}
 
 /* ============================================================================
  * INITIALIZATION & CLEANUP
@@ -1383,7 +1324,6 @@ export function initGame(difficulty) {
   gameTitle = document.getElementById('game-title');
   gameTimerEl = document.getElementById('game-timer');
   newBtn = document.getElementById('new-btn');
-  finishBtn = document.getElementById('finish-btn');
   clearBtn = document.getElementById('restart-btn');
   undoBtn = document.getElementById('undo-btn');
 
@@ -1404,11 +1344,6 @@ export function initGame(difficulty) {
   segmentedControl = document.getElementById('difficulty-segmented-control');
   segmentButtons = segmentedControl ? segmentedControl.querySelectorAll('.segment-btn') : [];
 
-  // Show End button only if early game ending feature is enabled
-  if (CONFIG.FEATURES.ENABLE_EARLY_GAME_ENDING && finishBtn) {
-    finishBtn.style.display = '';
-  }
-
   // Create settings bottom sheet with the settings content and view solution button
   settingsSheet = createBottomSheet({
     title: 'Settings',
@@ -1428,12 +1363,7 @@ export function initGame(difficulty) {
   gameTimer = createGameTimer({
     onUpdate: (text) => {
       if (gameTimerEl) {
-        // Append score to timer display if available and feature is enabled
-        if (CONFIG.FEATURES.ENABLE_EARLY_GAME_ENDING && currentScore) {
-          gameTimerEl.textContent = `${text} • ${currentScore.percentage}%`;
-        } else {
-          gameTimerEl.textContent = text;
-        }
+        gameTimerEl.textContent = text;
       }
     },
     difficulty: currentGameDifficulty
@@ -1464,9 +1394,7 @@ export function initGame(difficulty) {
 
   // Reset game state
   hasWon = false;
-  hasShownPartialWinFeedback = false;
   hasViewedSolution = false;
-  hasManuallyFinished = false;
   lastValidatedStateKey = '';
   eventListeners = [];
 
@@ -1489,11 +1417,6 @@ export function initGame(difficulty) {
     render(false);
   };
   const newBtnHandler = () => generateNewPuzzle();
-  const finishBtnHandler = (e) => {
-    if (finishBtn.disabled) return; // Ignore if button is disabled
-    e.preventDefault(); // Prevent click event from also firing
-    showFinishConfirmation();
-  };
   const clearBtnHandler = (e) => {
     if (clearBtn.disabled) return; // Ignore if button is disabled
     e.preventDefault(); // Prevent click event from also firing
@@ -1540,31 +1463,36 @@ export function initGame(difficulty) {
   // Use gameCore methods for pointer events
   // Prevent drawing if game is won, solution was viewed, or manually finished
   const pointerDownHandler = (e) => {
-    if (!hasWon && !hasViewedSolution && !hasManuallyFinished) {
+    if (!hasWon && !hasViewedSolution) {
       pushUndoState(); // Save state before drawing action starts
       gameCore.handlePointerDown(e);
     }
   };
   const pointerMoveHandler = (e) => {
-    if (!hasWon && !hasViewedSolution && !hasManuallyFinished) gameCore.handlePointerMove(e);
+    if (!hasWon && !hasViewedSolution) gameCore.handlePointerMove(e);
   };
   const pointerUpHandler = (e) => {
-    if (!hasWon && !hasViewedSolution && !hasManuallyFinished) {
+    if (!hasWon && !hasViewedSolution) {
       gameCore.handlePointerUp(e);
     }
   };
   const pointerCancelHandler = (e) => {
-    if (!hasWon && !hasViewedSolution && !hasManuallyFinished) gameCore.handlePointerCancel(e);
+    if (!hasWon && !hasViewedSolution) gameCore.handlePointerCancel(e);
   };
   const themeChangeHandler = () => {
     // Re-render canvas with updated colors when theme changes
     render(false); // Don't trigger save on theme change
   };
+  // pagehide rather than beforeunload: beforeunload is unreliable on mobile
+  // Safari and blocks the back/forward cache. This still is not a guarantee -
+  // a force-quit delivers nothing - so game_abandoned is a lower bound.
+  const pageHideHandler = () => {
+    reportAbandonmentIfAny();
+  };
 
   window.addEventListener('resize', resizeHandler);
   window.addEventListener('themeChanged', themeChangeHandler);
   newBtn.addEventListener('click', newBtnHandler);
-  finishBtn.addEventListener('pointerdown', finishBtnHandler);
   clearBtn.addEventListener('pointerdown', clearBtnHandler);
   undoBtn.addEventListener('pointerdown', undoBtnHandler);
   hintsSelect.addEventListener('change', hintsHandler);
@@ -1574,6 +1502,7 @@ export function initGame(difficulty) {
   helpBtn.addEventListener('click', helpBtnHandler);
   settingsBtn.addEventListener('click', settingsBtnHandler);
   document.addEventListener('visibilitychange', visibilityChangeHandler);
+  window.addEventListener('pagehide', pageHideHandler);
   canvas.addEventListener('pointerdown', pointerDownHandler);
   canvas.addEventListener('pointermove', pointerMoveHandler);
   canvas.addEventListener('pointerup', pointerUpHandler);
@@ -1584,7 +1513,6 @@ export function initGame(difficulty) {
     { element: window, event: 'resize', handler: resizeHandler },
     { element: window, event: 'themeChanged', handler: themeChangeHandler },
     { element: newBtn, event: 'click', handler: newBtnHandler },
-    { element: finishBtn, event: 'pointerdown', handler: finishBtnHandler },
     { element: clearBtn, event: 'pointerdown', handler: clearBtnHandler },
     { element: undoBtn, event: 'pointerdown', handler: undoBtnHandler },
     { element: hintsSelect, event: 'change', handler: hintsHandler },
@@ -1594,6 +1522,7 @@ export function initGame(difficulty) {
     { element: helpBtn, event: 'click', handler: helpBtnHandler },
     { element: settingsBtn, event: 'click', handler: settingsBtnHandler },
     { element: document, event: 'visibilitychange', handler: visibilityChangeHandler },
+    { element: window, event: 'pagehide', handler: pageHideHandler },
     { element: canvas, event: 'pointerdown', handler: pointerDownHandler },
     { element: canvas, event: 'pointermove', handler: pointerMoveHandler },
     { element: canvas, event: 'pointerup', handler: pointerUpHandler },
@@ -1641,6 +1570,10 @@ export function cleanupGame() {
   // Guard against undefined gameCore (shouldn't happen, but defensive)
   if (gameCore) {
     saveGameState(captureGameState());
+
+    // Navigating away from a puzzle in progress. Covers the in-app exits (back
+    // button, difficulty change); the pagehide handler covers closing the tab.
+    reportAbandonmentIfAny();
   }
 
   // Clean up throttle timer to prevent memory leak

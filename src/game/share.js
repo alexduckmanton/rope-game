@@ -5,7 +5,7 @@
  * with clipboard fallback.
  */
 
-import { CONFIG, getDifficultyLabel } from '../config.js';
+import { getDifficultyLabel } from '../config.js';
 import {
   trackShareAttempted,
   trackShareCompleted,
@@ -34,20 +34,13 @@ export function formatShareDate(date = new Date()) {
  *
  * @param {string} difficulty - Difficulty level
  * @param {string} time - Formatted completion time
- * @param {number} [score] - Score percentage (optional, defaults to 100 for perfect wins)
  * @returns {string} Share text
  */
-export function buildShareText(difficulty, time, score = 100) {
+export function buildShareText(difficulty, time) {
   const dateStr = formatShareDate();
   const label = getDifficultyLabel(difficulty);
 
-  // When early game ending is enabled, include score percentage
-  // When disabled, use simpler format without score
-  if (CONFIG.FEATURES.ENABLE_EARLY_GAME_ENDING) {
-    return `💫 ${label} Loopy\n${score}% in ${time}\n${dateStr}`;
-  } else {
-    return `💫 ${label} Loopy ${time}\n${dateStr}`;
-  }
+  return `💫 ${label} Loopy ${time}\n${dateStr}`;
 }
 
 /**
@@ -80,10 +73,9 @@ function showButtonFeedback(button, text, duration = 2000) {
  * @param {HTMLButtonElement} button - The share button element
  * @param {string} difficulty - Current difficulty
  * @param {string} time - Formatted completion time
- * @param {number} [score] - Score percentage (optional, for partial completion)
  */
-export async function handleShare(button, difficulty, time, score) {
-  const shareText = buildShareText(difficulty, time, score);
+export async function handleShare(button, difficulty, time) {
+  const shareText = buildShareText(difficulty, time);
 
   // Track share attempt
   trackShareAttempted(difficulty, time);
