@@ -690,6 +690,10 @@ The asset is 96x96, all 48 frames of the original, 122KB. That resolution is set
 
 **Analytics:** Each update fires `streak_updated` carrying both the difficulty and overall streaks, and writes them as person properties (`streak_current_<difficulty>`, `streak_current_overall`, and their `best` equivalents), so retention can be segmented by streak length.
 
+`streak_updated` only fires at the moment a puzzle is completed, so it describes winners rather than the returning population. `streak_line_shown` fills that gap: it fires on every home view that displays the line, giving both the share of visits that arrive with a live streak and the distribution of streak lengths. It is also the denominator for `streak_cycled` — a tap count means nothing without knowing how often the line was there to be tapped.
+
+The two tap surfaces report separately: `streak_cycled` for the home line's easter-egg cycle, and `win_streak_toggled` for the win sheet line. The win sheet's automatic reveal deliberately does not fire its event, so it counts only players who went looking rather than waiting.
+
 ### Analytics (PostHog)
 
 **Setup:** PostHog Cloud (US region), project "Default project". The project API key is a public client-side key and is hardcoded in `src/analytics.js`, with `VITE_POSTHOG_KEY` / `VITE_POSTHOG_HOST` available as build-time overrides for forks or staging deploys.
@@ -729,6 +733,9 @@ The asset is 96x96, all 48 frames of the original, 122KB. That resolution is set
 | `share_completed` / `share_failed` | `difficulty`, `method` / `error_type` | |
 | `difficulty_selected` | `difficulty`, `source` | Home screen navigation |
 | `streak_updated` | `difficulty`, `streak_current`, `streak_best`, `streak_overall_current`, `streak_overall_best` | Also written as person properties |
+| `streak_line_shown` | `streak_days`, `cycle_length`, `is_cyclable` | Fires on every home view that displays the streak line. The denominator for `streak_cycled` |
+| `streak_cycled` | `difficulty` (or `overall`), `streak_days`, `cycle_index`, `cycle_length`, `tap_count` | Tap on the home streak line |
+| `win_streak_toggled` | `difficulty`, `streak_days`, `showing` (`streak`/`time`) | Tap on the win sheet line. The automatic reveal does not fire it |
 
 PostHog attaches `$session_id` to every event, which is what makes "how many difficulties per session" answerable.
 
