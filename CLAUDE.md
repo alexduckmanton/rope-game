@@ -24,26 +24,30 @@
 | `components/winStreakLine.js` | Win sheet time/streak line | `createWinStreakLine()` - Completion time that slides up and out for the streak |
 | `components/streakFlame.js` | Streak flame markup | `createStreakFlameMarkup()` - Animated Fluent fire emoji, or the Lucide icon under reduced motion |
 | `game/timer.js` | Game timer | `createGameTimer({ onUpdate, difficulty })`, `formatTime()` - Encapsulated timer with pause/resume |
-| `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback, score-aware share text |
+| `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback |
 | `game/validation.js` | Win validation & scoring | `checkStructuralWin()`, `checkFullWin()`, `validateHints()`, `calculateScore()`, `getScoreLabel()` - Game validation logic and score calculation |
 | `game/canvasSetup.js` | Canvas sizing | `calculateCellSize(gridSize, extraSpace)`, `setupCanvas()` - Responsive sizing utilities |
+| `generation/hintPlacement.js` | Dense-arm hint placement | `generateHintCellsCovering()` - cover/anchor/fill placement; `describePuzzle()` - measured puzzle shape for analytics |
+| `experiment.js` | Hint generation A/B assignment | `getHintGenerationAssignment()`, `variantForSavedGame()`, `isDenseVariant()`, `initHintGenerationExperiment()` |
 
 ### Core Concepts
 
 - **Turn**: Path changes direction within a cell. Corner = 1 turn, straight = 0 turns.
 - **Constraint (Hint)**: Number showing expected turn count in surrounding 3x3 area (includes diagonals + self).
 - **Victory**: Closed loop satisfying all constraints.
-- **Manual Finish**: Players can end a daily puzzle early using the End button when they've drawn any single closed loop, receiving partial completion status.
 - **Daily Puzzle**: Deterministic generation using date-based seed (YYYYMMDD + difficulty offset 0/1/2).
 - **Unlimited Mode**: True random generation (not date-based), allows infinite practice with difficulty switching.
 
 ### Grid Sizes
 
-| Difficulty (label) | Grid Size | Total Cells | Hint Count | Min Distance | Win Requirement | Warnsdorff Attempts |
-|------------|-----------|-------------|------------|--------------|-----------------|---------------------|
-| Easy       | 4x4       | 16          | 2          | 3 cells      | Any valid loop  | 20                  |
-| Tricky     | 6x6       | 36          | 5          | 2 cells      | Any valid loop  | 50                  |
-| Diabolical | 8x8       | 64          | 16         | None (0)     | Any valid loop  | 100                 |
+| Difficulty (label) | Grid Size | Total Cells | Win Requirement | Warnsdorff Attempts |
+|------------|-----------|-------------|-----------------|---------------------|
+| Easy       | 4x4       | 16          | Any valid loop  | 20                  |
+| Tricky     | 6x6       | 36          | Any valid loop  | 50                  |
+| Diabolical | 8x8       | 64          | Any valid loop  | 100                 |
+
+Hint counts are **not** fixed while the hint generation experiment runs - they depend
+on which arm a player is in. See "Hint generation experiment" below for both sets.
 
 **Labels vs keys:** players see Easy / Tricky / Diabolical, but the internal keys are `easy` / `medium` / `hard` and appear unchanged in URLs, storage keys, daily seeds and analytics. Labels live in `CONFIG.DIFFICULTY.LABELS` and are read through `getDifficultyLabel()` / `getDifficultyLabelLower()` in `config.js` — never derive one by capitalising a key, or renaming will silently miss that surface.
 
@@ -58,8 +62,8 @@
 - Daily puzzles: `loop-game:daily:2025-11-30-easy`
 - Unlimited mode: `loop-game:unlimited:medium` (one slot per difficulty)
 - Settings: `loop-game:settings` (global, shared across all modes)
-- Manual finish tracking: `loop-game:manually-finished:easy` (tracks early game endings by difficulty, date-based expiration)
 - Streaks: `loop-game:streak:easy` (per difficulty) and `loop-game:streak:overall`, each storing `{ current, best, lastDate }`
+- Hint generation arm: `loop-game:experiment:hint-generation`, storing `{ variant, source }`
 
 -----
 
@@ -81,46 +85,31 @@ Victory requirements are consistent across all difficulties:
 - All hint constraints are satisfied (turn counts match)
 - Loop does NOT need to visit every cell to complete the puzzle
 
-**Scoring Distinction:**
+**The score is hint satisfaction, nothing else.** `CONFIG.SCORING.HAMILTONIAN_BONUS_PERCENT`
+is `0`, so `calculateScore()` puts the full 100% on constraint satisfaction and the cell
+coverage term contributes nothing. A score of 100 means "every hint reads zero" - it does
+*not* mean the loop visited every cell. The win gate in `views/game.js` is
+`isCurrentlyWinning && scorePercentage === 100`, which is therefore exactly the rule stated
+above: any valid closed loop satisfying all hints wins, whatever its shape or size.
 
-While players can complete a valid puzzle without visiting all cells, the scoring system rewards grid coverage:
-- Valid completion: Triggers win modal and marks puzzle as solved
-- Perfect score (100%): Requires both hint satisfaction (90%) AND visiting all cells (10% Hamiltonian bonus)
-- Partial scores: Players completing valid loops without full coverage receive 90% or less
+The coverage machinery is still in `calculateScore()` behind that zero, so raising the
+constant would immediately start requiring a Hamiltonian cycle for a perfect score - and
+would make the win unreachable for most loops. Do not raise it without also changing the
+win gate.
 
-This design allows for creative loop shapes and multiple valid solutions while maintaining challenging constraint satisfaction puzzles, with additional rewards for completionists who achieve Hamiltonian cycles.
+**Daily puzzle completion icons:**
 
-### Early Game Ending
+- **Trophy**: puzzle won
+- **Skull**: solution was viewed
+- Trophy wins when both apply
 
-Players can voluntarily end a game early using the End button, available in both daily and unlimited modes.
-
-**End Button Behavior:**
-
-- **Enable condition**: Button activates only when player has drawn exactly one closed loop (no extra cells, no open paths)
-- **Confirmation required**: Pressing End shows a warning modal to prevent accidental activation
-- **Daily mode warning**: "You won't be able to play the [Difficulty] Loopy until tomorrow."
-- **Unlimited mode**: No restriction warning (players can generate new puzzles anytime)
-- **Outcome**: Shows partial win modal with current score and elapsed time
-- **State locking**: Game becomes uneditable after manual finish (same as automatic win)
-
-**Daily Puzzle Tracking:**
-
-Manual finishes are tracked separately from automatic wins for daily puzzles:
-- **Trophy icon**: Displayed for perfect 100% completions (all hints satisfied)
-- **Check icon**: Displayed for manual finishes via End button (any closed loop, incomplete solution)
-- **Skull icon**: Displayed for games where solution was viewed
-- **Icon priority**: Trophy > Check > Skull (only highest achievement shown)
-- **Date-based expiration**: Manual finish status resets at local midnight with new daily puzzle
-
-**Design Rationale:**
-
-The End button serves players who want to move on without completing the full puzzle:
-- **Time-constrained players**: Can finish quickly when unable to continue
-- **Stuck players**: Can end session without viewing solution (preserving challenge for return)
-- **Casual completion**: Acknowledges effort without requiring perfect solution
-- **Progress tracking**: Check icon on home screen distinguishes partial completions from perfect wins
-
-The confirmation modal prevents accidental endings that would lock players out of daily puzzles until midnight. The single-loop requirement ensures players have made meaningful progress before ending early.
+**Removed: early game ending.** An "End" button letting players stop a daily puzzle early
+for a partial score was built behind `CONFIG.FEATURES.ENABLE_EARLY_GAME_ENDING`, but the
+flag was never once set to `true` in the repository's history, so it never reached a
+player. It has been removed entirely: the button and its markup, the confirmation and
+partial-result sheets, `loop-game:manually-finished:*` storage, the home screen check icon,
+and the score branch in the share text. `game_completed` no longer carries
+`completion_type` - every completion was, and is, a win.
 
 ### Constraint Validation Algorithm
 
@@ -202,34 +191,28 @@ Setting is accessible via select dropdown in settings bottom sheet. Changes appl
 
 **Score Tracking System:**
 
-Players receive real-time progress feedback through a percentage-based scoring metric with two independent components: hint constraint satisfaction and grid coverage.
+`calculateScore()` in `game/validation.js` returns a percentage that drives the win gate
+and is reported on every game event. It has two components, but **only one of them is
+currently live**:
 
-**Score Calculation:**
-
-The scoring system has two components that are calculated independently and added together:
-
-**1. Hints Component (90% of total score):**
+**1. Hints component** - weighted `100 - HAMILTONIAN_BONUS_PERCENT`, so **100% today**
 - Measures progress toward satisfying all hint constraints
-- Formula: `(startingTotal - currentTotal) / startingTotal × 90%`
-- `startingTotal`: Sum of absolute values of all expected turn counts
-- `currentTotal`: Sum of absolute values of all remaining turns needed
-- Uses absolute values so positive and negative deviations are weighted equally
-- Maxes out at 90% when all hints are satisfied
+- Formula: `(startingTotal - currentTotal) / startingTotal × weight`
+- `startingTotal`: sum of absolute values of all expected turn counts
+- `currentTotal`: sum of absolute values of all remaining turns needed
+- Absolute values, so drawing too many corners is penalised like drawing too few
 
-**2. Cell Coverage Component (10% of total score):**
-- Rewards players for visiting more cells with their loop
-- Formula: `(cellsVisited / totalCells) × 10%`
-- Proportional scoring: visiting half the grid gives 5%, three-quarters gives 7.5%, etc.
-- Achieves full 10% only when drawing a Hamiltonian cycle (visiting all cells)
-- Updates in real-time as player draws, even before loop is closed
-- Encourages exploration and complete solutions
+**2. Cell coverage component** - weighted `HAMILTONIAN_BONUS_PERCENT`, **0% today**
+- Would reward visiting more cells: `(cellsVisited / totalCells) × weight`
+- Reaches its full weight only on a Hamiltonian cycle
+- Contributes nothing while the constant is zero
 
-**Total Score:**
-- `finalScore = hintsScore + coverageScore`
-- Maximum 100% requires both all hints satisfied (90%) AND all cells visited (10%)
-- The 10% bonus percentage is configurable via `CONFIG.SCORING.HAMILTONIAN_BONUS_PERCENT`
+So in the shipping configuration `score === 100` is exactly "every hint reads zero", and
+the win gate `scorePercentage === 100` implements the documented "any valid loop satisfying
+all hints" rule. Raising `HAMILTONIAN_BONUS_PERCENT` would silently make a perfect score -
+and therefore a win - require visiting every cell; change the win gate at the same time.
 
-**Score Labels:**
+**Score Labels** (`getScoreLabel()`, used for sub-100 scores):
 | Score Range | Label |
 |-------------|-------|
 | 100% | Perfect |
@@ -239,27 +222,21 @@ The scoring system has two components that are calculated independently and adde
 | 20-39% | Good |
 | 0-19% | Okay |
 
-**Display:**
-- Timer shows: "Difficulty • Time • Score%" (e.g., "Medium • 1:23 • 75%")
-- Score updates in real-time as player draws path
-- Both components update independently during drawing
-- Hidden when no hints exist or solution has been viewed
+Only "Perfect" is reachable by a player today: a loop that does not satisfy every hint does
+not end the game, so no sheet ever shows the other labels. They exist for the score
+reported on `game_abandoned`, where partial progress is the whole point.
+
+**Display:** the score is not shown during play. The timer reads "Difficulty • Time".
 
 **Validation Modals:**
 
-When players complete a closed loop, contextual feedback modals appear based on validation state:
-
 | Condition | Modal Title | Modal Body | Icon | Color |
 |-----------|-------------|------------|------|-------|
-| All hints satisfied AND all cells visited (100%) | "Perfect loop!" | Completion time, swapping to the streak (daily only) | party-popper | Gold/amber |
-| Valid loop but incomplete (<100%) | "\<Score Label\> loop!" | "You scored \<score\>% in \<time\>. Make all numbers zero for a perfect score." | circle-check-big | Green |
+| All hints satisfied (score 100) | "Perfect loop!" | Completion time, swapping to the streak (daily only) | party-popper | Gold/amber |
 
-**Partial Win Modal:**
-- Shows player's current score percentage and time
-- Displays encouraging score label as title (e.g., "Amazing loop!")
-- Includes Share button to share partial completion
-- Timer pauses while modal is visible, resumes on dismiss
-- Motivates continued improvement with clear goal
+A closed loop that does not satisfy its hints shows no modal at all - it fires
+`validation_error` and leaves the player to keep working. The `partial` colour scheme in the
+bottom sheet component is left in place but currently has no caller.
 
 **Perfect Win Modal:**
 - Celebrates complete puzzle solution
@@ -280,23 +257,6 @@ In daily mode the perfect win sheet's body line does not sit still. It opens on 
 
 The wording comes from `formatStreakLabel()` in `persistence.js`, shared with the home screen line so the two can never drift apart.
 
-**Manual Finish Modal:**
-- Triggered when player uses End button to voluntarily finish game early
-- Shows current score percentage and elapsed time
-- Body text: "Make a loop where all numbers are zero for a perfect score. Try again tomorrow!"
-- Dismiss button labeled "Close" (not "Keep trying" since game is ended)
-- Daily mode includes Share button for social sharing
-- Game locks after dismissal (no further editing allowed)
-
-**End Game Confirmation Modal:**
-- Appears before manual finish to prevent accidental endings
-- Icon: Octagon-alert (red warning icon using error color scheme)
-- Title: "End this game?"
-- Body (daily mode only): "You won't be able to play the [Difficulty] Loopy until tomorrow."
-- Primary button: "End game" (destructive red styling)
-- Dismiss button: "Keep playing" (secondary styling)
-- Pressing "End game" proceeds with manual finish flow
-
 **Share Text Format:**
 
 ```
@@ -304,9 +264,9 @@ The wording comes from `formatStreakLabel()` in `persistence.js`, shared with th
 26 Dec 2025
 ```
 
-- Shows "\<score\>% in \<time\>" on its own line when `ENABLE_EARLY_GAME_ENDING` is on, otherwise difficulty and time on one line
+- Difficulty label and time on one line, date beneath
 - Uses Web Share API on mobile devices with clipboard fallback
-- Share button available in both partial win and perfect win modals
+- Share button appears on the perfect win sheet, daily mode only
 
 **Pending change:** adding a puzzle number and the site URL (`💫 Loopy #233 · Medium / 2:34 / https://loopy.wtf`) is held until `share_attempted` volume is high enough to measure the effect. `getPuzzleNumber()` in `seededRandom.js` and `CONFIG.SITE.URL` already exist for it.
 
@@ -435,6 +395,10 @@ rope-game/
 │   ├── gameCore.js        # Game state and interaction logic (pointer events, drag handling)
 │   ├── renderer.js        # Canvas rendering (grid, paths, hints, borders)
 │   ├── persistence.js     # localStorage save/load/cleanup with throttled writes
+│   ├── analytics.js       # PostHog init, event helpers, feature flag reads
+│   ├── experiment.js      # Hint generation A/B assignment (cached, pinned into saves)
+│   ├── generation/        # Puzzle generation strategies
+│   │   └── hintPlacement.js # Dense-arm hint placement + puzzle shape measurement
 │   ├── components/        # Reusable UI components
 │   │   ├── tutorialSheet.js # Tutorial carousel bottom sheet with video management
 │   │   ├── homeMenu.js      # Home screen hamburger menu and slide-in sheet
@@ -462,14 +426,135 @@ rope-game/
 Generates Hamiltonian cycles (paths visiting all cells exactly once forming a loop). Note: While the generated solution is a Hamiltonian cycle, players are not required to visit all cells - they only need to satisfy the hint constraints with any valid closed loop.
 
 **Strategy:**
-1. Try Warnsdorff's heuristic multiple times (fast, ~0.5ms per attempt, ~25% success rate)
-2. Fallback to pre-generated valid cycle if all attempts fail (extremely rare with 100 attempts)
+1. Try Warnsdorff's heuristic multiple times (fast, ~0.5ms per attempt)
+2. Fallback to a pre-generated valid cycle if every attempt fails
 
 **Warnsdorff's Rule:** Always move to the neighbor with the fewest unvisited neighbors. This greedy strategy avoids dead ends by saving well-connected cells for later.
 
-**Hint Cell Selection:** After generating solution path, `generateHintCellsWithMinDistance()` deterministically selects a fixed number of hints with spatial distribution constraints. The function uses a greedy selection algorithm: shuffles all grid cells using the seeded random function, then iterates through the shuffled pool, selecting cells that are at least `minDistance` away from all previously selected hints (using Chebyshev distance). Easy places 2 hints with minimum distance 3 cells to ensure maximum spread on the small 4x4 grid. Medium places 5 hints with minimum distance 2 cells for balanced distribution on the 6x6 grid. Hard places 16 hints with no distance constraint (minDistance=0) on the 8x8 grid, providing ample guidance. If distance constraints are too tight, the algorithm gracefully returns fewer hints. Hint configurations are defined in the centralized DIFFICULTY configuration and apply consistently across both daily puzzles (seeded random) and unlimited mode (true random).
+**Hint Cell Selection:** which placement runs depends on the player's experiment arm.
 
-**Performance:** ~50ms average for 8x8, >99.99% success rate
+*Control arm* - `generateHintCellsWithMinDistance()` in `renderer.js`. Shuffles every grid
+cell with the seeded random function, then walks the shuffled pool taking any cell at least
+`minDistance` (Chebyshev) from every hint already taken, until `count` is reached. It knows
+nothing about the solution, so what each hint ends up *saying* is pure chance. Configured by
+`CONFIG.DIFFICULTY.HINT_CONFIG`: easy 2/3, medium 5/2, hard 16/0. If the spacing is too
+tight it returns fewer hints rather than failing - which is not a rare edge case on easy,
+see below.
+
+*Dense arm* - `generateHintCellsCovering()` in `generation/hintPlacement.js`. Three stages:
+
+1. **Cover** - greedy maximum-coverage selection: repeatedly take the cell whose 3x3 area
+   covers the most still-uncovered cells, breaking ties with the seeded random function so
+   the covering set varies day to day instead of settling on a fixed lattice.
+2. **Fill** - spend any remaining budget at random, for overlap.
+3. **Anchor** - swap hints for ones reading `<= anchorMaxValue`, checking after each swap
+   that the grid is still fully covered. Any hint may be given up, including a covering one,
+   because on a tight grid the low-value positions often *are* the covering ones.
+
+Configured by `CONFIG.DIFFICULTY.HINT_CONFIG_DENSE`.
+
+Both arms apply to daily puzzles (seeded random) and unlimited mode (true random) alike.
+
+### Hint generation experiment
+
+**Status: running.** PostHog experiment "Hint generation density"
+(`hint-generation-density`), 50/50, created 2026-08-06, first look 2026-09-03.
+
+**Why.** Tricky completes at 37% while Diabolical - a bigger grid - completes at 53% and
+solves faster. Measuring the generator over 365 daily seeds located the cause in hint
+placement rather than grid size. Two properties matter and neither was ever chosen
+deliberately:
+
+- **Coverage** - a hint constrains its 3x3 area, so cells outside every hint area carry no
+  information at all. A player drawing there gets no feedback.
+- **Redundancy** - hints per constrained cell. Where hint areas overlap the hints check each
+  other and the puzzle is solvable by deduction; where they do not, each hint is an isolated
+  local puzzle you can only satisfy by trial.
+
+|            | hints (control -> dense) | coverage       | redundancy    | anchors       |
+|------------|--------------------------|----------------|---------------|---------------|
+| Easy       | 1.73 -> 4                | 62.6% -> 100%  | 1.00 -> 1.87  | n/a           |
+| Tricky     | 5 -> 8                   | 77.2% -> 100%  | 1.24 -> 1.69  | 0.31 -> 1.82  |
+| Diabolical | 16 -> 16                 | 88.9% -> 100%  | 2.13 -> 1.97  | 2.29 -> 2.45  |
+
+Tricky's 1.24 is barely above Easy's 1.00, and its worst days leave 39% of the grid
+unconstrained. Diabolical's 2.13 is why the larger grid is the more tractable one.
+
+**Anchors.** A hint reading 0 forces a straight run through nine cells and is the most
+informative thing a hint can say; a 4 or 5 on a nine-cell window rules out almost nothing.
+The usable threshold is a property of the grid, not a matter of taste - across every hint
+position on a year of solutions:
+
+| grid | positions reading <=1 | reading <=2 |
+|------|-----------------------|-------------|
+| 4x4  | 0.0 per puzzle        | 1.7         |
+| 6x6  | 2.0                   | 7.6         |
+| 8x8  | 9.3                   | 19.6        |
+
+A 4x4 Hamiltonian cycle packs ~11 turns into 16 cells, so every 3x3 window on it holds at
+least two turns: **Easy cannot be anchored at all**, and asks for none. Tricky uses
+threshold 2 because a quota of two at threshold 1 would demand both of the only two
+positions that exist.
+
+**Easy's hint count was also a bug.** `minDistance: 3` is unsatisfiable from any interior
+cell of a 4x4, so whenever the shuffle's first pick landed in the middle four cells - a
+quarter of days - Easy shipped with a single hint. Control keeps this behaviour deliberately,
+so the baseline stays what the already-measured players experienced. (Relatedly,
+`minDistance: 1` would be a no-op: Chebyshev >= 1 is any distinct cell.)
+
+**Both arms share the day's solution.** They consume the random source in the same order -
+solution first, hints second - so on a given date the underlying loop is identical and only
+the hints differ.
+
+**Assignment** (`experiment.js`) resolves in order: PostHog's answer, this browser's cached
+answer, then a local coin flip. It never blocks and never returns nothing, because a puzzle
+has to render even when PostHog is slow or blocked. Two consequences worth understanding:
+
+- *Local assignment is not a fallback to control.* Traffic here is dominated by first-time
+  visitors, so sending every unresolved first visit to one arm would bias the experiment far
+  more than an even local split does. In practice this path is almost never taken and never
+  visible: `initHintGenerationExperiment()` runs at app start while the player is still on
+  the home screen, and a player whose PostHog is blocked sends no events at all.
+- *Saves pin their arm.* A daily save holds no puzzle data - hints are rebuilt from the date
+  seed on every load - so without pinning, a player whose assignment changed between visits
+  would find their part-finished puzzle rearranged around the path they had already drawn.
+  `variantForSavedGame()` makes the pinned arm win.
+
+Every game event carries `generator_variant` (the arm actually generated) and
+`variant_source` (`flag` / `cache` / `local` / `saved`). PostHog's own analysis on
+`$feature/hint-generation-density` is sound; these exist to cross-check it and to expose the
+pinned-save case the flag cannot express.
+
+**Teardown checklist**, once a winner is picked:
+
+1. Fold the winning configuration into `CONFIG.DIFFICULTY.HINT_CONFIG` and delete the loser.
+   If dense wins, `generateHintCellsWithMinDistance()` in `renderer.js` becomes dead - it has
+   no other caller.
+2. Delete `src/experiment.js`, its call in `main.js`, and `CONFIG.EXPERIMENT`.
+3. Remove `currentVariant` / `currentVariantSource` and the `buildPuzzle()` branch in
+   `views/game.js`; keep `describePuzzle()` and the shape properties, which are useful
+   permanently.
+4. Drop `generatorVariant` from the save format in `persistence.js`. Old saves carrying it
+   are ignored harmlessly, so no migration is needed.
+5. Stop the PostHog experiment and record the conclusion on it.
+6. Leave `loop-game:experiment:hint-generation` in localStorage - it expires with nothing
+   reading it. Clean it up in `cleanupOldSaves()` only if it starts bothering you.
+
+**Performance:** ~50ms average for 8x8.
+
+**The fallback is not rare.** Running the real generator over 365 daily seeds, the
+hand-authored `FALLBACK_CYCLES` entry is used on **6.3% of Diabolical days** (23/365), 1.9%
+of Tricky and 0.8% of Easy - not the "extremely rare" this previously claimed, and nowhere
+near the >99.99% success rate implied by 100 attempts at a 25% per-attempt success rate.
+The per-attempt rate on 8x8 must be far below 25%, and successive seeded attempts are
+evidently correlated rather than independent.
+
+This matters beyond tidiness: on those days **every player gets the same fixed solution
+loop**. The hints still vary with the seed, so the puzzle is not identical, but the
+underlying loop is - and it is the same loop every time, so it is learnable. Worth fixing
+(more attempts, a smarter restart, or several fallback cycles chosen by seed) before it is
+worth tuning anything else in the generator. `console.warn` already fires on each use, so
+the rate is observable in the field, not just in simulation.
 
 ### Daily Puzzle System
 
@@ -556,9 +641,8 @@ Auto-saves game state to localStorage (client-side, no backend).
    - Daily: One slot per date+difficulty (e.g., `loop-game:daily:2025-11-30-easy`). Old saves auto-cleaned on app init.
    - Unlimited: One slot per difficulty (e.g., `loop-game:unlimited:medium`). Switching difficulties saves current state, loads target difficulty state (or generates new if none exists).
    - Settings: Global singleton (`loop-game:settings`) shared across all modes.
-   - Manual finish: Date-based tracking per difficulty (e.g., `loop-game:manually-finished:easy`). Stores completion date, auto-expires at local midnight.
 
-3. **State vs Settings**: Game state (player path, connections, timer, win status, partial win feedback) is per-puzzle. Unlimited mode includes puzzle data (solution path, hint cells) since it's not deterministic. Settings (hint mode, border mode, show solution, last unlimited difficulty) are global.
+3. **State vs Settings**: Game state (player path, connections, timer, win status, and the hint generation arm the puzzle was built with) is per-puzzle. Unlimited mode includes puzzle data (solution path, hint cells) since it's not deterministic. Settings (hint mode, border mode, show solution, last unlimited difficulty) are global.
 
 4. **Data format**: Sets→Arrays, Maps→Objects (JSON-serializable), version field for migration, timestamp for debugging. Throttle returns `{ save, destroy }` for cleanup.
 
@@ -642,7 +726,7 @@ Auto-saves game state to localStorage (client-side, no backend).
 - `reconcileStreaks()` runs on app start (from `main.js`) and treats any difficulty already flagged as completed today as a completion for streak purposes. Without it, a player who finished today's puzzle on a build without streak tracking would see nothing until tomorrow, since a completed puzzle is locked and can never run the completion path again. It is idempotent and silent on analytics.
 - Recording twice on the same day is a no-op, so it is safe to call from every completion path.
 - A streak stays **alive** while the last completion was today or yesterday. Any longer gap and the getters report `current: 0` — the stored value is only overwritten on the next completion.
-- **Wins and manual finishes count**; viewing the solution does not extend a streak (though it does not break an already-live one either).
+- **Wins count**; viewing the solution does not extend a streak (though it does not break an already-live one either).
 
 **Home screen display:**
 
@@ -668,7 +752,7 @@ Difficulties with no live streak are skipped, so a tap never lands on "0 day str
 
 This is deliberately styled as plain text, not a control — it is a small reward for the curious rather than a feature that needs discovering. The count is set in `--color-text-primary`, rather than the quieter `--color-text-secondary` the taglines use. The win sheet's streak half matches it; the completion time it slides up over stays secondary.
 
-The difficulty buttons themselves carry only the existing completion icon: trophy for a win, check for a manual finish, skull for a viewed solution.
+The difficulty buttons themselves carry only the existing completion icon: trophy for a win, skull for a viewed solution.
 
 **Win sheet display:**
 
@@ -716,8 +800,9 @@ The asset is 96x96, all 48 frames of the original, 122KB. That resolution is set
 | Event | Key properties | Notes |
 |-------|----------------|-------|
 | `$pageview` | `$current_url`, `title`, `previous_page` | Powers DAU, new vs returning, and play frequency |
-| `game_started` | `difficulty`, `mode` | Fires only for a *fresh* puzzle, not when a saved game is restored, so it counts genuine starts |
-| `game_completed` | `difficulty`, `mode`, `completion_time_seconds`, `completion_type`, `score` | `completion_type` is `win` or `manual_finish` |
+| `game_started` | `difficulty`, `mode`, puzzle shape, arm | Fires only for a *fresh* puzzle, not when a saved game is restored, so it counts genuine starts |
+| `game_completed` | `difficulty`, `mode`, `completion_time_seconds`, `score`, puzzle shape, arm | `score` is the real value, not a hardcoded 100. `completion_type` was dropped with the End button - it was always `win` |
+| `game_abandoned` | `difficulty`, `mode`, `elapsed_seconds`, `score`, `cells_drawn`, `hints_satisfied`, puzzle shape, arm | Fires on navigation away or tab close with a touched, unfinished puzzle. Best effort - a force-quit delivers nothing, so treat it as a lower bound |
 | `game_restarted` | `difficulty`, `mode` | Clear button |
 | `puzzle_generated` | `difficulty` | Unlimited mode only |
 | `validation_error` | `difficulty`, `mode` | Closed loop that fails its hints |
@@ -729,6 +814,16 @@ The asset is 96x96, all 48 frames of the original, 122KB. That resolution is set
 | `share_completed` / `share_failed` | `difficulty`, `method` / `error_type` | |
 | `difficulty_selected` | `difficulty`, `source` | Home screen navigation |
 | `streak_updated` | `difficulty`, `streak_current`, `streak_best`, `streak_overall_current`, `streak_overall_best` | Also written as person properties |
+
+**Puzzle shape**, on every game lifecycle event: `hint_count`, `expected_turns_total`,
+`hint_coverage_percent`, `hint_redundancy`, `anchor_hints`, `solution_turns`. From
+`describePuzzle()`. This is what lets an unlucky day's puzzle be told apart from a mistuned
+difficulty - the difficulty label alone can never make that distinction. Useful well beyond
+the experiment, so it stays when the experiment goes.
+
+**Experiment arm**, on the same events: `generator_variant` and `variant_source`. Also
+written as person properties (`generator_variant`, `generator_variant_source`) so weekly
+retention cohorts can be split by arm - a retention curve is built from people, not events.
 
 PostHog attaches `$session_id` to every event, which is what makes "how many difficulties per session" answerable.
 
@@ -1062,7 +1157,7 @@ For implementation details, see Color Token System in Key Systems section.
 |                           | ← 16px spacing
 |       [GRID 5x5]          | ← Canvas (fixed size across all difficulties)
 |                           | ← 8px spacing
-| [End] [Clear]    [Undo]   | ← Control buttons (End hugs, Clear/Undo fill, elevated bg)
+|      [Clear]    [Undo]    | ← Control buttons (Clear/Undo fill, elevated bg)
 +---------------------------+
 ```
 
@@ -1084,7 +1179,7 @@ The tagline holds at 20px on every width, matching Tilbo's. It fits on one line 
 - **Library**: Lucide icons (tree-shakeable, ~2-3KB for current icons)
 - **Sizing**: 18px inline (button labels), 20px standalone, 24px header buttons
 - **Color**: Inherit via `currentColor`
-- **Usage**: Arrow-left (back), Circle-help (help), Settings (gear), Dices (new puzzle), Refresh-ccw (Clear), Undo2 (undo), Check (End, home completion), Party-popper (win), Octagon-alert (confirmation warning), Circle-off (error), Share2 (share), Trophy/Skull (home completion icons), ChevronDown (settings select indicator), Menu/X (home hamburger menu, cross-fading between the two)
+- **Usage**: Arrow-left (back), Circle-help (help), Settings (gear), Dices (new puzzle), Refresh-ccw (Clear), Undo2 (undo), Party-popper (win), Share2 (share), Trophy/Skull (home completion icons), ChevronDown (settings select indicator), Menu/X (home hamburger menu, cross-fading between the two)
 
 **Settings Bottom Sheet:**
 
@@ -1103,12 +1198,11 @@ Built using the bottom sheet component system (see Bottom Sheet Component System
 
 **Game Control Buttons:**
 
-Three control buttons appear below the canvas in a horizontal layout: End, Clear, and Undo.
+Two control buttons appear below the canvas in a horizontal layout: Clear and Undo.
 
 - **Positioning**: Centered below canvas with 8px top spacing
 - **Layout**: Flex container with 8px gap between buttons
 - **Button sizing**:
-  - End button: Hugs content (flex: 0 0 auto)
   - Clear button: Fills available space (flex: 1)
   - Undo button: Fills available space (flex: 1)
 - **Horizontal padding**: 20px per button
@@ -1122,12 +1216,6 @@ Three control buttons appear below the canvas in a horizontal layout: End, Clear
   - Focus: No outline (removes persistent grey background after tap)
 
 **Button-Specific Behavior:**
-
-- **End button**:
-  - Enabled only when player has drawn exactly one closed loop (no extra cells)
-  - Disabled when game completed or solution viewed
-  - Shows confirmation modal on press (prevents accidental endings)
-  - Icon: Check
 
 - **Clear button** (formerly Restart):
   - Enabled when at least one cell is drawn and game not completed
@@ -1234,6 +1322,10 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 - Home screen hamburger menu with slide-in sheet for secondary destinations
 - Design token system with CSS-as-source-of-truth architecture
 
+**🧪 Running Experiment**
+- Hint generation density (`hint-generation-density`) - see "Hint generation experiment".
+  First look 2026-09-03. Carries a teardown checklist.
+
 **🚧 Planned Enhancements**
 - Interactive tutorial with guided puzzle examples
 - Redo functionality (undo already implemented)
@@ -1259,13 +1351,31 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 3. Consider impact on puzzle generation difficulty and solvability
 
 **Modify Hint Generation Configuration:**
-1. **Change hint counts or minimum distances**: Update `CONFIG.DIFFICULTY.HINT_CONFIG` in `config.js`
-   - Each difficulty has `count` (number of hints) and `minDistance` (Chebyshev distance constraint)
-   - Currently: easy={count:2, minDistance:3}, medium={count:5, minDistance:2}, hard={count:16, minDistance:0}
-2. **Affects all modes**: Changes apply to new daily puzzles, restored daily puzzles, and new unlimited puzzles
-3. **Saved unlimited puzzles**: Will retain their original hint placement when restored (no automatic migration)
-4. **Distance constraint**: Set `minDistance=0` to disable spatial constraints (any cell valid)
-5. **Graceful degradation**: If constraints are too tight, fewer hints will be placed (no error)
+
+**While the experiment is running, do not touch `HINT_CONFIG` (the control arm).** Tuning it
+would move the baseline mid-test and make the result meaningless. Tune `HINT_CONFIG_DENSE`
+only, and note that doing so mid-flight still muddies the comparison - prefer waiting.
+
+1. **Dense arm**: `CONFIG.DIFFICULTY.HINT_CONFIG_DENSE` - `count`, `lowValueAnchors`,
+   `anchorMaxValue`. Raising `count` raises redundancy; coverage is already guaranteed at
+   the current counts. An `anchorMaxValue` the grid cannot supply is silently unmet, so
+   check the table in "Hint generation experiment" before raising a quota.
+2. **Control arm**: `CONFIG.DIFFICULTY.HINT_CONFIG` - `count`, `minDistance` (Chebyshev).
+   `minDistance` trades redundancy for coverage: spacing hints out spreads their areas so
+   fewer cells go unconstrained, but the areas then overlap less and cross-checking is lost.
+   `minDistance: 1` is a no-op. On a 6x6 the spacing caps the achievable count at 9, on an
+   8x8 at 16 - asking for more silently places fewer.
+3. **Affects all modes**: new daily puzzles, restored daily puzzles, and new unlimited
+   puzzles alike.
+4. **Saved unlimited puzzles** keep their original hint placement when restored (no
+   migration). **Saved daily puzzles** rebuild their hints from the seed, but pin their arm -
+   so a config change *does* reach an in-progress daily puzzle, while an arm change does not.
+5. **Graceful degradation**: too-tight constraints place fewer hints rather than failing.
+6. **Verify before shipping**: both placements are pure functions of a grid size, a config
+   and a seeded random source, so they can be exercised outside a browser.
+   `generation/hintPlacement.js` deliberately imports only from `utils.js` for this reason.
+   Run a candidate config across a year of seeds and check coverage, redundancy, anchors and
+   layout variety before trusting it - every number in this document was produced that way.
 
 **Modify the Win Sheet Streak Reveal:**
 1. **Timings**: `CONFIG.WIN_STREAK.REVEAL_DELAY_MS` and `CONFIG.WIN_STREAK.TRANSITION_MS` in `config.js`. The duration is applied inline to the track, so it overrides the CSS default.
@@ -1453,7 +1563,6 @@ The Vite dev server doesn't process the `_redirects` file, but the production bu
 | **Tap existing cell** | Cell is erased (along with orphaned cells) |
 | **Drag** | Blue path extends smoothly, auto-breaks connections when crossing |
 | **Drag backward** | Recent path is undone (backtracking) |
-| **End button** | Shows confirmation modal, then ends game early with partial win modal (only enabled when single closed loop drawn) |
 | **Clear button** | Clears all drawn cells, resets game state (only enabled when cells exist) |
 | **Undo button** | Reverts last drawing action (only enabled when undo history exists) |
 | **Back button** | Returns to home page |
