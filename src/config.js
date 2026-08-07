@@ -224,12 +224,14 @@ export const CONFIG = {
   // See "Hint generation experiment" in CLAUDE.md for the teardown checklist.
   EXPERIMENT: {
     HINT_GENERATION: {
-      FLAG_KEY: 'hint-generation-density',
       CONTROL: 'control',
       VARIANT: 'dense',
-      // Cached in localStorage so first paint never waits on the PostHog
-      // response, and so a blocked or failed PostHog load still yields a stable
-      // assignment rather than silently reverting everyone to control.
+      // Assignment is a coin flip cached in localStorage, NOT a PostHog feature
+      // flag - the slim posthog build we ship has no flag support at all. See
+      // the module comment in experiment.js. The matching PostHog experiment
+      // (id 405364) exists only as a record of dates and configuration; it
+      // cannot compute results, so the analysis runs on the generator_variant
+      // event property instead.
       STORAGE_KEY: 'loop-game:experiment:hint-generation',
     },
   },
