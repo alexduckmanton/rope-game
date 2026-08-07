@@ -506,24 +506,39 @@ so the baseline stays what the already-measured players experienced. (Relatedly,
 solution first, hints second - so on a given date the underlying loop is identical and only
 the hints differ.
 
-**Assignment** (`experiment.js`) resolves in order: PostHog's answer, this browser's cached
-answer, then a local coin flip. It never blocks and never returns nothing, because a puzzle
-has to render even when PostHog is slow or blocked. Two consequences worth understanding:
+**Assignment is client-side, not a PostHog feature flag.** This was not the original plan.
+The experiment was built assuming `posthog.getFeatureFlag()` worked, and it does not: the
+slim posthog build the game ships has no flag network code at all (see the Analytics section
+above). The first five hours of the experiment ran with `variant_source: local` on every
+single event and zero flag exposure, which is how this was found.
 
-- *Local assignment is not a fallback to control.* Traffic here is dominated by first-time
-  visitors, so sending every unresolved first visit to one arm would bias the experiment far
-  more than an even local split does. In practice this path is almost never taken and never
-  visible: `initHintGenerationExperiment()` runs at app start while the player is still on
-  the home screen, and a player whose PostHog is blocked sends no events at all.
-- *Saves pin their arm.* A daily save holds no puzzle data - hints are rebuilt from the date
-  seed on every load - so without pinning, a player whose assignment changed between visits
-  would find their part-finished puzzle rearranged around the path they had already drawn.
-  `variantForSavedGame()` makes the pinned arm win.
+Rather than pay +38KB gzipped to restore flags, assignment stays where the fallback already
+put it: a 50/50 coin flip in `experiment.js`, cached in `loop-game:experiment:hint-generation`,
+resolved from cache first and never touching the network. It answers instantly, works behind
+an ad blocker, and is stable per browser for the life of the experiment.
+
+What this costs, and what it does not:
+
+- **The randomisation is sound.** Independent, even, sticky per browser. This is a valid
+  experiment.
+- **PostHog cannot compute the results.** Its Experiment object keys on flag exposure, of
+  which there is none, so experiment 405364 will sit permanently empty. It is kept only as a
+  record of the dates and configuration.
+- **The analysis reads `generator_variant`** off the game events instead — the property is
+  the *only* record of the assignment, so nothing may be analysed on `$feature/...`.
+- **There is no remote kill switch.** Changing or stopping the split needs a deploy. Cheap
+  here (Netlify auto-deploys from `main`), but worth knowing before it is urgent.
+- **Assignment does not survive** a cleared storage or a second device. Acceptable for
+  anonymous players who mostly visit once; it does mean a small amount of re-randomisation.
+
+*Saves pin their arm.* A daily save holds no puzzle data - hints are rebuilt from the date
+seed on every load - so without pinning, a player whose assignment changed between visits
+would find their part-finished puzzle rearranged around the path they had already drawn.
+`variantForSavedGame()` makes the pinned arm win.
 
 Every game event carries `generator_variant` (the arm actually generated) and
-`variant_source` (`flag` / `cache` / `local` / `saved`). PostHog's own analysis on
-`$feature/hint-generation-density` is sound; these exist to cross-check it and to expose the
-pinned-save case the flag cannot express.
+`variant_source`, now one of `local` (coin flip in this browser) or `saved` (pinned by the
+save this puzzle was restored from).
 
 **Teardown checklist**, once a winner is picked:
 
@@ -536,7 +551,8 @@ pinned-save case the flag cannot express.
    permanently.
 4. Drop `generatorVariant` from the save format in `persistence.js`. Old saves carrying it
    are ignored harmlessly, so no migration is needed.
-5. Stop the PostHog experiment and record the conclusion on it.
+5. Stop the PostHog experiment and record the conclusion on it. It holds no results - the
+   numbers come from the saved SQL insights on `generator_variant`.
 6. Leave `loop-game:experiment:hint-generation` in localStorage - it expires with nothing
    reading it. Clean it up in `cleanupOldSaves()` only if it starts bothering you.
 
@@ -782,6 +798,7 @@ The asset is 96x96, all 48 frames of the original, 122KB. That resolution is set
 
 **Implementation:**
 - **Bundle**: Imports `posthog-js/dist/module.slim.no-external.js` — excludes autocapture, session replay, surveys and web vitals (all unused), roughly halving the added bundle size. No scripts are fetched from a CDN at runtime.
+- **No feature flags.** The slim build also excludes the feature-flag *network code*, not just extra payload: `posthog.getFeatureFlag()` exists and returns `undefined` forever, silently. Verified by diffing the dist builds — `module.js` contains the `flags/?v=` endpoint, `module.slim.no-external.js` does not. **Nothing in this app can read a flag or run a PostHog Experiment.** Restoring flags means moving to `module.no-external.js`, at roughly **+38KB gzipped** — close to doubling this game's JS payload, which was judged not worth it for traffic that is mostly one-visit referrals. The hint generation experiment randomises client-side instead; see below.
 - **Initialization**: Happens on module load in `src/analytics.js`, before the router renders its first route, so the initial page view is never missed.
 - **SPA tracking**: `trackPageView(path, title)` sends `$pageview`; `router.js` calls it on every route change after setting `document.title`.
 - **Event helpers**: Named `trackX()` functions wrap `posthog.capture()` for every game event (see the event list below).
@@ -824,6 +841,8 @@ the experiment, so it stays when the experiment goes.
 **Experiment arm**, on the same events: `generator_variant` and `variant_source`. Also
 written as person properties (`generator_variant`, `generator_variant_source`) so weekly
 retention cohorts can be split by arm - a retention curve is built from people, not events.
+These are the **only** record of the assignment: the slim posthog build cannot read flags,
+so there is no `$feature/...` property on anything.
 
 PostHog attaches `$session_id` to every event, which is what makes "how many difficulties per session" answerable.
 

@@ -12,6 +12,16 @@
 // Slim, self-contained build: excludes autocapture, session replay, surveys and
 // web vitals (all unused here) and loads no extra scripts at runtime. Roughly
 // half the bundle size of the default posthog-js entry point.
+//
+// IT ALSO EXCLUDES FEATURE FLAGS - not just the extra payload, the network call
+// itself. `posthog.getFeatureFlag()` exists here and returns `undefined`
+// forever, silently. Verified by diffing the dist builds: `module.js` contains
+// the `flags/?v=` endpoint, `module.slim.no-external.js` does not.
+//
+// So nothing in this app can read a flag or run a PostHog Experiment. The hint
+// generation experiment randomises client-side instead (see experiment.js).
+// Restoring flags means moving to `module.no-external.js`, which costs about
+// +38KB gzipped - roughly doubling this game's JS payload.
 import posthog from 'posthog-js/dist/module.slim.no-external.js';
 
 /**
@@ -202,10 +212,10 @@ function puzzleProperties(shape, assignment) {
   const props = {};
 
   if (assignment) {
-    // The arm the puzzle was really generated with. Analyse on this rather than
-    // PostHog's $feature/... property: the two can differ when a puzzle is
-    // generated before the flag response lands, or is restored from a save that
-    // pinned an older assignment. See experiment.js.
+    // The arm this puzzle was generated with. This is the ONLY record of the
+    // assignment - the slim posthog build cannot read flags, so there is no
+    // $feature/... property to fall back on. Every analysis of the hint
+    // generation experiment reads this. See experiment.js.
     props.generator_variant = assignment.variant;
     props.variant_source = assignment.source;
   }
@@ -455,7 +465,7 @@ export function trackStreakUpdated(difficulty, difficultyStreak, overallStreak) 
 }
 
 /* ============================================================================
- * PERSON PROPERTIES & FEATURE FLAGS
+ * PERSON PROPERTIES
  * ========================================================================= */
 
 /**
@@ -474,56 +484,6 @@ export function setPersonProperties(properties) {
     posthog.setPersonProperties(properties);
   } catch (error) {
     // Silent fail - never interrupt gameplay
-    console.debug('[Analytics] Error:', error);
-  }
-}
-
-/**
- * Read a feature flag's value
- *
- * Returns undefined when PostHog has not answered yet, is blocked, or failed to
- * initialise - all of which are indistinguishable from the caller's point of
- * view and all of which mean "no assignment available right now". Callers must
- * handle that case rather than treating it as a variant.
- *
- * Calling this also emits PostHog's `$feature_flag_called` event, which is what
- * an Experiment uses to count exposure.
- *
- * @param {string} key - Feature flag key
- * @returns {string|boolean|undefined} Flag value, or undefined if unresolved
- */
-export function getFeatureFlag(key) {
-  try {
-    if (!isInitialized) return undefined;
-
-    return posthog.getFeatureFlag(key);
-  } catch (error) {
-    console.debug('[Analytics] Error:', error);
-    return undefined;
-  }
-}
-
-/**
- * Register a callback for when feature flags first resolve
- *
- * PostHog fires this once the flag response arrives, and again if flags are
- * later reloaded. Never fires when PostHog is blocked, so anything depending on
- * it needs its own fallback.
- *
- * @param {function(): void} callback - Invoked after flags are available
- */
-export function onFeatureFlags(callback) {
-  try {
-    if (!isInitialized) return;
-
-    posthog.onFeatureFlags(() => {
-      try {
-        callback();
-      } catch (error) {
-        console.debug('[Analytics] Feature flag callback error:', error);
-      }
-    });
-  } catch (error) {
     console.debug('[Analytics] Error:', error);
   }
 }
