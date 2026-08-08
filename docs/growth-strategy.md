@@ -179,6 +179,13 @@ Submit to every daily-game aggregator. These are one-time actions that pay out f
 - itch.io (you already have `npm run build:itch` — use it), Newgrounds, GameJolt, indiexpo.
 - AlternativeTo, and the various "games like Wordle" listicles — email the authors of [existing roundups](https://www.pcgamer.com/best-games-like-wordle/); updating a post is much easier for a writer than writing a new one.
 
+These are all English. Now that the game ships in twelve languages, the same one-off
+submissions exist per language — see **[`localised-distribution.md`](./localised-distribution.md)**
+for the researched target list, ranked by traffic and by whether the site can actually give
+you a link. Its first recommendation matters most: the English directories that already
+supply nearly all of Loopy's referral traffic have no concept of language, and the biggest
+one is open source.
+
 ### 6.2 Communities — participate, don't broadcast
 Rule: be a member for weeks before you post a link. One post per community, ever, unless you're sharing genuine news.
 - **Thinky Games Discord** — the highest-signal puzzle community online. Play others' games, comment, then share yours.
