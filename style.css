@@ -693,6 +693,35 @@ button {
   background-color: var(--color-border-light);
 }
 
+/* Language row.
+ *
+ * Reuses the settings sheet's select-row markup so the "this opens a picker"
+ * affordance is the same one players have already met in game settings, but
+ * restyled to sit in the menu stack: menu padding and radius, no elevated
+ * background, and the item weight rather than the settings weight. */
+.home-menu-language-row {
+  padding: 16px;
+  border-radius: 16px;
+  background-color: transparent;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.home-menu-language-row:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.home-menu-language-row:active {
+  background-color: var(--color-border-light);
+}
+
+/* The current language is the value, so it takes the quieter treatment the
+ * settings rows give their values */
+.home-menu-language-row .settings-value {
+  font-size: 16px;
+  font-weight: 500;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .home-menu-toggle,
   .home-menu-scrim,

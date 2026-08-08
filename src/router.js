@@ -5,23 +5,60 @@
  * - URL-based navigation without page reloads
  * - View switching with CSS transitions
  * - Browser back/forward support
+ *
+ * Localised builds are served from a path prefix (`/de/`, `/pt-br/`), so every
+ * route is expressed here without that prefix and translated to and from real
+ * URLs by withBase() / stripBase(). Callers pass '/play?difficulty=easy' and
+ * never think about the locale.
  */
 
 import { trackPageView } from './analytics.js';
 import { getDifficultyLabel } from './config.js';
+import { t, BASE_PATH } from './i18n/index.js';
 
 let currentViewId = null;
 let currentCleanup = null;
 let currentUrl = null;
 
-// Default document title, used for the home route
-const DEFAULT_TITLE = 'Loopy — A Free Daily Loop Logic Puzzle';
+/**
+ * This build's path prefix without its trailing slash
+ * '' at the site root, '/de' for the German build
+ */
+const BASE_PREFIX = BASE_PATH.replace(/\/$/, '');
 
-// Route definitions
+// Route definitions, expressed relative to the locale's base path
 const routes = [
   { path: '/', viewId: 'home-view' },
   { path: '/play', viewId: 'play-view' }
 ];
+
+/**
+ * Strip this build's locale prefix from a real pathname
+ *
+ * Tolerates the prefix with or without a trailing slash, since Netlify serves
+ * both `/de` and `/de/`.
+ *
+ * @param {string} pathname - Real pathname, e.g. '/de/play'
+ * @returns {string} Route path, e.g. '/play'
+ */
+function stripBase(pathname) {
+  if (!BASE_PREFIX) return pathname || '/';
+  if (pathname === BASE_PREFIX) return '/';
+  if (pathname.startsWith(`${BASE_PREFIX}/`)) {
+    return pathname.slice(BASE_PREFIX.length) || '/';
+  }
+  return pathname;
+}
+
+/**
+ * Add this build's locale prefix to a route path
+ *
+ * @param {string} path - Route path, e.g. '/play?difficulty=easy'
+ * @returns {string} Real path, e.g. '/de/play?difficulty=easy'
+ */
+function withBase(path) {
+  return `${BASE_PREFIX}${path}`;
+}
 
 /**
  * Build the document title for a route
@@ -35,31 +72,33 @@ const routes = [
  */
 function getRouteTitle(route, params) {
   if (route.viewId !== 'play-view') {
-    return DEFAULT_TITLE;
+    return t('meta.title');
   }
 
   const difficulty = params.get('difficulty') || 'medium';
-  return `${getDifficultyLabel(difficulty)} Loopy — Today's Daily Loop Logic Puzzle`;
+  return t('meta.playTitle', { difficulty: getDifficultyLabel(difficulty) });
 }
 
 /**
  * Navigate to a new path
- * @param {string} path - The path to navigate to (e.g., '/home', '/play?difficulty=easy')
+ * @param {string} path - Locale-independent path (e.g., '/', '/play?difficulty=easy')
  * @param {boolean} replace - If true, replaces current history entry instead of pushing
  * @param {Object} state - Optional state object to store with history entry
  */
 export function navigate(path, replace = false, state = {}) {
+  const url = withBase(path);
+
   if (replace) {
-    history.replaceState(state, '', path);
+    history.replaceState(state, '', url);
   } else {
-    history.pushState(state, '', path);
+    history.pushState(state, '', url);
   }
   renderRoute();
 }
 
 /**
  * Find the matching route for a given path
- * @param {string} path - The pathname to match
+ * @param {string} path - The route path to match (locale prefix already stripped)
  * @returns {Object} The matching route or home route as fallback
  */
 function matchRoute(path) {
@@ -80,7 +119,7 @@ function matchRoute(path) {
  * - Calls view handler with URL params
  */
 async function renderRoute() {
-  const path = window.location.pathname;
+  const path = stripBase(window.location.pathname);
   const params = new URLSearchParams(window.location.search);
   const route = matchRoute(path);
   const newUrl = path + window.location.search;
@@ -111,8 +150,9 @@ async function renderRoute() {
     // Set the title before tracking so the page view records the right one
     document.title = getRouteTitle(route, params);
 
-    // Track page view for analytics
-    trackPageView(newUrl);
+    // Track page view for analytics. The locale prefix is included so paths
+    // from different language builds stay distinguishable in PostHog.
+    trackPageView(withBase(newUrl));
 
     // Call view-specific initialization
     const cleanup = await initView(route.viewId, params);

@@ -7,6 +7,7 @@
 import { checkStructuralLoop, checkPartialStructuralLoop, buildSolutionTurnMap, countTurnsInArea, parseCellKey } from '../utils.js';
 import { buildPlayerTurnMap } from '../renderer.js';
 import { CONFIG } from '../config.js';
+import { t } from '../i18n/index.js';
 
 /**
  * Difficulty level constants
@@ -174,12 +175,12 @@ export function checkShouldValidate({
  * @returns {string} Label for the percentage range
  */
 export function getScoreLabel(percentage) {
-  if (percentage === 100) return 'Perfect';
-  if (percentage >= 80) return 'Genius';
-  if (percentage >= 60) return 'Amazing';
-  if (percentage >= 40) return 'Great';
-  if (percentage >= 20) return 'Good';
-  return 'Okay';
+  if (percentage === 100) return t('score.perfect');
+  if (percentage >= 80) return t('score.genius');
+  if (percentage >= 60) return t('score.amazing');
+  if (percentage >= 40) return t('score.great');
+  if (percentage >= 20) return t('score.good');
+  return t('score.okay');
 }
 
 /**

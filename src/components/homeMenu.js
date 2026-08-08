@@ -13,6 +13,8 @@
 
 import { navigate } from '../router.js';
 import { showTutorialSheet } from './tutorialSheet.js';
+import { t } from '../i18n/index.js';
+import { initLanguageMenu } from './languageMenu.js';
 
 const OPEN_CLASS = 'menu-open';
 
@@ -31,7 +33,11 @@ export function initHomeMenu() {
 
   if (!view || !toggle || !scrim || !sheet) return null;
 
-  const items = sheet.querySelectorAll('.home-menu-item');
+  // Built before the item list is read, so the language row's own control is
+  // included in the tabindex handling below
+  const cleanupLanguage = initLanguageMenu();
+
+  const items = sheet.querySelectorAll('.home-menu-item, .home-menu-language-row select');
 
   const isOpen = () => view.classList.contains(OPEN_CLASS);
 
@@ -46,7 +52,7 @@ export function initHomeMenu() {
   const setOpen = (open) => {
     view.classList.toggle(OPEN_CLASS, open);
     toggle.setAttribute('aria-expanded', String(open));
-    toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    toggle.setAttribute('aria-label', open ? t('menu.close') : t('menu.open'));
     sheet.setAttribute('aria-hidden', String(!open));
     items.forEach(item => item.setAttribute('tabindex', open ? '0' : '-1'));
   };
@@ -90,6 +96,7 @@ export function initHomeMenu() {
     if (tutorialItem) tutorialItem.removeEventListener('click', handleTutorial);
     if (unlimitedItem) unlimitedItem.removeEventListener('click', handleUnlimited);
     items.forEach(item => item.removeEventListener('click', handleItemClick));
+    if (cleanupLanguage) cleanupLanguage();
 
     // Leave the view closed so navigating back to home never restores an
     // open sheet mid-animation

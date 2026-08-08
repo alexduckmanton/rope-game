@@ -1,13 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<!--
+  Tokens in this file are substituted at build time by the i18n plugin in
+  vite.config.js. A double-braced dotted name is a message key from
+  src/i18n/messages/<locale>.js; one prefixed with @ is a value the plugin
+  computes (locale, canonical URL, asset prefix, hreflang block).
+
+  Nothing here is translated at runtime, so the served HTML is already in the
+  right language on first paint. A token with no matching message fails the
+  build rather than shipping - which is also why this comment describes the
+  syntax rather than showing it.
+-->
+<html lang="{{@htmlLang}}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
 
   <!-- Primary Meta Tags -->
-  <title>Loopy — A Free Daily Loop Logic Puzzle</title>
-  <meta name="title" content="Loopy — A Free Daily Loop Logic Puzzle">
-  <meta name="description" content="Draw one closed loop that satisfies every number. A new Loopy logic puzzle every day in three difficulties. Free, no sign-up, plays in your browser.">
+  <title>{{meta.title}}</title>
+  <meta name="title" content="{{meta.title}}">
+  <meta name="description" content="{{meta.description}}">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#F3F4F6" media="(prefers-color-scheme: light)">
@@ -15,42 +26,48 @@
 
   <!-- Favicons -->
   <!-- Standard PNG favicon for iOS Safari favorites/bookmarks -->
-  <link rel="icon" type="image/png" href="./apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="{{@asset}}apple-touch-icon.png">
   <!-- SVG favicon with dark mode support (for browsers that support it) -->
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg" media="(prefers-color-scheme: light)">
-  <link rel="icon" type="image/svg+xml" href="./favicon-dark.svg" media="(prefers-color-scheme: dark)">
+  <link rel="icon" type="image/svg+xml" href="{{@asset}}favicon.svg" media="(prefers-color-scheme: light)">
+  <link rel="icon" type="image/svg+xml" href="{{@asset}}favicon-dark.svg" media="(prefers-color-scheme: dark)">
 
   <!-- Apple Touch Icon -->
-  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{@asset}}apple-touch-icon.png">
 
-  <!-- Canonical URL -->
-  <link rel="canonical" href="https://loopy.wtf/">
+  <!-- Canonical URL. Each locale is self-canonical: the German page is the
+       canonical German page, not a duplicate of the English one. -->
+  <link rel="canonical" href="{{@canonical}}">
+
+  <!-- Localised alternates. Every locale links to every other, plus x-default
+       pointing at the root, which is the only URL that language-detects. -->
+{{@hreflang}}
 
   <!-- PWA Manifest -->
-  <link rel="manifest" href="./manifest.json">
+  <link rel="manifest" href="{{@manifest}}">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://loopy.wtf/">
-  <meta property="og:title" content="Loopy — A Free Daily Loop Logic Puzzle">
-  <meta property="og:description" content="Draw one closed loop that satisfies every number. A new logic puzzle every day, in three difficulties. Free, no sign-up.">
+  <meta property="og:url" content="{{@canonical}}">
+  <meta property="og:title" content="{{meta.title}}">
+  <meta property="og:description" content="{{meta.ogDescription}}">
   <meta property="og:site_name" content="Loopy">
+  <meta property="og:locale" content="{{@ogLocale}}">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="https://loopy.wtf/">
-  <meta name="twitter:title" content="Loopy — A Free Daily Loop Logic Puzzle">
-  <meta name="twitter:description" content="Draw one closed loop that satisfies every number. A new logic puzzle every day, in three difficulties. Free, no sign-up.">
+  <meta name="twitter:url" content="{{@canonical}}">
+  <meta name="twitter:title" content="{{meta.title}}">
+  <meta name="twitter:description" content="{{meta.ogDescription}}">
 
   <!-- Open Graph Image -->
   <meta property="og:image" content="https://loopy.wtf/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Loopy - a free daily loop logic puzzle">
+  <meta property="og:image:alt" content="{{meta.imageAlt}}">
 
   <!-- Twitter Card Image -->
   <meta name="twitter:image" content="https://loopy.wtf/og-image.png">
-  <meta name="twitter:image:alt" content="Loopy - a free daily loop logic puzzle">
+  <meta name="twitter:image:alt" content="{{meta.imageAlt}}">
 
   <!-- Mobile Web App -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -68,19 +85,23 @@
       <!-- Hamburger menu. Sits above the sheet so the icon swaps in place
            rather than being covered, but below the bottom sheet overlay so
            the tutorial stacks over it. -->
-      <button id="home-menu-toggle" class="home-menu-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="home-menu-sheet">
+      <button id="home-menu-toggle" class="home-menu-toggle" aria-label="{{menu.open}}" aria-expanded="false" aria-controls="home-menu-sheet">
         <span class="home-menu-icon-stack">
           <span class="home-menu-icon home-menu-icon-open"><i data-lucide="menu" width="24" height="24"></i></span>
           <span class="home-menu-icon home-menu-icon-close"><i data-lucide="x" width="24" height="24"></i></span>
         </span>
       </button>
       <div id="home-menu-scrim" class="home-menu-scrim" aria-hidden="true"></div>
-      <nav id="home-menu-sheet" class="home-menu-sheet" aria-label="Menu" aria-hidden="true">
+      <nav id="home-menu-sheet" class="home-menu-sheet" aria-label="{{menu.label}}" aria-hidden="true">
         <ul class="home-menu-list">
-          <li><button id="home-menu-tutorial" class="home-menu-item" tabindex="-1">How to play</button></li>
-          <li><button id="home-menu-unlimited" class="home-menu-item" tabindex="-1">Unlimited</button></li>
-          <li><a class="home-menu-item" href="https://ko-fi.com/alexduckmanton" target="_blank" rel="noopener noreferrer" tabindex="-1">Support Loopy</a></li>
-          <li><a class="home-menu-item" href="https://bsky.app/profile/alexduckmanton.bsky.social" target="_blank" rel="noopener noreferrer" tabindex="-1">Give feedback</a></li>
+          <li><button id="home-menu-tutorial" class="home-menu-item" tabindex="-1">{{home.howToPlay}}</button></li>
+          <li><button id="home-menu-unlimited" class="home-menu-item" tabindex="-1">{{menu.unlimited}}</button></li>
+          <!-- Language row. Populated by components/languageMenu.js, which
+               builds it from the locale registry rather than the markup, so
+               adding a language never means editing this file. -->
+          <li class="home-menu-language" id="home-menu-language"></li>
+          <li><a class="home-menu-item" href="https://ko-fi.com/alexduckmanton" target="_blank" rel="noopener noreferrer" tabindex="-1">{{menu.support}}</a></li>
+          <li><a class="home-menu-item" href="https://bsky.app/profile/alexduckmanton.bsky.social" target="_blank" rel="noopener noreferrer" tabindex="-1">{{menu.feedback}}</a></li>
         </ul>
       </nav>
 
@@ -89,7 +110,7 @@
              centred in the top half and the buttons in the bottom half -->
         <div class="home-title-section">
           <h1 class="game-title">Loopy</h1>
-          <p class="game-tagline">A daily path-drawing puzzle</p>
+          <p class="game-tagline">{{home.tagline}}</p>
         </div>
         <div class="home-actions">
           <!-- Fixed-height slot holding either the streak line or the tutorial
@@ -100,21 +121,21 @@
                  reduced-motion preference, so it is not written out here. -->
             <p id="home-streak" class="home-streak"></p>
             <button id="tutorial-btn" class="btn btn-large">
-              <span>How to play</span>
+              <span>{{home.howToPlay}}</span>
             </button>
           </div>
           <div class="home-buttons">
             <button id="easy-btn" class="btn btn-large">
               <i class="btn-complete-icon" data-lucide="trophy" width="20" height="20"></i>
-              <span>Easy</span>
+              <span>{{difficulty.easy}}</span>
             </button>
             <button id="medium-btn" class="btn btn-large">
               <i class="btn-complete-icon" data-lucide="trophy" width="20" height="20"></i>
-              <span>Tricky</span>
+              <span>{{difficulty.medium}}</span>
             </button>
             <button id="hard-btn" class="btn btn-large">
               <i class="btn-complete-icon" data-lucide="trophy" width="20" height="20"></i>
-              <span>Diabolical</span>
+              <span>{{difficulty.hard}}</span>
             </button>
             <!-- Unlimited lives in the hamburger menu, not the main stack -->
           </div>
@@ -125,18 +146,18 @@
     <!-- Play View (Game) -->
     <div id="play-view" class="view">
       <header class="top-bar">
-        <button id="back-btn" class="icon-btn" aria-label="Back">
+        <button id="back-btn" class="icon-btn" aria-label="{{game.back}}">
           <i data-lucide="arrow-left" width="24" height="24"></i>
         </button>
         <h1 id="game-title" class="top-bar-title"></h1>
         <div class="top-bar-actions">
-          <button id="new-btn" class="icon-btn" aria-label="New puzzle">
+          <button id="new-btn" class="icon-btn" aria-label="{{game.newPuzzle}}">
             <i data-lucide="dices" width="24" height="24"></i>
           </button>
-          <button id="help-btn" class="icon-btn" aria-label="Help">
+          <button id="help-btn" class="icon-btn" aria-label="{{game.help}}">
             <i data-lucide="circle-help" width="24" height="24"></i>
           </button>
-          <button id="settings-btn" class="icon-btn" aria-label="Settings">
+          <button id="settings-btn" class="icon-btn" aria-label="{{game.settings}}">
             <i data-lucide="settings" width="24" height="24"></i>
           </button>
         </div>
@@ -150,11 +171,11 @@
         <div class="game-controls">
           <button id="restart-btn" class="btn btn-secondary">
             <i data-lucide="refresh-ccw" width="18" height="18"></i>
-            <span>Clear</span>
+            <span>{{game.clear}}</span>
           </button>
           <button id="undo-btn" class="btn btn-secondary" disabled>
             <i data-lucide="undo-2" width="18" height="18"></i>
-            <span>Undo</span>
+            <span>{{game.undo}}</span>
           </button>
         </div>
       </main>
@@ -165,50 +186,50 @@
           <div class="settings-item" id="difficulty-settings-item">
             <div class="settings-control">
               <div class="segmented-control" id="difficulty-segmented-control">
-                <button class="segment-btn" data-difficulty="easy">Easy</button>
-                <button class="segment-btn" data-difficulty="medium">Tricky</button>
-                <button class="segment-btn" data-difficulty="hard">Diabolical</button>
+                <button class="segment-btn" data-difficulty="easy">{{difficulty.easy}}</button>
+                <button class="segment-btn" data-difficulty="medium">{{difficulty.medium}}</button>
+                <button class="segment-btn" data-difficulty="hard">{{difficulty.hard}}</button>
               </div>
             </div>
           </div>
           <div class="settings-item">
             <div class="settings-select-row" id="hints-row">
-              <span class="settings-label">Numbers</span>
+              <span class="settings-label">{{settings.numbers}}</span>
               <div class="settings-value-container">
-                <span class="settings-value" id="hints-value">Required only</span>
+                <span class="settings-value" id="hints-value">{{settings.numbersPartial}}</span>
                 <i data-lucide="chevron-down" width="16" height="16"></i>
               </div>
               <select id="hints-select">
-                <option value="partial">Required only</option>
-                <option value="all">Show all</option>
+                <option value="partial">{{settings.numbersPartial}}</option>
+                <option value="all">{{settings.numbersAll}}</option>
               </select>
             </div>
           </div>
           <div class="settings-item">
             <div class="settings-select-row" id="countdown-row">
-              <span class="settings-label">Behaviour</span>
+              <span class="settings-label">{{settings.behaviour}}</span>
               <div class="settings-value-container">
-                <span class="settings-value" id="countdown-value">Count down</span>
+                <span class="settings-value" id="countdown-value">{{settings.behaviourOn}}</span>
                 <i data-lucide="chevron-down" width="16" height="16"></i>
               </div>
               <select id="countdown-select">
-                <option value="on">Count down</option>
-                <option value="off">Show total</option>
-                <option value="both">Show both</option>
+                <option value="on">{{settings.behaviourOn}}</option>
+                <option value="off">{{settings.behaviourOff}}</option>
+                <option value="both">{{settings.behaviourBoth}}</option>
               </select>
             </div>
           </div>
           <div class="settings-item">
             <div class="settings-select-row" id="borders-row">
-              <span class="settings-label">Borders</span>
+              <span class="settings-label">{{settings.borders}}</span>
               <div class="settings-value-container">
-                <span class="settings-value" id="borders-value">Off</span>
+                <span class="settings-value" id="borders-value">{{settings.bordersOff}}</span>
                 <i data-lucide="chevron-down" width="16" height="16"></i>
               </div>
               <select id="borders-select">
-                <option value="off">Off</option>
-                <option value="center">Center only</option>
-                <option value="full">Full</option>
+                <option value="off">{{settings.bordersOff}}</option>
+                <option value="center">{{settings.bordersCenter}}</option>
+                <option value="full">{{settings.bordersFull}}</option>
               </select>
             </div>
           </div>

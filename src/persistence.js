@@ -3,7 +3,13 @@
  *
  * Handles saving and loading game progress to/from localStorage.
  * Supports both daily puzzles and unlimited mode with different storage strategies.
+ *
+ * Storage is per-origin rather than per-path, so saves, settings and streaks
+ * are shared across every language build. Switching language keeps a streak
+ * and an in-progress puzzle intact.
  */
+
+import { t } from './i18n/index.js';
 
 /**
  * @typedef {Object} GameState
@@ -775,10 +781,12 @@ export function getOverallStreak() {
  */
 export function formatStreakLabel(days, difficultyLabel) {
   // Difficulty stays lowercase so the line reads as a sentence - a capitalised
-  // word mid-phrase reads as a label instead
+  // word mid-phrase reads as a label instead. Plural forms come from the
+  // dictionaries via Intl.PluralRules, so languages with more than two
+  // categories (Polish has four) inflect correctly.
   return difficultyLabel
-    ? `${days} day ${difficultyLabel} streak`
-    : `${days} day streak`;
+    ? t('streak.difficulty', { n: days, difficulty: difficultyLabel })
+    : t('streak.overall', { n: days });
 }
 
 /**

@@ -6,6 +6,7 @@
  */
 
 import { initIcons } from './icons.js';
+import { t } from './i18n/index.js';
 import { semantic } from './tokens.js';
 
 /**
@@ -52,7 +53,7 @@ const COLOR_SCHEMES = {
  * @param {HTMLElement|string} options.content - Content to display (HTMLElement or HTML string)
  * @param {string} [options.icon] - Optional Lucide icon name (e.g., 'settings', 'party-popper', 'circle-off')
  * @param {string} [options.colorScheme='neutral'] - Color scheme: 'neutral', 'success', 'partial', 'error', 'info', 'warning'
- * @param {string|null} [options.dismissLabel='Close'] - Label for the dismiss button at bottom. Pass null to hide the dismiss button.
+ * @param {string|null} [options.dismissLabel] - Label for the dismiss button at bottom. Defaults to a localised "Close". Pass null to hide the dismiss button.
  * @param {string} [options.dismissVariant='secondary'] - Dismiss button variant: 'primary' or 'secondary'
  * @param {boolean} [options.showCloseIcon=false] - Show X icon button at top-right corner
  * @param {Object} [options.primaryButton] - Optional primary action button above dismiss
@@ -67,7 +68,7 @@ const COLOR_SCHEMES = {
  * @param {Function} [options.onClose] - Optional callback when sheet is closed (via dismiss button or click-outside)
  * @returns {Object} - Object with show(), hide(), destroy() methods
  */
-export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = 'Close', dismissVariant = 'secondary', showCloseIcon = false, primaryButton, secondaryButton, onClose }) {
+export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = t('common.close'), dismissVariant = 'secondary', showCloseIcon = false, primaryButton, secondaryButton, onClose }) {
   // Create overlay (backdrop + container)
   const overlay = document.createElement('div');
   overlay.className = 'bottom-sheet-overlay';
@@ -93,7 +94,7 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   if (showCloseIcon) {
     closeIconBtn = document.createElement('button');
     closeIconBtn.className = 'bottom-sheet-close-icon';
-    closeIconBtn.setAttribute('aria-label', 'Close');
+    closeIconBtn.setAttribute('aria-label', t('common.close'));
     closeIconBtn.innerHTML = '<i data-lucide="x" width="24" height="24"></i>';
   }
 

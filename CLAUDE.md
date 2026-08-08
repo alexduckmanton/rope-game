@@ -29,6 +29,10 @@
 | `game/canvasSetup.js` | Canvas sizing | `calculateCellSize(gridSize, extraSpace)`, `setupCanvas()` - Responsive sizing utilities |
 | `generation/hintPlacement.js` | Dense-arm hint placement | `generateHintCellsCovering()` - cover/anchor/fill placement; `describePuzzle()` - measured puzzle shape for analytics |
 | `experiment.js` | Hint generation A/B assignment | `getHintGenerationAssignment()`, `variantForSavedGame()`, `isDenseVariant()`, `initHintGenerationExperiment()` |
+| `i18n/locales.js` | Locale registry | `LOCALES`, `DEFAULT_LOCALE`, `getLocale()`, `localeBasePath()` - the one place a language is added. Node-safe, imported by the build scripts |
+| `i18n/index.js` | Translation runtime | `t(key, vars)`, `formatDate()`, `localeUrl()`, `LOCALE`, `ACTIVE_LOCALE`, `BASE_PATH` - the dictionary is bound at build time, not fetched |
+| `i18n/messages/*.js` | Message dictionaries | One flat key→string map per language. `en.js` is the reference the parity check diffs against |
+| `components/languageMenu.js` | Language switcher | `initLanguageMenu()` - the language row in the home menu; sets `nf_lang` and does a full-page navigation |
 
 ### Core Concepts
 
@@ -49,7 +53,9 @@
 Hint counts are **not** fixed while the hint generation experiment runs - they depend
 on which arm a player is in. See "Hint generation experiment" below for both sets.
 
-**Labels vs keys:** players see Easy / Tricky / Diabolical, but the internal keys are `easy` / `medium` / `hard` and appear unchanged in URLs, storage keys, daily seeds and analytics. Labels live in `CONFIG.DIFFICULTY.LABELS` and are read through `getDifficultyLabel()` / `getDifficultyLabelLower()` in `config.js` — never derive one by capitalising a key, or renaming will silently miss that surface.
+**Labels vs keys:** players see Easy / Tricky / Diabolical, but the internal keys are `easy` / `medium` / `hard` and appear unchanged in URLs, storage keys, daily seeds and analytics. Labels now live in the dictionaries under `difficulty.<key>` and are read through `getDifficultyLabel()` / `getDifficultyLabelLower()` in `config.js` — never derive one by capitalising a key, or renaming will silently miss that surface, and never call `t('difficulty.…')` directly. `CONFIG.DIFFICULTY.KEYS` lists which keys have a label; anything else falls back to a capitalised key.
+
+The labels below are the English ones. Every language has its own set — German plays Einfach / Knifflig / Teuflisch — while the keys are identical everywhere, which is what keeps analytics and daily seeds continuous across languages.
 
 | Key | Label | Grid |
 |-----|-------|------|
@@ -64,6 +70,10 @@ on which arm a player is in. See "Hint generation experiment" below for both set
 - Settings: `loop-game:settings` (global, shared across all modes)
 - Streaks: `loop-game:streak:easy` (per difficulty) and `loop-game:streak:overall`, each storing `{ current, best, lastDate }`
 - Hint generation arm: `loop-game:experiment:hint-generation`, storing `{ variant, source }`
+
+All of these are keyed per **origin**, not per path, so they are shared across every language build: switching language keeps streaks, settings and part-finished puzzles intact.
+
+**The one cookie:** `nf_lang`, set only when a player picks a language from the switcher. It is read by Netlify's root redirect, not by any application code, and exists so an explicit choice permanently outranks the browser's `Accept-Language` header. See "Localisation".
 
 -----
 
@@ -265,10 +275,11 @@ The wording comes from `formatStreakLabel()` in `persistence.js`, shared with th
 ```
 
 - Difficulty label and time on one line, date beneath
+- The label and the date are both localised — the date through `Intl.DateTimeFormat` in `formatShareDate()`, which used to hardcode `en-US` for everyone
 - Uses Web Share API on mobile devices with clipboard fallback
 - Share button appears on the perfect win sheet, daily mode only
 
-**Pending change:** adding a puzzle number and the site URL (`💫 Loopy #233 · Medium / 2:34 / https://loopy.wtf`) is held until `share_attempted` volume is high enough to measure the effect. `getPuzzleNumber()` in `seededRandom.js` and `CONFIG.SITE.URL` already exist for it.
+**Pending change:** adding a puzzle number and the site URL (`💫 Loopy #233 · Medium / 2:34 / https://loopy.wtf`) is held until `share_attempted` volume is high enough to measure the effect. `getPuzzleNumber()` in `seededRandom.js` and `CONFIG.SITE.URL` already exist for it. When it lands the URL must be the **locale** URL (`CONFIG.SITE.URL + localeUrl(LOCALE)`), so a shared link opens and previews in the sender's language — that is most of the point of giving each language its own URL.
 
 **Validation Optimization:**
 
@@ -397,11 +408,16 @@ rope-game/
 │   ├── persistence.js     # localStorage save/load/cleanup with throttled writes
 │   ├── analytics.js       # PostHog init, event helpers, feature flag reads
 │   ├── experiment.js      # Hint generation A/B assignment (cached, pinned into saves)
+│   ├── i18n/              # Localisation
+│   │   ├── locales.js     # Locale registry - add a language here (Node-safe)
+│   │   ├── index.js       # t(), plural selection, date formatting, locale URLs
+│   │   └── messages/      # One dictionary per language (en.js is the reference)
 │   ├── generation/        # Puzzle generation strategies
 │   │   └── hintPlacement.js # Dense-arm hint placement + puzzle shape measurement
 │   ├── components/        # Reusable UI components
 │   │   ├── tutorialSheet.js # Tutorial carousel bottom sheet with video management
 │   │   ├── homeMenu.js      # Home screen hamburger menu and slide-in sheet
+│   │   ├── languageMenu.js  # Language row in the home menu
 │   │   ├── winStreakLine.js # Win sheet line that swaps completion time for streak
 │   │   └── streakFlame.js   # Streak flame: animated emoji, or icon under reduced motion
 │   ├── game/              # Shared game utilities
@@ -412,6 +428,9 @@ rope-game/
 │   └── views/
 │       ├── home.js        # Home view with difficulty selection and date display
 │       └── game.js        # Game view with daily/unlimited mode logic
+├── scripts/
+│   ├── build-locales.mjs  # One Vite build per language + _redirects + sitemap
+│   └── check-i18n.mjs     # Dictionary parity check (runs as part of build)
 └── package.json
 ```
 
@@ -610,6 +629,8 @@ the rate is observable in the field, not just in simulation.
 | **Home** | `/` | Landing page with the difficulty buttons (Easy, Tricky, Diabolical), the streak/tutorial slot above them, and the hamburger menu holding everything else |
 | **Play** | `/play?difficulty=X` | Main game interface with canvas, controls, timer, settings, help button |
 
+**Locale prefix:** localised builds are served from a path prefix, so the real URLs are `/de/` and `/de/play?difficulty=easy`. Routes are written *without* the prefix everywhere in the code — `router.js` strips it in `stripBase()` on the way in and adds it in `withBase()` on the way out, both driven by `import.meta.env.BASE_URL`. Callers pass `/play?difficulty=easy` and never think about the language. The itch build's relative base (`./`) is not a routable prefix, so it falls back to the root.
+
 **Tutorial Access:**
 
 Tutorial is implemented as a bottom sheet component rather than a dedicated view:
@@ -790,6 +811,73 @@ The asset is 96x96, all 48 frames of the original, 122KB. That resolution is set
 
 **Analytics:** Each update fires `streak_updated` carrying both the difficulty and overall streaks, and writes them as person properties (`streak_current_<difficulty>`, `streak_current_overall`, and their `best` equivalents), so retention can be segmented by streak length.
 
+### Localisation
+
+**Status: shipping in 8 languages** — English, German, Spanish, French, Italian, Dutch, Polish and Brazilian Portuguese.
+
+**Why.** The game is numbers and lines: the canvas contains no words at all, so the entire translatable surface is ~60 UI strings. The growth doc calls this "a rare, free multiplier" (§7.2) — markets where English-language Wordle clones cannot compete and where competition for "daily logic puzzle" search terms is a fraction of the US.
+
+That framing decides the architecture, because it is a **search and link-preview** play, and both of those read the served HTML rather than running the app:
+
+- Google indexes one page per URL. Serving every language at `loopy.wtf/` would get exactly one of them indexed, whatever the visitor sees.
+- OG scrapers (Slack, iMessage, Bluesky, WhatsApp) do not execute JavaScript. A runtime-translated site previews in English everywhere, including the localised share links that are supposed to spread.
+
+So the strings are baked in **at build time** and each language gets **its own URL**.
+
+**URL layout:**
+
+| URL | Behaviour |
+|-----|-----------|
+| `/` | English, served directly. Also the `x-default`. The **only** URL that language-detects |
+| `/de/`, `/es/`, `/fr/`, `/it/`, `/nl/`, `/pl/`, `/pt-br/` | That language, always, for every visitor and crawler. **Never redirects** |
+
+English stays at the root rather than moving to `/en/`. It keeps whatever SEO equity the root has, avoids putting a redirect on the most-linked and most-typed URL, and means English speakers — most of the current audience — never see a redirect at all. `hreflang="en"` and `hreflang="x-default"` both point at `/`, which Google permits explicitly.
+
+**Why only the root redirects.** Every case study of a multilingual site losing traffic to auto-redirection is the same shape: *locale* URLs that redirect. A UK site bouncing US visitors off `/uk/` got the UK version de-indexed wholesale; other write-ups report ~80% organic loss. The mechanism is that Googlebot crawls mostly from US IPs and **sends no `Accept-Language` header by default** (per Google's locale-adaptive-pages doc), so a header-based redirect with an English fallback means the crawler falls back to English every time. Some AI crawlers stopped sending the header entirely once this became a known problem, which matters given the `llms.txt` bet.
+
+Redirecting only the ambiguous root avoids all of that: a crawler arriving header-less at `/` gets English and indexes it as the default, and reaches every other language through the sitemap and the `hreflang` cluster. Nothing is ever hidden, because every language has a permanent URL that always serves that language.
+
+**How locale is chosen:**
+
+1. **On arrival at `/`** — Netlify matches `Accept-Language` and 302s to the locale. Edge-level, so it costs one redirect and only for non-English visitors.
+2. **The `nf_lang` cookie wins over the header.** Netlify reads it in preference to `Accept-Language`, so the switcher writes it and an explicit choice is permanent. No Edge Function needed.
+3. **The switcher itself** lives in the home hamburger menu (`components/languageMenu.js`), one tap from the landing screen — deliberately *not* in the in-game settings sheet, where a language control is one nobody finds. Each language is named in itself ("Deutsch", never "German"), because someone looking for their own language scans for the word they recognise.
+
+Switching is a **full page load**, not a router navigation: the strings are compiled into the bundle, so another language is another bundle.
+
+**How the build works.** `scripts/build-locales.mjs` runs one Vite build per language and assembles `dist/`:
+
+- `vite.config.js` aliases `@i18n-messages` to one dictionary and defines `__LOCALE__`, so each bundle carries exactly one language and no detection code.
+- A `transformIndexHtml` plugin substitutes `{{key}}` tokens in `index.html` — including `<title>`, the meta description and the OG tags. **A token with no matching message fails the build.**
+- Only the root build copies `public/`. Locale builds set `publicDir: false` and reference the shared icons, og image and ~1MB of tutorial videos absolutely from the domain root, so those are deployed once rather than eight times. Fonts and JS *are* per-locale (different strings, different bundle), which is why `dist/` is ~8MB.
+- `dist/_redirects` and `dist/sitemap.xml` are **generated** — do not edit them, and note `public/sitemap.xml` no longer exists.
+- Per-locale `manifest.json` with a `start_url` inside the locale, so an installed PWA opens in the language it was installed in.
+
+**No content flash, structurally.** The HTML arrives translated and the 302 resolves before any bytes are served, so there is nothing rendered to replace. This is strictly stronger than any client-side scheme, which has to paint something first.
+
+**Plurals** come from `Intl.PluralRules` via plural-object message values, so Polish's four categories (1 dzień / 2 dni / 5 dni / 22 dni) work without any per-language branching in the code. English streak messages are written as plural objects too, even though English does not inflect there, so the reference declares the key as count-driven.
+
+**Fonts.** Every shipped language fits inside Inter's `latin` and `latin-ext` subsets, both already declared in `style.css`. `latin-ext` is *preloaded* only for locales flagged `latinExt` in the registry (Polish today) so the others do not fetch four files they will never render from. Monoton only ever renders the wordmark, which stays "Loopy" everywhere.
+
+**What is deliberately not translated:** the "Loopy" wordmark; difficulty keys (`easy`/`medium`/`hard`) in URLs, storage, seeds and analytics; and the tutorial section `name` values in `tutorialSheet.js`, which are analytics labels and must stay stable across languages.
+
+**Known limitations:**
+
+- **Translations are unreviewed by native speakers.** They are careful and idiomatic, but a native pass is cheap at ~60 strings and worth doing before promoting a language.
+- **European Portuguese is routed to `pt-BR`.** Closer than English; not correct.
+- **Netlify's `Language` condition matches only the first entry in `Accept-Language`**, ignoring q-weights, so unusual multi-language browser configs can be mismatched. `nf_lang` is the escape hatch.
+- **Localised *content* pages do not exist yet.** The shell gives one indexable page per language; the traffic in the growth doc's §5 comes from How to Play, the strategy guide and the archive. This is architecture, not yet growth.
+- **`npm run dev` serves one language.** Use `LOCALE=de npm run dev`; the switcher's target paths do not exist on the dev server.
+
+### Adding a language
+
+1. Add an entry to `LOCALES` in `src/i18n/locales.js` — `code`, `path`, `htmlLang`, `ogLocale`, `name` (written in that language), and `match` (the browser codes that should route there, generously). Set `latinExt: true` if the alphabet needs it.
+2. Copy `src/i18n/messages/en.js` to `src/i18n/messages/<code>.js` and translate. Keep every key; keep `{placeholders}` intact.
+3. Run `npm run check:i18n`. It fails on missing keys, unknown keys, missing plural categories for that language, and unknown placeholders.
+4. `npm run build` — `_redirects`, `sitemap.xml`, the `hreflang` cluster and the switcher all pick the new language up automatically.
+
+**Before adding a language outside `latin` / `latin-ext`** (Cyrillic, Greek, Vietnamese, any CJK): the font work comes first. Inter ships those subsets, but `style.css` declares only the two, and CJK needs a system font stack, different line-breaking, and a Monoton substitute for the wordmark. Japanese is the obvious next market and the obvious next chunk of work.
+
 ### Analytics (PostHog)
 
 **Setup:** PostHog Cloud (US region), project "Default project". The project API key is a public client-side key and is hardcoded in `src/analytics.js`, with `VITE_POSTHOG_KEY` / `VITE_POSTHOG_HOST` available as build-time overrides for forks or staging deploys.
@@ -806,7 +894,7 @@ The asset is 96x96, all 48 frames of the original, 122KB. That resolution is set
 **Key configuration choices:**
 | Option | Value | Reason |
 |--------|-------|--------|
-| `persistence` | `localStorage` | The game sets no cookies at all, keeping the privacy/consent story simple |
+| `persistence` | `localStorage` | Analytics sets no cookies, keeping the privacy/consent story simple. The game as a whole now sets exactly one — `nf_lang`, written only when a player picks a language from the switcher, read only by Netlify's root redirect, and never used for analytics |
 | `person_profiles` | `always` | The game has no accounts; without this, anonymous players get no person profiles and retention analysis does not work |
 | `capture_pageview` | `false` | The router tracks SPA navigation manually |
 | `autocapture` | `false` | Explicit events only; autocapture on a canvas game is mostly noise |
@@ -831,6 +919,7 @@ The asset is 96x96, all 48 frames of the original, 122KB. That resolution is set
 | `share_completed` / `share_failed` | `difficulty`, `method` / `error_type` | |
 | `difficulty_selected` | `difficulty`, `source` | Home screen navigation |
 | `streak_updated` | `difficulty`, `streak_current`, `streak_best`, `streak_overall_current`, `streak_overall_best` | Also written as person properties |
+| `language_selected` | `from_locale`, `to_locale` | Fires only on an explicit switch. This is the signal that the root redirect guessed wrong — a rising rate into one language means its `match` list in `locales.js` is missing browser codes |
 
 **Puzzle shape**, on every game lifecycle event: `hint_count`, `expected_turns_total`,
 `hint_coverage_percent`, `hint_redundancy`, `anchor_hints`, `solution_turns`. From
@@ -843,6 +932,8 @@ written as person properties (`generator_variant`, `generator_variant_source`) s
 retention cohorts can be split by arm - a retention curve is built from people, not events.
 These are the **only** record of the assignment: the slim posthog build cannot read flags,
 so there is no `$feature/...` property on anything.
+
+**Locale**, on *every* event: `locale`, the language the session was served. Also written as a person property, so retention cohorts can be split by language — a retention curve is built from people, not events. This is the only way to tell whether a translation is earning its keep, since each language is a separate build on a separate URL. Note the distinction from `language_selected`: `locale` is what a player *got*, `to_locale` is what they *asked for*.
 
 PostHog attaches `$session_id` to every event, which is what makes "how many difficulties per session" answerable.
 
@@ -1050,7 +1141,9 @@ Component could be extended to support multiple simultaneous sheets with z-index
 
 A 44px hamburger button is fixed in the top-left of the home screen. Tapping it slides a sheet in from the left over a dimmed scrim.
 
-**Contents:** How to play (opens the tutorial sheet), Unlimited, Support Loopy, Give feedback. The last two moved here from the old home footer, which is gone.
+**Contents:** How to play (opens the tutorial sheet), Unlimited, **Language**, Support Loopy, Give feedback. The support and feedback links moved here from the old home footer, which is gone.
+
+The language row is built by `components/languageMenu.js` rather than written into `index.html`, so adding a language never means editing the markup. It reuses the settings sheet's select-row markup — label left, current value and chevron right, transparent native `<select>` over the row — so the "this opens a picker" affordance is one players have already met in game settings. It sits here rather than in the in-game settings sheet on purpose: a language control two taps into a game screen is one nobody finds.
 
 This menu is the **only** place the support link appears. It used to also sit as a secondary button on the daily perfect win sheet, which put an ask in front of the player at the moment they had just won. `secondaryButton` remains available on the bottom sheet component but now has no callers.
 
@@ -1340,6 +1433,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 - Per-difficulty daily streaks with home screen badges
 - Home screen hamburger menu with slide-in sheet for secondary destinations
 - Design token system with CSS-as-source-of-truth architecture
+- Localisation into 8 languages, one build and one URL each, with no runtime language switching and no content flash
 
 **🧪 Running Experiment**
 - Hint generation density (`hint-generation-density`) - see "Hint generation experiment".
@@ -1533,8 +1627,11 @@ When modifying `gameCore.js` or `utils.js`, be mindful that `handlePointerMove`,
 ```bash
 # Development
 npm install          # Install dependencies
-npm run dev          # Start Vite dev server (http://localhost:5173)
-npm run build        # Build for production (outputs to dist/)
+npm run dev          # Start Vite dev server (http://localhost:5173), English
+LOCALE=de npm run dev  # ...in another language
+npm run check:i18n   # Diff every dictionary against en.js (also runs in build)
+npm run build        # All 8 locales + _redirects + sitemap (outputs to dist/)
+npm run build:single # One locale only, for a quick check (LOCALE=xx to choose)
 npm run preview      # Preview production build
 
 # Deployment (Netlify)
@@ -1544,6 +1641,8 @@ npm run preview      # Preview production build
 ```
 
 **Local Development Notes:**
+
+Language testing: `npm run dev` serves one language at the root. `LOCALE=de npm run dev` serves German there instead. The locale *paths* (`/de/`) only exist in a real build, so the language switcher's targets 404 in dev — check switching against `npm run build` output served statically, or on a deploy preview.
 
 Direct URL testing: When testing locally with `npm run dev`, direct URL navigation works only through in-app navigation. To test direct URLs properly:
 1. Deploy to Netlify (recommended), or

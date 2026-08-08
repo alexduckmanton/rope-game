@@ -19,6 +19,7 @@ import { createGameTimer, formatTime } from '../game/timer.js';
 import { handleShare as handleShareUtil } from '../game/share.js';
 import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.js';
 import { checkPartialStructuralWin, validateHints, computeStateKey, calculateScore } from '../game/validation.js';
+import { t } from '../i18n/index.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
 import { generateHintCellsCovering, describePuzzle } from '../generation/hintPlacement.js';
 import { getHintGenerationAssignment, variantForSavedGame, isDenseVariant } from '../experiment.js';
@@ -498,7 +499,9 @@ function updateHintsSelectState() {
     hintsSelect.value = hintMode;
   }
   if (hintsValue) {
-    hintsValue.textContent = hintMode === 'partial' ? 'Required only' : 'Show all';
+    hintsValue.textContent = hintMode === 'partial'
+      ? t('settings.numbersPartial')
+      : t('settings.numbersAll');
   }
 }
 
@@ -517,8 +520,12 @@ function updateBordersSelectState() {
     bordersSelect.value = borderMode;
   }
   if (bordersValue) {
-    const labels = { off: 'Off', center: 'Center only', full: 'Full' };
-    bordersValue.textContent = labels[borderMode] || 'Off';
+    const labels = {
+      off: t('settings.bordersOff'),
+      center: t('settings.bordersCenter'),
+      full: t('settings.bordersFull'),
+    };
+    bordersValue.textContent = labels[borderMode] || labels.off;
   }
 }
 
@@ -537,8 +544,12 @@ function updateCountdownSelectState() {
     countdownSelect.value = countdown;
   }
   if (countdownValue) {
-    const labels = { on: 'Count down', off: 'Show total', both: 'Show both' };
-    countdownValue.textContent = labels[countdown] || 'Count down';
+    const labels = {
+      on: t('settings.behaviourOn'),
+      off: t('settings.behaviourOff'),
+      both: t('settings.behaviourBoth'),
+    };
+    countdownValue.textContent = labels[countdown] || labels.on;
   }
 }
 
@@ -613,7 +624,7 @@ function getNextIncompleteDifficulty(currentDifficulty) {
  * @param {string} finalTime - Formatted completion time (e.g., "Easy • 2:34")
  */
 function showWinCelebration(finalTime) {
-  const timeText = `You finished in ${finalTime}.`;
+  const timeText = t('win.finishedIn', { time: finalTime });
 
   // A win in daily mode has just recorded the streak, so this reads the value
   // the player has this second
@@ -633,7 +644,7 @@ function showWinCelebration(finalTime) {
 
   // Build bottom sheet options
   const bottomSheetOptions = {
-    title: 'Perfect loop!',
+    title: t('win.title'),
     content: activeWinStreakLine
       ? activeWinStreakLine.element
       : `<div class="bottom-sheet-message">${timeText}</div>`,
@@ -647,7 +658,7 @@ function showWinCelebration(finalTime) {
   if (isDailyMode) {
     const nextDifficulty = getNextIncompleteDifficulty(currentGameDifficulty);
     if (nextDifficulty) {
-      bottomSheetOptions.dismissLabel = 'Play another';
+      bottomSheetOptions.dismissLabel = t('win.playAnother');
       bottomSheetOptions.onClose = () => {
         // Defer navigation to next tick to avoid timing issues with cleanup
         // (cleanup destroys the sheet we're currently inside)
@@ -661,13 +672,13 @@ function showWinCelebration(finalTime) {
     }
     // Support link lives in the home screen menu, not in the win sheet
   } else {
-    bottomSheetOptions.dismissLabel = 'Yay!';
+    bottomSheetOptions.dismissLabel = t('win.yay');
   }
 
   // Add Share button only for daily mode (not unlimited or tutorial)
   if (isDailyMode) {
     bottomSheetOptions.primaryButton = {
-      label: 'Share',
+      label: t('win.share'),
       icon: 'share-2',
       onClick: (buttonEl) => handleShare(buttonEl, finalTime)
     };
@@ -869,7 +880,7 @@ function render(triggerSave = true, animationMode = 'auto') {
 
     // Get current score percentage
     const scorePercentage = currentScore ? currentScore.percentage : 0;
-    const scoreLabel = currentScore ? currentScore.label : 'Okay';
+    const scoreLabel = currentScore ? currentScore.label : t('score.okay');
 
     if (isCurrentlyWinning && scorePercentage === 100) {
       // PERFECT WIN (100%) - all hints satisfied AND all cells visited
@@ -1118,7 +1129,7 @@ function restoreTimerState(savedState) {
       gameTimer.setElapsedSeconds(savedState.elapsedSeconds);
     }
     if (gameTimerEl) {
-      gameTimerEl.textContent = 'Viewed solution';
+      gameTimerEl.textContent = t('game.viewedSolution');
     }
   } else if (hasWon) {
     // Show final completion time (but don't resume timer)
@@ -1239,7 +1250,7 @@ function viewSolution() {
 
   // Update timer display to show "Viewed solution"
   if (gameTimerEl) {
-    gameTimerEl.textContent = 'Viewed solution';
+    gameTimerEl.textContent = t('game.viewedSolution');
   }
 
   // Update UI state for viewed solution
@@ -1346,13 +1357,13 @@ export function initGame(difficulty) {
 
   // Create settings bottom sheet with the settings content and view solution button
   settingsSheet = createBottomSheet({
-    title: 'Settings',
+    title: t('settings.title'),
     content: settingsContent,
     icon: 'settings',
     colorScheme: 'neutral',
-    dismissLabel: 'Close',
+    dismissLabel: t('common.close'),
     primaryButton: {
-      label: 'View solution',
+      label: t('settings.viewSolution'),
       icon: 'eye',
       variant: 'destructive',
       onClick: () => viewSolution()
