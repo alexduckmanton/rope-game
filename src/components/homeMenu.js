@@ -37,7 +37,12 @@ export function initHomeMenu() {
   // included in the tabindex handling below
   const cleanupLanguage = initLanguageMenu();
 
-  const items = sheet.querySelectorAll('.home-menu-item, .home-menu-language-row select');
+  // The language row wears .home-menu-item for its styling but is a plain div;
+  // it is its <select> that takes focus, so the row itself is excluded here
+  // rather than being made focusable for no reason.
+  const items = sheet.querySelectorAll(
+    '.home-menu-item:not(.home-menu-language-row), .home-menu-language-row select'
+  );
 
   const isOpen = () => view.classList.contains(OPEN_CLASS);
 

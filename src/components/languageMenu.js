@@ -46,12 +46,29 @@ function rememberLanguage(htmlLang) {
 }
 
 /**
+ * Emoji marking the row as a language control
+ *
+ * A globe rather than a flag per language. Flags are the only per-language
+ * emoji that exist, and they are wrong for most of the set: a Spanish flag
+ * excludes the ~90% of Spanish speakers who are not in Spain, a German one
+ * excludes Austria and Switzerland, and choosing between 🇹🇼 and 🇭🇰 for
+ * Traditional Chinese is a political statement a puzzle game has no business
+ * making. The meridian globe is also the neutral one - 🌍 / 🌎 / 🌏 each pick
+ * a hemisphere.
+ *
+ * It carries no meaning the adjacent language name does not, so it is hidden
+ * from assistive tech; the row's accessible name comes from the select.
+ */
+const LANGUAGE_EMOJI = '🌐';
+
+/**
  * Build the language row and wire up switching
  *
- * The markup mirrors the in-game settings rows - label on the left, current
- * value and a chevron on the right, with a transparent native <select>
- * covering the row - so the menu keeps one visual language for "this opens a
- * picker".
+ * Styled as an ordinary menu item - same size, weight and colour as the
+ * destinations above it - with a globe, a chevron marking it as a picker, and
+ * a transparent native <select> covering the row so the OS renders the list.
+ * There is no "Language" label: the globe plus the language's own name says
+ * what the row is without spending a line on it.
  *
  * @returns {Function|null} Cleanup function, or null if the row is missing
  */
@@ -66,24 +83,26 @@ export function initLanguageMenu() {
   }
 
   const row = document.createElement('div');
-  row.className = 'settings-select-row home-menu-language-row';
+  // home-menu-item carries the shared menu styling; the modifier only adds the
+  // flex layout and the positioning context the <select> overlay needs
+  row.className = 'home-menu-item home-menu-language-row';
 
-  const label = document.createElement('span');
-  label.className = 'settings-label';
-  label.textContent = t('menu.language');
-
-  const valueContainer = document.createElement('div');
-  valueContainer.className = 'settings-value-container';
+  const emoji = document.createElement('span');
+  emoji.className = 'home-menu-language-emoji';
+  emoji.textContent = LANGUAGE_EMOJI;
+  emoji.setAttribute('aria-hidden', 'true');
 
   const value = document.createElement('span');
-  value.className = 'settings-value';
+  value.className = 'home-menu-language-name';
 
   const chevron = document.createElement('i');
+  chevron.className = 'home-menu-language-chevron';
   chevron.setAttribute('data-lucide', 'chevron-down');
   chevron.setAttribute('width', '16');
   chevron.setAttribute('height', '16');
 
   const select = document.createElement('select');
+  // The visible label is gone, so the select carries the accessible name
   select.setAttribute('aria-label', t('menu.language'));
 
   for (const locale of LOCALES) {
@@ -92,6 +111,9 @@ export function initLanguageMenu() {
     // Each language is named in itself, never translated. Someone looking for
     // their own language scans for the word they recognise, and "German" is
     // no help to a reader who does not already read English.
+    //
+    // No emoji on the options: a globe repeated twelve times in the OS picker
+    // is noise, and it is the row rather than the list that needs marking.
     option.textContent = locale.name;
     option.lang = locale.htmlLang;
     if (locale.code === LOCALE) {
@@ -102,10 +124,9 @@ export function initLanguageMenu() {
     select.appendChild(option);
   }
 
-  valueContainer.appendChild(value);
-  valueContainer.appendChild(chevron);
-  row.appendChild(label);
-  row.appendChild(valueContainer);
+  row.appendChild(emoji);
+  row.appendChild(value);
+  row.appendChild(chevron);
   row.appendChild(select);
   container.appendChild(row);
 

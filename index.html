@@ -104,12 +104,14 @@
         <ul class="home-menu-list">
           <li><button id="home-menu-tutorial" class="home-menu-item" tabindex="-1">{{home.howToPlay}}</button></li>
           <li><button id="home-menu-unlimited" class="home-menu-item" tabindex="-1">{{menu.unlimited}}</button></li>
-          <!-- Language row. Populated by components/languageMenu.js, which
-               builds it from the locale registry rather than the markup, so
-               adding a language never means editing this file. -->
-          <li class="home-menu-language" id="home-menu-language"></li>
           <li><a class="home-menu-item" href="https://ko-fi.com/alexduckmanton" target="_blank" rel="noopener noreferrer" tabindex="-1">{{menu.support}}</a></li>
           <li><a class="home-menu-item" href="https://bsky.app/profile/alexduckmanton.bsky.social" target="_blank" rel="noopener noreferrer" tabindex="-1">{{menu.feedback}}</a></li>
+          <!-- Language row, pinned to the bottom of the sheet by CSS rather
+               than merely being last in the list. Populated by
+               components/languageMenu.js, which builds it from the locale
+               registry rather than the markup, so adding a language never
+               means editing this file. -->
+          <li class="home-menu-language" id="home-menu-language"></li>
         </ul>
       </nav>
 
