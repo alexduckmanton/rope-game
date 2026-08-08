@@ -48,6 +48,9 @@ function i18nHtmlPlugin({ messages, locale, isItch }) {
   const computed = {
     '@htmlLang': locale.htmlLang,
     '@ogLocale': locale.ogLocale,
+    // Same value as @htmlLang, kept as its own token so the reason for the
+    // duplicate declaration in index.html stays legible - see the note there
+    '@contentLanguage': locale.htmlLang,
     '@canonical': `${SITE_URL}${basePath}`,
     // Shared files (icons, og image, videos) are deployed once at the domain
     // root and referenced absolutely, so the locale builds do not each carry a

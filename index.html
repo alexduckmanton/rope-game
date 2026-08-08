@@ -21,6 +21,14 @@
   <meta name="description" content="{{meta.description}}">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="color-scheme" content="light dark">
+
+  <!-- Language, declared a second time.
+       <html lang> above is the standard and is what Google reads. This tag is
+       non-conforming in HTML5 and a validator will flag it - it is here because
+       Naver does not support hreflang at all and reads this instead, and Naver
+       is roughly half of Korean search. Cheap insurance for one market; delete
+       it if the validator noise ever costs more than the Korean traffic. -->
+  <meta http-equiv="content-language" content="{{@contentLanguage}}">
   <meta name="theme-color" content="#F3F4F6" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#242424" media="(prefers-color-scheme: dark)">
 

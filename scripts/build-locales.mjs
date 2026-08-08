@@ -220,6 +220,48 @@ function writeSitemap() {
   writeFileSync(path.join(DIST, 'sitemap.xml'), xml);
 }
 
+/**
+ * Write a single locale's sitemap, e.g. dist/ko/sitemap.xml
+ *
+ * The combined sitemap above is what Google reads, and its hreflang
+ * annotations are the point of it. These per-locale files exist for the search
+ * engines that do not understand hreflang at all - Naver being the one that
+ * matters, since it holds roughly half of Korean search and wants a
+ * single-language sitemap submitted through its own console.
+ *
+ * So they carry that locale's URLs and nothing else: no alternates, no
+ * cross-language references. A URL appearing in more than one sitemap is fine
+ * - sitemaps are discovery hints, not an exclusive index.
+ *
+ * The root locale is skipped: its file would collide with the combined sitemap,
+ * and English is already the one language every crawler reaches without help.
+ *
+ * @param {import('../src/i18n/locales.js').Locale} locale
+ */
+function writeLocaleSitemap(locale) {
+  if (!locale.path) return;
+
+  const entries = ROUTES.map(route =>
+    [
+      '  <url>',
+      `    <loc>${xmlEscape(routeUrl(locale.code, route.path))}</loc>`,
+      `    <changefreq>${route.changefreq}</changefreq>`,
+      `    <priority>${route.priority}</priority>`,
+      '  </url>',
+    ].join('\n')
+  );
+
+  const xml = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...entries,
+    '</urlset>',
+    '',
+  ].join('\n');
+
+  writeFileSync(path.join(DIST, locale.path, 'sitemap.xml'), xml);
+}
+
 async function main() {
   // The root build runs with --emptyOutDir, which would wipe locale output if
   // it ran second. Clear once here and build the root first.
@@ -240,14 +282,18 @@ async function main() {
   for (const locale of LOCALES) {
     const { default: messages } = await import(`../src/i18n/messages/${locale.code}.js`);
     writeManifest(locale, messages, baseManifest);
+    writeLocaleSitemap(locale);
   }
 
   writeRedirects();
   writeSitemap();
 
+  const localeSitemaps = LOCALES.filter(locale => locale.path).length;
+
   console.log(
     `\n✓ Built ${LOCALES.length} locales: ${LOCALES.map(l => l.code).join(', ')}` +
-      `\n  dist/_redirects and dist/sitemap.xml written`
+      `\n  dist/_redirects and dist/sitemap.xml written` +
+      `\n  ${localeSitemaps} per-locale sitemaps written (for engines that ignore hreflang)`
   );
 }
 
