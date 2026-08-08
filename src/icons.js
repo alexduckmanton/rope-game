@@ -26,11 +26,12 @@
  * - HeartCrack: End/Finish button in game view (legacy)
  * - OctagonAlert: End game confirmation modal icon
  * - ChevronDown: Settings select dropdown indicator
+ * - Languages: Language switcher row in the home screen menu
  * - Flame: Daily streak indicator, for players on reduced motion. Everyone
  *   else gets the animated emoji instead - see components/streakFlame.js
  */
 
-import { createIcons, ArrowLeft, Settings, X, Menu, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig, HeartCrack, OctagonAlert, ChevronDown, Flame } from 'lucide';
+import { createIcons, ArrowLeft, Settings, X, Menu, Dices, RefreshCcw, Undo2, PartyPopper, CircleOff, Shell, Share2, Check, Trophy, Skull, Eye, GraduationCap, CircleHelp, CircleCheckBig, HeartCrack, OctagonAlert, ChevronDown, Flame, Languages } from 'lucide';
 
 /**
  * Initialize all Lucide icons on the page
@@ -67,7 +68,8 @@ export function initIcons() {
       HeartCrack,
       OctagonAlert,
       ChevronDown,
-      Flame
+      Flame,
+      Languages
     },
     attrs: {
       'stroke-width': '2',

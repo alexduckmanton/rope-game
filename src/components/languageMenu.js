@@ -46,29 +46,27 @@ function rememberLanguage(htmlLang) {
 }
 
 /**
- * Emoji marking the row as a language control
+ * Rendered size of the row's icon, in CSS pixels
  *
- * A globe rather than a flag per language. Flags are the only per-language
- * emoji that exist, and they are wrong for most of the set: a Spanish flag
- * excludes the ~90% of Spanish speakers who are not in Spain, a German one
- * excludes Austria and Switzerland, and choosing between 🇹🇼 and 🇭🇰 for
- * Traditional Chinese is a political statement a puzzle game has no business
- * making. The meridian globe is also the neutral one - 🌍 / 🌎 / 🌏 each pick
- * a hemisphere.
- *
- * It carries no meaning the adjacent language name does not, so it is hidden
- * from assistive tech; the row's accessible name comes from the select.
+ * The standalone-icon size from the design system, which sits right beside the
+ * menu's 18px text.
  */
-const LANGUAGE_EMOJI = '🌐';
+const ICON_SIZE = 20;
 
 /**
  * Build the language row and wire up switching
  *
  * Styled as an ordinary menu item - same size, weight and colour as the
- * destinations above it - with a globe, a chevron marking it as a picker, and
- * a transparent native <select> covering the row so the OS renders the list.
- * There is no "Language" label: the globe plus the language's own name says
- * what the row is without spending a line on it.
+ * destinations above it - with the Lucide `languages` icon, a chevron marking
+ * it as a picker, and a transparent native <select> covering the row so the OS
+ * renders the list. There is no "Language" label: the icon plus the language's
+ * own name says what the row is without spending a line on it.
+ *
+ * Deliberately not a flag per language. Flags are the only per-language mark
+ * available and they are wrong for most of this set: a Spanish flag excludes
+ * the ~90% of Spanish speakers outside Spain, a German one excludes Austria
+ * and Switzerland, and choosing between Taiwan and Hong Kong for Traditional
+ * Chinese is a political statement a puzzle game has no business making.
  *
  * @returns {Function|null} Cleanup function, or null if the row is missing
  */
@@ -87,10 +85,13 @@ export function initLanguageMenu() {
   // flex layout and the positioning context the <select> overlay needs
   row.className = 'home-menu-item home-menu-language-row';
 
-  const emoji = document.createElement('span');
-  emoji.className = 'home-menu-language-emoji';
-  emoji.textContent = LANGUAGE_EMOJI;
-  emoji.setAttribute('aria-hidden', 'true');
+  // Placeholder; initIcons() below swaps it for an SVG, carrying the class
+  // across so the styling in style.css still applies
+  const icon = document.createElement('i');
+  icon.className = 'home-menu-language-icon';
+  icon.setAttribute('data-lucide', 'languages');
+  icon.setAttribute('width', String(ICON_SIZE));
+  icon.setAttribute('height', String(ICON_SIZE));
 
   const value = document.createElement('span');
   value.className = 'home-menu-language-name';
@@ -124,13 +125,13 @@ export function initLanguageMenu() {
     select.appendChild(option);
   }
 
-  row.appendChild(emoji);
+  row.appendChild(icon);
   row.appendChild(value);
   row.appendChild(chevron);
   row.appendChild(select);
   container.appendChild(row);
 
-  // Lucide replaces the <i> placeholder in place
+  // Lucide replaces both <i> placeholders in place
   initIcons();
 
   const handleChange = () => {
