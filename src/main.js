@@ -13,6 +13,7 @@ import { cleanupOldSaves, reconcileStreaks } from './persistence.js';
 import { initHintGenerationExperiment } from './experiment.js';
 import { CONFIG } from './config.js';
 import tokens from './tokens.js';
+import { ACTIVE_LOCALE } from './i18n/index.js';
 
 // Preload critical fonts for faster loading
 // Using Vite's ?url import to get correct paths in dev and production
@@ -21,6 +22,16 @@ import inter500 from '@fontsource/inter/files/inter-latin-500-normal.woff2?url';
 import inter600 from '@fontsource/inter/files/inter-latin-600-normal.woff2?url';
 import inter700 from '@fontsource/inter/files/inter-latin-700-normal.woff2?url';
 import monoton400 from '@fontsource/monoton/files/monoton-latin-400-normal.woff2?url';
+
+// Latin Extended. Preloaded only for the languages that need it - Polish is
+// the one we ship today - so the other locales do not pay for four extra font
+// files they will never render a glyph from. style.css declares these faces
+// with a unicode-range either way, so an unpreloaded language still gets them
+// on demand; preloading just removes the second round trip.
+import interExt400 from '@fontsource/inter/files/inter-latin-ext-400-normal.woff2?url';
+import interExt500 from '@fontsource/inter/files/inter-latin-ext-500-normal.woff2?url';
+import interExt600 from '@fontsource/inter/files/inter-latin-ext-600-normal.woff2?url';
+import interExt700 from '@fontsource/inter/files/inter-latin-ext-700-normal.woff2?url';
 
 /**
  * Preload fonts to start downloading immediately
@@ -32,8 +43,19 @@ function preloadFonts() {
     { url: inter500, name: 'Inter 500' },
     { url: inter600, name: 'Inter 600' },
     { url: inter700, name: 'Inter 700' },
+    // Monoton only ever renders the wordmark, which stays "Loopy" in every
+    // language, so the latin subset is enough everywhere
     { url: monoton400, name: 'Monoton 400' }
   ];
+
+  if (ACTIVE_LOCALE.latinExt) {
+    fonts.push(
+      { url: interExt400, name: 'Inter ext 400' },
+      { url: interExt500, name: 'Inter ext 500' },
+      { url: interExt600, name: 'Inter ext 600' },
+      { url: interExt700, name: 'Inter ext 700' }
+    );
+  }
 
   fonts.forEach(font => {
     const link = document.createElement('link');

@@ -13,21 +13,17 @@ import {
   trackTutorialSectionViewed,
   trackTutorialCompleted
 } from '../analytics.js';
+import { t } from '../i18n/index.js';
 
-// Tutorial lesson content
+// Tutorial lesson content.
+//
+// `body` is a message key resolved at render time; `name` is the analytics
+// label and deliberately stays English, so tutorial_section_viewed reports the
+// same section name whatever language the player is using.
 const LESSON_SECTIONS = [
-  {
-    body: 'Drag to draw a closed loop of any shape or size. Tap to erase.',
-    name: 'Drawing loops'
-  },
-  {
-    body: 'Whenever your path bends in the squares on or around a number, the number counts down.',
-    name: 'Counting bends'
-  },
-  {
-    body: 'To win, draw a single continuous loop that makes all numbers zero.',
-    name: 'Win condition'
-  }
+  { bodyKey: 'tutorial.drawing', name: 'Drawing loops' },
+  { bodyKey: 'tutorial.counting', name: 'Counting bends' },
+  { bodyKey: 'tutorial.winning', name: 'Win condition' }
 ];
 
 // Configuration constants
@@ -112,7 +108,9 @@ function createTutorialSection(sectionIndex) {
   // Message below video
   const message = document.createElement('div');
   message.className = 'tutorial-section-message';
-  message.innerHTML = `<p>${LESSON_SECTIONS[sectionIndex].body}</p>`;
+  message.appendChild(document.createElement('p')).textContent = t(
+    LESSON_SECTIONS[sectionIndex].bodyKey
+  );
   section.appendChild(message);
 
   return section;
@@ -160,7 +158,7 @@ function updatePagingDots() {
 function updateNextButton(nextBtn) {
   const currentIndex = getCurrentSectionIndex();
   const isLastSection = currentIndex === LESSON_SECTIONS.length - 1;
-  nextBtn.textContent = isLastSection ? 'Got it' : 'Next';
+  nextBtn.textContent = isLastSection ? t('tutorial.gotIt') : t('tutorial.next');
 }
 
 /**
@@ -287,7 +285,7 @@ function showLessonSheet() {
   const nextBtn = document.createElement('button');
   nextBtn.className = 'bottom-sheet-btn bottom-sheet-btn-primary';
   nextBtn.style.flex = '1';
-  nextBtn.textContent = 'Next';
+  nextBtn.textContent = t('tutorial.next');
   nextBtn.onclick = () => handleNextClick(nextBtn);
   navButtons.appendChild(nextBtn);
 

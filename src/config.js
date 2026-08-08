@@ -4,6 +4,7 @@
  */
 
 import tokens from './tokens.js';
+import { t, ACTIVE_LOCALE } from './i18n/index.js';
 
 /**
  * Get current color configuration
@@ -122,20 +123,17 @@ export const CONFIG = {
 
   // Difficulty settings
   DIFFICULTY: {
-    // Player-facing labels for each difficulty.
+    // Difficulty keys that have a player-facing label in the dictionaries.
     //
-    // These are deliberately decoupled from the internal difficulty keys,
-    // which stay 'easy' / 'medium' / 'hard' throughout - in URLs, storage
-    // keys, daily seeds and analytics - so renaming what players see never
-    // migrates data or changes which puzzle a given day produces.
+    // The labels themselves live in src/i18n/messages/<locale>.js under
+    // `difficulty.<key>`, because they are translated. The keys here stay
+    // 'easy' / 'medium' / 'hard' throughout - in URLs, storage keys, daily
+    // seeds and analytics - so neither renaming nor translating what players
+    // see ever migrates data or changes which puzzle a given day produces.
     //
-    // Read them through getDifficultyLabel() rather than reaching in here, so
-    // every surface stays in step.
-    LABELS: {
-      easy: 'Easy',
-      medium: 'Tricky',
-      hard: 'Diabolical',
-    },
+    // Read labels through getDifficultyLabel() rather than calling t()
+    // directly, so every surface stays in step.
+    KEYS: ['easy', 'medium', 'hard', 'unlimited'],
 
     // Hint generation configuration per difficulty level - CONTROL arm
     //
@@ -269,10 +267,11 @@ export const CONFIG = {
 export function getDifficultyLabel(difficulty) {
   if (!difficulty) return '';
 
-  return (
-    CONFIG.DIFFICULTY.LABELS[difficulty] ||
-    difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
-  );
+  if (CONFIG.DIFFICULTY.KEYS.includes(difficulty)) {
+    return t(`difficulty.${difficulty}`);
+  }
+
+  return difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
 }
 
 /**
@@ -283,5 +282,8 @@ export function getDifficultyLabel(difficulty) {
  * @returns {string} Lowercase label
  */
 export function getDifficultyLabelLower(difficulty) {
-  return getDifficultyLabel(difficulty).toLowerCase();
+  // Locale-aware, because lowercasing is not universal - Turkish dotted and
+  // dotless I being the classic case. Costs nothing for the languages we ship
+  // today and removes a trap from the ones we might add.
+  return getDifficultyLabel(difficulty).toLocaleLowerCase(ACTIVE_LOCALE.htmlLang);
 }

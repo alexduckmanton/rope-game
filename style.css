@@ -121,8 +121,80 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* ----------------------------------------------------------------------------
+ * Locale font stacks
+ *
+ * CJK and Hangul are served by the reader's system font rather than a webfont.
+ * A subsetted Noto Sans JP is several megabytes - more than the rest of the
+ * game put together - and every platform already ships an excellent face for
+ * its own script, so there is nothing to gain by shipping one.
+ *
+ * Inter stays first in every stack. It declares no CJK or Hangul unicode-range,
+ * so those glyphs fall straight through to the system font below while Latin
+ * text and digits - the timer, the "Loopy" in a title, the hint numbers - keep
+ * Inter's shapes. Mixed-script lines end up with the best of both.
+ *
+ * These key off <html lang>, which the build already emits per locale, so no
+ * JavaScript is involved and there is nothing to load or detect.
+ * ------------------------------------------------------------------------- */
+
+:root {
+  --font-ui: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+html[lang="ja"] {
+  --font-ui: 'Inter', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic',
+    'Noto Sans JP', Meiryo, system-ui, sans-serif;
+}
+
+html[lang="ko"] {
+  --font-ui: 'Inter', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR',
+    'Nanum Gothic', system-ui, sans-serif;
+}
+
+html[lang="zh-Hans"] {
+  --font-ui: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Noto Sans SC', system-ui, sans-serif;
+}
+
+html[lang="zh-Hant"] {
+  --font-ui: 'Inter', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC',
+    system-ui, sans-serif;
+}
+
+/* Prose blocks in CJK want more leading than Latin does - the glyphs fill more
+ * of their em box, so 1.5 reads cramped. Applied only to the multi-line copy;
+ * the win sheet's streak line is a fixed-height window and is left alone. */
+html[lang="ja"] .tutorial-section-message,
+html[lang="ko"] .tutorial-section-message,
+html[lang="zh-Hans"] .tutorial-section-message,
+html[lang="zh-Hant"] .tutorial-section-message,
+html[lang="ja"] .bottom-sheet-message,
+html[lang="ko"] .bottom-sheet-message,
+html[lang="zh-Hans"] .bottom-sheet-message,
+html[lang="zh-Hant"] .bottom-sheet-message {
+  line-height: 1.7;
+}
+
+/* Japanese and Chinese break between characters, so the only rule needed is
+ * kinsoku - never start a line with a closing bracket or a full stop. */
+html[lang="ja"] .tutorial-section-message,
+html[lang="zh-Hans"] .tutorial-section-message,
+html[lang="zh-Hant"] .tutorial-section-message {
+  line-break: strict;
+}
+
+/* Korean is the exception: it uses spaces between words, but browsers apply
+ * CJK breaking to it and will happily split a word across lines. keep-all
+ * restores word-boundary breaking. */
+html[lang="ko"] .tutorial-section-message,
+html[lang="ko"] .bottom-sheet-message {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
 body {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-ui);
   background-color: var(--color-bg-base);
   min-height: 100vh;
   min-height: 100dvh;
@@ -643,6 +715,10 @@ button {
   border-right: 1px solid var(--color-border-light);
   overflow-y: auto;
   z-index: 910;
+  /* Column so the list can fill the sheet, which is what lets the language
+   * row pin itself to the bottom with margin-top: auto */
+  display: flex;
+  flex-direction: column;
   transform: translateX(-100%);
   visibility: hidden;
   transition:
@@ -665,6 +741,9 @@ button {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Fills the sheet so the language row's margin-top: auto has somewhere to
+   * push it to */
+  flex: 1;
 }
 
 .home-menu-item {
@@ -691,6 +770,61 @@ button {
 
 .home-menu-item:active {
   background-color: var(--color-border-light);
+}
+
+/* Language row.
+ *
+ * Pinned to the bottom of the sheet rather than sitting in the run of
+ * destinations: it is a setting, not somewhere to go, and the gap does that
+ * separating without needing a divider. margin-top: auto does the pinning,
+ * which needs the list to fill the sheet - see .home-menu-sheet above.
+ *
+ * The row itself is a plain .home-menu-item, so its size, weight and colour
+ * come from the same rule as every other item and cannot drift from them. */
+.home-menu-language {
+  margin-top: auto;
+}
+
+.home-menu-language-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* Positioning context for the transparent <select> overlay below */
+  position: relative;
+}
+
+/* Inherits the row's colour via currentColor, so it carries the same weight as
+ * the label beside it rather than reading as decoration */
+.home-menu-language-icon {
+  flex-shrink: 0;
+}
+
+.home-menu-language-name {
+  /* Inherits the item's 18px/700/primary - stated only to make it obvious
+   * that matching the other menu items is deliberate */
+  font: inherit;
+  color: inherit;
+}
+
+/* Quieter than the label, because it is an affordance rather than content.
+ * The other menu items carry no chevron, so a full-strength one here would
+ * read as emphasis rather than as "this opens something". */
+.home-menu-language-chevron {
+  margin-left: auto;
+  color: var(--color-text-secondary);
+}
+
+/* Native select laid over the whole row, so the OS renders the list */
+.home-menu-language-row select {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

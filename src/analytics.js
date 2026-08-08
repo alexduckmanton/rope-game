@@ -23,6 +23,7 @@
 // Restoring flags means moving to `module.no-external.js`, which costs about
 // +38KB gzipped - roughly doubling this game's JS payload.
 import posthog from 'posthog-js/dist/module.slim.no-external.js';
+import { LOCALE } from './i18n/index.js';
 
 /**
  * PostHog project credentials
@@ -92,6 +93,10 @@ function initAnalytics() {
     });
 
     isInitialized = true;
+
+    // Also a person property, because a retention curve is built from people
+    // rather than events - cohorts cannot be split by an event property.
+    posthog.setPersonProperties({ locale: LOCALE });
   } catch (error) {
     // Silent fail - never interrupt gameplay
     console.debug('[Analytics] Init error:', error);
@@ -107,15 +112,21 @@ initAnalytics();
  */
 function safeCapture(eventName, properties = {}) {
   try {
+    // Locale rides on every event. Each language is a separate build served
+    // from its own URL, so without this there is no way to tell whether a
+    // translation is earning its keep - and retention has to be segmentable
+    // by language, not just measurable in aggregate.
+    const withLocale = { locale: LOCALE, ...properties };
+
     if (DEBUG_ANALYTICS) {
-      console.log(`[Analytics] ${eventName}`, properties);
+      console.log(`[Analytics] ${eventName}`, withLocale);
     }
 
     if (!isInitialized) {
       return;
     }
 
-    posthog.capture(eventName, properties);
+    posthog.capture(eventName, withLocale);
   } catch (error) {
     // Silent fail - never interrupt gameplay
     console.debug('[Analytics] Error:', error);
@@ -461,6 +472,22 @@ export function trackStreakUpdated(difficulty, difficultyStreak, overallStreak) 
     [`streak_best_${difficulty}`]: difficultyStreak.best,
     streak_current_overall: overallStreak.current,
     streak_best_overall: overallStreak.best
+  });
+}
+
+/**
+ * Track an explicit language change from the switcher
+ *
+ * Distinct from the `locale` property on every other event, which records the
+ * language a session was *served*. This one records the language a player
+ * asked for, which is the signal that the root redirect guessed wrong.
+ *
+ * @param {string} locale - The locale code chosen, e.g. 'pt-BR'
+ */
+export function trackLanguageSelected(locale) {
+  safeCapture('language_selected', {
+    from_locale: LOCALE,
+    to_locale: locale
   });
 }
 

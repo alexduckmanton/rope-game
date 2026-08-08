@@ -6,6 +6,7 @@
  */
 
 import { getDifficultyLabel } from '../config.js';
+import { t, formatDate } from '../i18n/index.js';
 import {
   trackShareAttempted,
   trackShareCompleted,
@@ -13,15 +14,17 @@ import {
 } from '../analytics.js';
 
 /**
- * Format date as "DD Mon YYYY" (e.g., "26 Jan 2025")
+ * Format the share date in the player's language
+ *
+ * Day / abbreviated month / year, ordered and named by Intl for the active
+ * locale - so "26 Jan 2025" in English and "26 janv. 2025" in French, rather
+ * than the hardcoded en-US this used to emit for everyone.
+ *
  * @param {Date} [date] - Date to format (defaults to today)
  * @returns {string} Formatted date string
  */
 export function formatShareDate(date = new Date()) {
-  const day = date.getDate();
-  const month = date.toLocaleString('en-US', { month: 'short' });
-  const year = date.getFullYear();
-  return `${day} ${month} ${year}`;
+  return formatDate(date, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 /**
@@ -30,7 +33,10 @@ export function formatShareDate(date = new Date()) {
  * NOTE: Adding a puzzle number and the site URL to this text is a pending
  * change, held until there is enough `share_attempted` data to measure its
  * effect. `getPuzzleNumber()` in seededRandom.js and `CONFIG.SITE.URL` are
- * already in place for it.
+ * already in place for it. When it lands, the URL must be the *locale* URL
+ * (`CONFIG.SITE.URL + localeUrl(LOCALE)`) so a shared link opens in the
+ * sender's language and previews in it too - that is most of the reason the
+ * localised builds have their own URLs.
  *
  * @param {string} difficulty - Difficulty level
  * @param {string} time - Formatted completion time
@@ -102,11 +108,11 @@ export async function handleShare(button, difficulty, time) {
   // Fallback to clipboard copy
   try {
     await navigator.clipboard.writeText(shareText);
-    showButtonFeedback(button, 'Copied!');
+    showButtonFeedback(button, t('share.copied'));
     // Track successful clipboard share
     trackShareCompleted(difficulty, 'clipboard');
   } catch (err) {
-    showButtonFeedback(button, 'Failed');
+    showButtonFeedback(button, t('share.failed'));
     // Track clipboard failure
     trackShareFailed(difficulty, 'clipboard_failed');
   }

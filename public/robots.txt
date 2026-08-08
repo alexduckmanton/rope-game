@@ -42,3 +42,18 @@ Allow: /
 
 User-agent: CCBot
 Allow: /
+
+# Korean search engines
+# Both are already covered by the wildcard above; naming them is belt-and-braces
+# because Naver's Search Advisor validates this file directly and an explicit
+# rule removes any ambiguity about whether Yeti is welcome.
+#
+# Naver ignores hreflang entirely, so the alternates in /sitemap.xml mean
+# nothing to it. Submit the single-language sitemaps instead - the Korean one
+# is https://loopy.wtf/ko/sitemap.xml - through Search Advisor, which takes
+# sitemaps by console submission rather than by discovery from this file.
+User-agent: Yeti
+Allow: /
+
+User-agent: Daumoa
+Allow: /
