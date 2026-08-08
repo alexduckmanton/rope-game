@@ -10,9 +10,11 @@
  * This file must stay free of browser and Vite APIs - `scripts/build-locales.mjs`
  * imports it directly in Node.
  *
- * Only languages that Inter's `latin` and `latin-ext` subsets fully cover
- * belong here. Anything needing Cyrillic, Greek, Vietnamese or a CJK font
- * stack needs font work first (see "Adding a language" in CLAUDE.md).
+ * Languages Inter's `latin` and `latin-ext` subsets cover need nothing beyond
+ * an entry here and a dictionary. Languages in another script need a font
+ * stack in style.css first, keyed off the `htmlLang` value below - see the
+ * "Locale font stacks" block there, and "Adding a language" in CLAUDE.md.
+ * Cyrillic, Greek and Vietnamese have no stack yet.
  */
 
 /**
@@ -100,6 +102,51 @@ export const LOCALES = [
     // fit for a pt-PT speaker than English is, and shipping pt-PT separately
     // would mean a second set of translations for a handful of differences
     match: ['pt', 'pt-BR', 'pt-PT'],
+  },
+  {
+    code: 'ja',
+    path: 'ja',
+    htmlLang: 'ja',
+    ogLocale: 'ja_JP',
+    name: '日本語',
+    match: ['ja', 'ja-JP'],
+  },
+  {
+    code: 'ko',
+    path: 'ko',
+    htmlLang: 'ko',
+    ogLocale: 'ko_KR',
+    name: '한국어',
+    match: ['ko', 'ko-KR'],
+  },
+  // Chinese is split by script, not by region: Simplified and Traditional are
+  // not mutually readable the way pt-BR and pt-PT are, so routing one to the
+  // other would be a real degradation rather than a mild compromise.
+  //
+  // Traditional is listed FIRST deliberately. The redirect rules are generated
+  // in this order and Netlify applies the first match, so a browser sending
+  // zh-TW or zh-HK meets the Traditional rule before it can be caught by the
+  // bare `zh` in the Simplified rule below.
+  {
+    code: 'zh-Hant',
+    path: 'zh-hant',
+    htmlLang: 'zh-Hant',
+    // Taiwan is the largest Traditional-reading market, and its Mandarin
+    // vocabulary is what these translations use
+    ogLocale: 'zh_TW',
+    name: '繁體中文',
+    match: ['zh-TW', 'zh-HK', 'zh-MO', 'zh-Hant'],
+  },
+  {
+    code: 'zh-Hans',
+    path: 'zh-hans',
+    htmlLang: 'zh-Hans',
+    ogLocale: 'zh_CN',
+    name: '简体中文',
+    // Bare `zh` defaults here. Mainland China is largely unreachable from this
+    // deploy anyway (CDN latency, and PostHog's US endpoint is blocked), so in
+    // practice this serves Singapore, Malaysia and the diaspora
+    match: ['zh', 'zh-CN', 'zh-Hans', 'zh-SG', 'zh-MY'],
   },
 ];
 

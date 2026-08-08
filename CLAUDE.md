@@ -813,7 +813,7 @@ The asset is 96x96, all 48 frames of the original, 122KB. That resolution is set
 
 ### Localisation
 
-**Status: shipping in 8 languages** — English, German, Spanish, French, Italian, Dutch, Polish and Brazilian Portuguese.
+**Status: shipping in 12 languages** — English, German, Spanish, French, Italian, Dutch, Polish, Brazilian Portuguese, Japanese, Korean, Traditional Chinese and Simplified Chinese.
 
 **Why.** The game is numbers and lines: the canvas contains no words at all, so the entire translatable surface is ~60 UI strings. The growth doc calls this "a rare, free multiplier" (§7.2) — markets where English-language Wordle clones cannot compete and where competition for "daily logic puzzle" search terms is a fraction of the US.
 
@@ -829,7 +829,7 @@ So the strings are baked in **at build time** and each language gets **its own U
 | URL | Behaviour |
 |-----|-----------|
 | `/` | English, served directly. Also the `x-default`. The **only** URL that language-detects |
-| `/de/`, `/es/`, `/fr/`, `/it/`, `/nl/`, `/pl/`, `/pt-br/` | That language, always, for every visitor and crawler. **Never redirects** |
+| `/de/`, `/es/`, `/fr/`, `/it/`, `/nl/`, `/pl/`, `/pt-br/`, `/ja/`, `/ko/`, `/zh-hant/`, `/zh-hans/` | That language, always, for every visitor and crawler. **Never redirects** |
 
 English stays at the root rather than moving to `/en/`. It keeps whatever SEO equity the root has, avoids putting a redirect on the most-linked and most-typed URL, and means English speakers — most of the current audience — never see a redirect at all. `hreflang="en"` and `hreflang="x-default"` both point at `/`, which Google permits explicitly.
 
@@ -849,7 +849,7 @@ Switching is a **full page load**, not a router navigation: the strings are comp
 
 - `vite.config.js` aliases `@i18n-messages` to one dictionary and defines `__LOCALE__`, so each bundle carries exactly one language and no detection code.
 - A `transformIndexHtml` plugin substitutes `{{key}}` tokens in `index.html` — including `<title>`, the meta description and the OG tags. **A token with no matching message fails the build.**
-- Only the root build copies `public/`. Locale builds set `publicDir: false` and reference the shared icons, og image and ~1MB of tutorial videos absolutely from the domain root, so those are deployed once rather than eight times. Fonts and JS *are* per-locale (different strings, different bundle), which is why `dist/` is ~8MB.
+- Only the root build copies `public/`. Locale builds set `publicDir: false` and reference the shared icons, og image and ~1MB of tutorial videos absolutely from the domain root, so those are deployed once rather than twelve times. Fonts and JS *are* per-locale (different strings, different bundle), which is why `dist/` is ~12MB.
 - `dist/_redirects` and `dist/sitemap.xml` are **generated** — do not edit them, and note `public/sitemap.xml` no longer exists.
 - Per-locale `manifest.json` with a `start_url` inside the locale, so an installed PWA opens in the language it was installed in.
 
@@ -857,15 +857,33 @@ Switching is a **full page load**, not a router navigation: the strings are comp
 
 **Plurals** come from `Intl.PluralRules` via plural-object message values, so Polish's four categories (1 dzień / 2 dni / 5 dni / 22 dni) work without any per-language branching in the code. English streak messages are written as plural objects too, even though English does not inflect there, so the reference declares the key as count-driven.
 
-**Fonts.** Every shipped language fits inside Inter's `latin` and `latin-ext` subsets, both already declared in `style.css`. `latin-ext` is *preloaded* only for locales flagged `latinExt` in the registry (Polish today) so the others do not fetch four files they will never render from. Monoton only ever renders the wordmark, which stays "Loopy" everywhere.
+**Fonts.** Two regimes, both handled in the "Locale font stacks" block at the top of `style.css`.
+
+*Latin languages* fit inside Inter's `latin` and `latin-ext` subsets, both already declared. `latin-ext` is *preloaded* only for locales flagged `latinExt` in the registry (Polish today) so the others do not fetch four files they will never render from.
+
+*Japanese, Korean and Chinese use the reader's system font* — no webfont at all. A subsetted Noto Sans JP is several megabytes, more than the rest of the game put together, and every platform already ships an excellent face for its own script. The stacks are selected with `html[lang="ja"]` and friends, keying off the `lang` attribute the build already emits, so there is no JavaScript, nothing to detect and nothing to download.
+
+**Inter stays first even in the CJK stacks.** It declares no CJK or Hangul `unicode-range`, so those glyphs fall straight through to the system font while Latin text and digits — the timer, the "Loopy" in a page title, the hint numbers — keep Inter's shapes. Mixed-script lines get the best of both.
+
+Two typography rules ride along, and they are *not* the same rule:
+
+- **Japanese and Chinese** break between characters, so they only need `line-break: strict` (kinsoku — never start a line with a closing bracket or a full stop).
+- **Korean** uses spaces between words, but browsers apply CJK breaking to it and will split a word across lines. It needs `word-break: keep-all` instead.
+
+Both are scoped to the multi-line prose blocks, along with a `line-height` bump to 1.7 — CJK glyphs fill more of their em box, so 1.5 reads cramped. The win sheet's streak line is deliberately excluded: it is a fixed-height 24px window and changing its leading would clip the flame.
+
+Monoton only ever renders the wordmark, which stays "Loopy" in every language including the CJK ones. That is what keeps Monoton — which has no CJK coverage and no plausible substitute — a non-issue.
 
 **What is deliberately not translated:** the "Loopy" wordmark; difficulty keys (`easy`/`medium`/`hard`) in URLs, storage, seeds and analytics; and the tutorial section `name` values in `tutorialSheet.js`, which are analytics labels and must stay stable across languages.
 
 **Known limitations:**
 
-- **Translations are unreviewed by native speakers.** They are careful and idiomatic, but a native pass is cheap at ~60 strings and worth doing before promoting a language.
+- **Translations are unreviewed by native speakers.** They are careful and idiomatic, but a native pass is cheap at ~60 strings and worth doing before promoting a language. **This matters more for Japanese and Korean than for the European set**: both force a politeness-register choice (ですます vs plain; 해요체 vs 합니다체) that a non-native pass gets wrong in a way that reads as machine translation rather than as a typo. The shipped copy is deliberately informal-polite in both.
 - **European Portuguese is routed to `pt-BR`.** Closer than English; not correct.
 - **Netlify's `Language` condition matches only the first entry in `Accept-Language`**, ignoring q-weights, so unusual multi-language browser configs can be mismatched. `nf_lang` is the escape hatch.
+- **Chinese is split by script, and the ordering in `LOCALES` is load-bearing.** `zh-Hant` is listed before `zh-Hans` so its redirect rule is emitted first: Netlify applies the first match, and the bare `zh` in the Simplified rule would otherwise catch `zh-TW`. Moving the entries would silently serve Simplified to Taiwan and Hong Kong.
+- **Mainland China is largely unreachable from this deploy** — CDN latency and a blocked PostHog endpoint — so `/zh-hans/` in practice serves Singapore, Malaysia and the diaspora, and analytics from inside the mainland are missing rather than zero. `/zh-hant/` (Taiwan, Hong Kong) has no such problem and is the stronger of the two.
+- **Korean organic search runs through Naver, not Google.** Naver holds roughly half to 60% of Korean search and favours its own blog/cafe ecosystem over external sites, so the `hreflang`/sitemap architecture — which is aimed squarely at Google — does less work there. Registering with Naver Search Advisor is a separate job. Japan is fine, since Yahoo! Japan runs on Google's index.
 - **Localised *content* pages do not exist yet.** The shell gives one indexable page per language; the traffic in the growth doc's §5 comes from How to Play, the strategy guide and the archive. This is architecture, not yet growth.
 - **`npm run dev` serves one language.** Use `LOCALE=de npm run dev`; the switcher's target paths do not exist on the dev server.
 
@@ -876,7 +894,7 @@ Switching is a **full page load**, not a router navigation: the strings are comp
 3. Run `npm run check:i18n`. It fails on missing keys, unknown keys, missing plural categories for that language, and unknown placeholders.
 4. `npm run build` — `_redirects`, `sitemap.xml`, the `hreflang` cluster and the switcher all pick the new language up automatically.
 
-**Before adding a language outside `latin` / `latin-ext`** (Cyrillic, Greek, Vietnamese, any CJK): the font work comes first. Inter ships those subsets, but `style.css` declares only the two, and CJK needs a system font stack, different line-breaking, and a Monoton substitute for the wordmark. Japanese is the obvious next market and the obvious next chunk of work.
+**A language in a script with no font stack yet** (Cyrillic, Greek, Vietnamese) needs a fifth step, before the rest: add a `--font-ui` override to the "Locale font stacks" block in `style.css`, keyed off the new `htmlLang`. Inter ships `cyrillic` and `greek` subsets, so those two could be `@font-face` declarations rather than a system stack — but check the line-breaking rules for the script either way. CJK and Hangul are already covered.
 
 ### Analytics (PostHog)
 
@@ -1433,7 +1451,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 - Per-difficulty daily streaks with home screen badges
 - Home screen hamburger menu with slide-in sheet for secondary destinations
 - Design token system with CSS-as-source-of-truth architecture
-- Localisation into 8 languages, one build and one URL each, with no runtime language switching and no content flash
+- Localisation into 12 languages, one build and one URL each, with no runtime language switching and no content flash. CJK and Hangul use system fonts, so they cost no extra bytes
 
 **🧪 Running Experiment**
 - Hint generation density (`hint-generation-density`) - see "Hint generation experiment".
