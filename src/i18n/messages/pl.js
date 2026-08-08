@@ -14,13 +14,13 @@
  */
 
 export default {
-  'meta.title': 'Loopy — darmowa codzienna łamigłówka logiczna z pętlą',
+  'meta.title': 'Loopy — darmowa codzienna łamigłówka z rysowaniem',
   'meta.description':
-    'Narysuj jedną zamkniętą pętlę, która spełnia każdą liczbę. Nowa łamigłówka logiczna każdego dnia w trzech poziomach trudności. Za darmo, bez rejestracji, prosto w przeglądarce.',
+    'Narysuj jedną linię, która zamyka się w pętlę i spełnia każdą liczbę. Nowa łamigłówka z rysowaniem każdego dnia w trzech poziomach trudności. Za darmo, bez rejestracji, prosto w przeglądarce.',
   'meta.ogDescription':
-    'Narysuj jedną zamkniętą pętlę, która spełnia każdą liczbę. Nowa łamigłówka logiczna każdego dnia, w trzech poziomach trudności. Za darmo i bez rejestracji.',
-  'meta.imageAlt': 'Loopy – darmowa codzienna łamigłówka logiczna z pętlą',
-  'meta.playTitle': '{difficulty} Loopy — dzisiejsza łamigłówka logiczna z pętlą',
+    'Narysuj jedną linię, która zamyka się w pętlę i spełnia każdą liczbę. Nowa łamigłówka każdego dnia, w trzech poziomach trudności. Za darmo i bez rejestracji.',
+  'meta.imageAlt': 'Loopy – darmowa codzienna łamigłówka z rysowaniem',
+  'meta.playTitle': '{difficulty} Loopy — dzisiejsza łamigłówka z rysowaniem',
 
   'home.tagline': 'Codzienna łamigłówka z rysowaniem',
   'home.howToPlay': 'Jak grać',

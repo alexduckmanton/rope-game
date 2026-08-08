@@ -8,13 +8,13 @@
  */
 
 export default {
-  'meta.title': 'Loopy — o quebra-cabeça de lógica de laços diário e gratuito',
+  'meta.title': 'Loopy — o quebra-cabeça diário e gratuito de traçar caminhos',
   'meta.description':
-    'Desenhe um único laço fechado que satisfaça todos os números. Um novo quebra-cabeça de lógica por dia, em três dificuldades. Grátis, sem cadastro, direto no navegador.',
+    'Trace um único caminho que se fecha em um laço e satisfaz todos os números. Um novo quebra-cabeça de traçar caminhos por dia, em três dificuldades. Grátis, sem cadastro, direto no navegador.',
   'meta.ogDescription':
-    'Desenhe um único laço fechado que satisfaça todos os números. Um novo quebra-cabeça de lógica por dia, em três dificuldades. Grátis e sem cadastro.',
-  'meta.imageAlt': 'Loopy – o quebra-cabeça de lógica de laços diário e gratuito',
-  'meta.playTitle': '{difficulty} Loopy — o quebra-cabeça de lógica de laços de hoje',
+    'Trace um único caminho que se fecha em um laço e satisfaz todos os números. Um novo quebra-cabeça por dia, em três dificuldades. Grátis e sem cadastro.',
+  'meta.imageAlt': 'Loopy – o quebra-cabeça diário e gratuito de traçar caminhos',
+  'meta.playTitle': '{difficulty} Loopy — o quebra-cabeça de traçar caminhos de hoje',
 
   'home.tagline': 'O quebra-cabeça diário de traçar caminhos',
   'home.howToPlay': 'Como jogar',

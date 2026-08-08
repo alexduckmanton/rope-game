@@ -15,13 +15,13 @@
 export default {
   // Document head. These are what search engines and link previews read, so
   // they are the reason the localised builds exist at all
-  'meta.title': 'Loopy — A Free Daily Loop Logic Puzzle',
+  'meta.title': 'Loopy — A Free Daily Path-Drawing Puzzle',
   'meta.description':
-    'Draw one closed loop that satisfies every number. A new Loopy logic puzzle every day in three difficulties. Free, no sign-up, plays in your browser.',
+    'Draw a single path that closes into a loop and satisfies every number. A new path-drawing puzzle every day, in three difficulties. Free, no sign-up, plays in your browser.',
   'meta.ogDescription':
-    'Draw one closed loop that satisfies every number. A new logic puzzle every day, in three difficulties. Free, no sign-up.',
-  'meta.imageAlt': 'Loopy - a free daily loop logic puzzle',
-  'meta.playTitle': "{difficulty} Loopy — Today's Daily Loop Logic Puzzle",
+    'Draw a single path that closes into a loop and satisfies every number. A new puzzle every day, in three difficulties. Free, no sign-up.',
+  'meta.imageAlt': 'Loopy - a free daily path-drawing puzzle',
+  'meta.playTitle': "{difficulty} Loopy — Today's Path-Drawing Puzzle",
 
   // Home screen
   'home.tagline': 'A daily path-drawing puzzle',

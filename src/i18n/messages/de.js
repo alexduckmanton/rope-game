@@ -5,13 +5,13 @@
  */
 
 export default {
-  'meta.title': 'Loopy — das kostenlose tägliche Schleifen-Logikrätsel',
+  'meta.title': 'Loopy — das kostenlose tägliche Linienrätsel',
   'meta.description':
-    'Zeichne eine geschlossene Schleife, die jede Zahl erfüllt. Jeden Tag ein neues Logikrätsel in drei Schwierigkeitsgraden. Kostenlos, ohne Anmeldung, direkt im Browser.',
+    'Zeichne eine einzige Linie, die sich zu einer Schleife schließt und jede Zahl erfüllt. Jeden Tag ein neues Linienrätsel in drei Schwierigkeitsgraden. Kostenlos, ohne Anmeldung, direkt im Browser.',
   'meta.ogDescription':
-    'Zeichne eine geschlossene Schleife, die jede Zahl erfüllt. Jeden Tag ein neues Logikrätsel in drei Schwierigkeitsgraden. Kostenlos, ohne Anmeldung.',
-  'meta.imageAlt': 'Loopy – das kostenlose tägliche Schleifen-Logikrätsel',
-  'meta.playTitle': '{difficulty} Loopy — das tägliche Schleifen-Logikrätsel',
+    'Zeichne eine einzige Linie, die sich zu einer Schleife schließt und jede Zahl erfüllt. Jeden Tag ein neues Rätsel in drei Schwierigkeitsgraden. Kostenlos, ohne Anmeldung.',
+  'meta.imageAlt': 'Loopy – das kostenlose tägliche Linienrätsel',
+  'meta.playTitle': '{difficulty} Loopy — das Linienrätsel von heute',
 
   'home.tagline': 'Das tägliche Linienrätsel',
   'home.howToPlay': 'So wird gespielt',

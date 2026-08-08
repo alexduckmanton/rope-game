@@ -14,13 +14,13 @@
  */
 
 export default {
-  'meta.title': 'Loopy — 每日免费环线逻辑谜题',
+  'meta.title': 'Loopy — 每日免费一笔画谜题',
   'meta.description':
-    '画出一条满足所有数字的封闭环线。每天更新，三种难度。免费、无需注册，打开浏览器就能玩。',
+    '画出一条封闭的线，满足所有数字。每天更新的一笔画谜题，三种难度。免费、无需注册，打开浏览器就能玩。',
   'meta.ogDescription':
-    '画出一条满足所有数字的封闭环线。每天更新，三种难度。免费、无需注册。',
-  'meta.imageAlt': 'Loopy – 每日免费环线逻辑谜题',
-  'meta.playTitle': '{difficulty} Loopy — 今日环线逻辑谜题',
+    '画出一条封闭的线，满足所有数字。每天更新，三种难度。免费、无需注册。',
+  'meta.imageAlt': 'Loopy – 每日免费一笔画谜题',
+  'meta.playTitle': '{difficulty} Loopy — 今日一笔画谜题',
 
   'home.tagline': '每日一笔画谜题',
   'home.howToPlay': '玩法说明',

@@ -1,7 +1,7 @@
 {
   "name": "Loopy",
   "short_name": "Loopy",
-  "description": "A free daily loop logic puzzle. Draw one closed loop that satisfies every number.",
+  "description": "A free daily path-drawing puzzle. Draw a single path that closes into a loop and satisfies every number.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F3F4F6",

@@ -5,13 +5,13 @@
  */
 
 export default {
-  'meta.title': 'Loopy — l’enigma logico ad anello gratuito, ogni giorno',
+  'meta.title': 'Loopy — il rompicapo quotidiano dei percorsi, gratis',
   'meta.description':
-    'Disegna un unico anello chiuso che soddisfi tutti i numeri. Un nuovo enigma logico ogni giorno, in tre difficoltà. Gratis, senza registrazione, direttamente nel browser.',
+    'Traccia un unico percorso che si chiude ad anello e soddisfa tutti i numeri. Ogni giorno un nuovo rompicapo dei percorsi, in tre difficoltà. Gratis, senza registrazione, direttamente nel browser.',
   'meta.ogDescription':
-    'Disegna un unico anello chiuso che soddisfi tutti i numeri. Un nuovo enigma logico ogni giorno, in tre difficoltà. Gratis e senza registrazione.',
-  'meta.imageAlt': 'Loopy – l’enigma logico ad anello gratuito, ogni giorno',
-  'meta.playTitle': '{difficulty} Loopy — l’enigma logico ad anello di oggi',
+    'Traccia un unico percorso che si chiude ad anello e soddisfa tutti i numeri. Ogni giorno un nuovo rompicapo, in tre difficoltà. Gratis e senza registrazione.',
+  'meta.imageAlt': 'Loopy – il rompicapo quotidiano dei percorsi, gratis',
+  'meta.playTitle': '{difficulty} Loopy — il rompicapo dei percorsi di oggi',
 
   'home.tagline': 'Il rompicapo quotidiano dei percorsi',
   'home.howToPlay': 'Come si gioca',

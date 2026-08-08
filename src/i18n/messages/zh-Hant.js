@@ -13,13 +13,13 @@
  */
 
 export default {
-  'meta.title': 'Loopy — 每日免費環線邏輯謎題',
+  'meta.title': 'Loopy — 每日免費一筆畫謎題',
   'meta.description':
-    '畫出一條滿足所有數字的封閉環線。每天更新，三種難度。免費、免註冊，打開瀏覽器就能玩。',
+    '畫出一條封閉的線，滿足所有數字。每天更新的一筆畫謎題，三種難度。免費、免註冊，打開瀏覽器就能玩。',
   'meta.ogDescription':
-    '畫出一條滿足所有數字的封閉環線。每天更新，三種難度。免費、免註冊。',
-  'meta.imageAlt': 'Loopy – 每日免費環線邏輯謎題',
-  'meta.playTitle': '{difficulty} Loopy — 今日環線邏輯謎題',
+    '畫出一條封閉的線，滿足所有數字。每天更新，三種難度。免費、免註冊。',
+  'meta.imageAlt': 'Loopy – 每日免費一筆畫謎題',
+  'meta.playTitle': '{difficulty} Loopy — 今日一筆畫謎題',
 
   'home.tagline': '每日一筆畫謎題',
   'home.howToPlay': '玩法說明',

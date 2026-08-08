@@ -5,13 +5,13 @@
  */
 
 export default {
-  'meta.title': 'Loopy — el puzle de lógica de bucles diario y gratuito',
+  'meta.title': 'Loopy — el puzle diario y gratuito de trazar caminos',
   'meta.description':
-    'Dibuja un único bucle cerrado que cumpla todos los números. Un nuevo puzle de lógica cada día en tres dificultades. Gratis, sin registro, se juega en el navegador.',
+    'Traza un solo camino que se cierre en un bucle y cumpla todos los números. Un nuevo puzle de trazar caminos cada día, en tres dificultades. Gratis, sin registro, se juega en el navegador.',
   'meta.ogDescription':
-    'Dibuja un único bucle cerrado que cumpla todos los números. Un nuevo puzle de lógica cada día, en tres dificultades. Gratis y sin registro.',
-  'meta.imageAlt': 'Loopy: el puzle de lógica de bucles diario y gratuito',
-  'meta.playTitle': '{difficulty} Loopy — el puzle de lógica de bucles de hoy',
+    'Traza un solo camino que se cierre en un bucle y cumpla todos los números. Un nuevo puzle cada día, en tres dificultades. Gratis y sin registro.',
+  'meta.imageAlt': 'Loopy: el puzle diario y gratuito de trazar caminos',
+  'meta.playTitle': '{difficulty} Loopy — el puzle de trazar caminos de hoy',
 
   'home.tagline': 'El puzle diario de trazar caminos',
   'home.howToPlay': 'Cómo jugar',

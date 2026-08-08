@@ -8,13 +8,13 @@
  */
 
 export default {
-  'meta.title': 'Loopy — le puzzle de logique en boucle gratuit, chaque jour',
+  'meta.title': 'Loopy — le puzzle de tracé quotidien et gratuit',
   'meta.description':
-    'Tracez une seule boucle fermée qui satisfait tous les nombres. Un nouveau puzzle de logique chaque jour, en trois difficultés. Gratuit, sans inscription, directement dans le navigateur.',
+    'Tracez un seul chemin qui se referme en boucle et satisfait tous les nombres. Un nouveau puzzle de tracé chaque jour, en trois difficultés. Gratuit, sans inscription, directement dans le navigateur.',
   'meta.ogDescription':
-    'Tracez une seule boucle fermée qui satisfait tous les nombres. Un nouveau puzzle de logique chaque jour, en trois difficultés. Gratuit et sans inscription.',
-  'meta.imageAlt': 'Loopy – le puzzle de logique en boucle gratuit, chaque jour',
-  'meta.playTitle': '{difficulty} Loopy — le puzzle de logique en boucle du jour',
+    'Tracez un seul chemin qui se referme en boucle et satisfait tous les nombres. Un nouveau puzzle chaque jour, en trois difficultés. Gratuit et sans inscription.',
+  'meta.imageAlt': 'Loopy – le puzzle de tracé quotidien et gratuit',
+  'meta.playTitle': '{difficulty} Loopy — le puzzle de tracé du jour',
 
   'home.tagline': 'Le puzzle de tracé quotidien',
   'home.howToPlay': 'Comment jouer',

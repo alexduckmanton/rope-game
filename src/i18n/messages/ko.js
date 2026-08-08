@@ -15,13 +15,13 @@
  */
 
 export default {
-  'meta.title': 'Loopy — 매일 즐기는 무료 루프 논리 퍼즐',
+  'meta.title': 'Loopy — 매일 즐기는 무료 한붓그리기 퍼즐',
   'meta.description':
-    '모든 숫자를 만족하는 닫힌 고리를 하나로 그려 보세요. 매일 새로운 논리 퍼즐이 세 가지 난이도로 찾아옵니다. 무료, 가입 없이 브라우저에서 바로 즐기세요.',
+    '선 하나로 고리를 그려 모든 숫자를 만족시켜 보세요. 매일 새로운 한붓그리기 퍼즐이 세 가지 난이도로 찾아옵니다. 무료, 가입 없이 브라우저에서 바로 즐기세요.',
   'meta.ogDescription':
-    '모든 숫자를 만족하는 닫힌 고리를 하나로 그려 보세요. 매일 새로운 논리 퍼즐이 세 가지 난이도로. 무료, 가입 불필요.',
-  'meta.imageAlt': 'Loopy – 매일 즐기는 무료 루프 논리 퍼즐',
-  'meta.playTitle': '{difficulty} Loopy — 오늘의 루프 논리 퍼즐',
+    '선 하나로 고리를 그려 모든 숫자를 만족시켜 보세요. 매일 새로운 퍼즐이 세 가지 난이도로. 무료, 가입 불필요.',
+  'meta.imageAlt': 'Loopy – 매일 즐기는 무료 한붓그리기 퍼즐',
+  'meta.playTitle': '{difficulty} Loopy — 오늘의 한붓그리기 퍼즐',
 
   'home.tagline': '매일의 한붓그리기 퍼즐',
   'home.howToPlay': '게임 방법',

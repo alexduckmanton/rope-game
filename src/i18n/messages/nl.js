@@ -5,13 +5,13 @@
  */
 
 export default {
-  'meta.title': 'Loopy — de gratis dagelijkse lus-logicapuzzel',
+  'meta.title': 'Loopy — de gratis dagelijkse tekenpuzzel',
   'meta.description':
-    'Teken één gesloten lus die aan elk getal voldoet. Elke dag een nieuwe logicapuzzel in drie moeilijkheidsgraden. Gratis, zonder account, speelt in je browser.',
+    'Teken één lijn die zich sluit tot een lus en aan elk getal voldoet. Elke dag een nieuwe tekenpuzzel in drie moeilijkheidsgraden. Gratis, zonder account, speelt in je browser.',
   'meta.ogDescription':
-    'Teken één gesloten lus die aan elk getal voldoet. Elke dag een nieuwe logicapuzzel, in drie moeilijkheidsgraden. Gratis en zonder account.',
-  'meta.imageAlt': 'Loopy – de gratis dagelijkse lus-logicapuzzel',
-  'meta.playTitle': '{difficulty} Loopy — de lus-logicapuzzel van vandaag',
+    'Teken één lijn die zich sluit tot een lus en aan elk getal voldoet. Elke dag een nieuwe puzzel, in drie moeilijkheidsgraden. Gratis en zonder account.',
+  'meta.imageAlt': 'Loopy – de gratis dagelijkse tekenpuzzel',
+  'meta.playTitle': '{difficulty} Loopy — de tekenpuzzel van vandaag',
 
   'home.tagline': 'De dagelijkse tekenpuzzel',
   'home.howToPlay': 'Zo speel je',
