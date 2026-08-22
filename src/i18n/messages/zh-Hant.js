@@ -77,14 +77,13 @@ export default {
     other: '連續 {n} 天（{difficulty}）',
   },
 
-  'tutorial.drawing':
-    '拖曳即可畫出任意形狀和大小的封閉環線。點一下可以擦除。',
-  'tutorial.counting':
-    '每當你的線在某個數字所在的格子或它周圍轉彎時，那個數字就會減少。',
-  'tutorial.winning':
-    '畫出一條連續的環線，讓所有數字都歸零就算過關。',
+  'tutorial.draw': '拖曳即可畫出任意形狀和大小的環線。',
+  'tutorial.erase': '點一下可以擦掉環線的一部分。',
+  'tutorial.numbers': '當你的環線在附近的格子裡轉彎時，那個數字就會減少。',
+  'tutorial.win': '畫一條讓所有數字歸零的環線就算過關。',
   'tutorial.next': '下一步',
   'tutorial.gotIt': '知道了',
+  'tutorial.replay': '重新播放',
 
   'score.perfect': '完美',
   'score.genius': '天才',

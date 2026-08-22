@@ -70,14 +70,13 @@ export default {
     other: '{n} dagen op rij ({difficulty})',
   },
 
-  'tutorial.drawing':
-    'Sleep om een gesloten lus van elke vorm of grootte te tekenen. Tik om te wissen.',
-  'tutorial.counting':
-    'Telkens als je pad een bocht maakt in de vakjes op of rond een getal, telt dat getal af.',
-  'tutorial.winning':
-    'Om te winnen teken je één doorlopende lus die alle getallen op nul zet.',
+  'tutorial.draw': 'Sleep om een lus van elke vorm of grootte te tekenen.',
+  'tutorial.erase': 'Tik om delen van je lus te wissen.',
+  'tutorial.numbers': 'Getallen tellen af als je lus een bocht maakt in de vakjes ernaast.',
+  'tutorial.win': 'Om te winnen: teken een lus die elk getal op nul zet.',
   'tutorial.next': 'Volgende',
   'tutorial.gotIt': 'Duidelijk',
+  'tutorial.replay': 'Opnieuw afspelen',
 
   'score.perfect': 'Perfect',
   'score.genius': 'Geniaal',

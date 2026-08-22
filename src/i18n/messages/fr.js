@@ -73,14 +73,13 @@ export default {
     other: '{n} jours d’affilée ({difficulty})',
   },
 
-  'tutorial.drawing':
-    'Faites glisser pour tracer une boucle fermée de n’importe quelle forme ou taille. Touchez pour effacer.',
-  'tutorial.counting':
-    'Chaque fois que votre tracé tourne dans les cases situées sur un nombre ou autour, ce nombre diminue.',
-  'tutorial.winning':
-    'Pour gagner, tracez une seule boucle continue qui met tous les nombres à zéro.',
+  'tutorial.draw': 'Faites glisser pour tracer une boucle de n’importe quelle forme ou taille.',
+  'tutorial.erase': 'Touchez pour effacer des parties de votre boucle.',
+  'tutorial.numbers': 'Les nombres diminuent quand votre boucle tourne dans les cases voisines.',
+  'tutorial.win': 'Pour gagner, tracez une boucle qui met tous les nombres à zéro.',
   'tutorial.next': 'Suivant',
   'tutorial.gotIt': 'J’ai compris',
+  'tutorial.replay': 'Revoir',
 
   'score.perfect': 'Parfait',
   'score.genius': 'Génial',

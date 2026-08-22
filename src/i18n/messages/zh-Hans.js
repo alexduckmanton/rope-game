@@ -78,14 +78,13 @@ export default {
     other: '连续 {n} 天（{difficulty}）',
   },
 
-  'tutorial.drawing':
-    '拖动即可画出任意形状和大小的封闭环线。点击可以擦除。',
-  'tutorial.counting':
-    '每当你的线在某个数字所在的格子或它周围转弯时，那个数字就会减少。',
-  'tutorial.winning':
-    '画出一条连续的环线，让所有数字都归零就算通关。',
+  'tutorial.draw': '拖动即可画出任意形状和大小的环线。',
+  'tutorial.erase': '点击可以擦掉环线的一部分。',
+  'tutorial.numbers': '当你的环线在附近的格子里转弯时，那个数字就会减少。',
+  'tutorial.win': '画一条让所有数字归零的环线就算通关。',
   'tutorial.next': '下一步',
   'tutorial.gotIt': '知道了',
+  'tutorial.replay': '重新播放',
 
   'score.perfect': '完美',
   'score.genius': '天才',

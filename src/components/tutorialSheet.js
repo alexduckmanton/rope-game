@@ -2,7 +2,19 @@
  * Tutorial Bottom Sheet Component
  *
  * Self-contained tutorial that can be opened from anywhere in the app.
- * Shows a multi-section walkthrough with video demonstrations.
+ * Four sections, each a silent clip of the real game and one line of copy.
+ *
+ * The clips are recorded by `scripts/record-tutorial.mjs` — see
+ * `docs/recording-tutorial-videos.md`. Two things about them shape this file:
+ *
+ * - There are **light and dark variants** of every clip, and the player's theme
+ *   can change while the sheet is open, so sources are swapped live rather than
+ *   chosen once.
+ * - They **play once and hold their last frame**, rather than looping. A loop
+ *   has no beginning, so a viewer arriving mid-cycle sees an effect with no
+ *   cause; and the last frame of every clip is the state the lesson is about.
+ *   The progress bar and replay button exist because a clip that stops needs to
+ *   say that it stopped and offer to run again.
  */
 
 import { showBottomSheetAsync } from '../bottomSheet.js';
@@ -15,97 +27,177 @@ import {
 } from '../analytics.js';
 import { t } from '../i18n/index.js';
 
-// Tutorial lesson content.
+// Tutorial sections, in the order a player meets the mechanics: the two
+// gestures, then what the numbers mean, then the goal — with the near-miss that
+// stands in front of it folded into that last card rather than given its own.
 //
-// `body` is a message key resolved at render time; `name` is the analytics
+// `body` is a message key resolved at render time. `name` is the analytics
 // label and deliberately stays English, so tutorial_section_viewed reports the
-// same section name whatever language the player is using.
+// same section name whatever language the player is using — and the three names
+// carried over from the previous three-card tutorial are unchanged, so the
+// event stays comparable across the change.
+//
+// `clip` is the scene id in `scripts/tutorial-scenes.mjs`, which is also the
+// filename. Keep the two in step: a section with no clip renders an empty box.
 const LESSON_SECTIONS = [
-  { bodyKey: 'tutorial.drawing', name: 'Drawing loops' },
-  { bodyKey: 'tutorial.counting', name: 'Counting bends' },
-  { bodyKey: 'tutorial.winning', name: 'Win condition' }
+  { clip: 1, bodyKey: 'tutorial.draw', name: 'Drawing loops' },
+  { clip: 2, bodyKey: 'tutorial.erase', name: 'Erasing' },
+  { clip: 3, bodyKey: 'tutorial.numbers', name: 'Counting bends' },
+  { clip: 4, bodyKey: 'tutorial.win', name: 'Win condition' }
 ];
 
-// Configuration constants
-const VIDEO_VISIBILITY_THRESHOLD = 0.5; // Video plays when 50% visible
+/** A section counts as showing once half of it is in view */
+const VIDEO_VISIBILITY_THRESHOLD = 0.5;
 
-// Module state - videos created once and cached for entire session
-let tutorialVideos = [];
+/**
+ * How many sections ahead of the visible one to fetch.
+ *
+ * Opening the sheet used to pull every clip before the first one had played.
+ * One ahead is enough that a swipe never waits, and means a player who reads
+ * card 1 and closes has downloaded two clips rather than four.
+ */
+const PRELOAD_AHEAD = 1;
+
+// Module state - videos are created once and reused for the session
+let sectionVideos = [];
 let activeSheet = null;
 let scrollContainer = null;
 let pagingDots = [];
+let progressBars = [];
 let intersectionObserver = null;
-let lastTrackedSection = -1; // Track last section to avoid duplicate analytics events
+let themeListener = null;
+let progressFrame = null;
+let lastTrackedSection = -1;
+
+/** The clip variant that matches the player's current system theme */
+function currentTheme() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function clipUrl(clip, theme, extension) {
+  return `/videos/${clip}-${theme}.${extension}`;
+}
 
 /**
- * Create a single video element with sources and attributes
- * @param {number} videoNumber - The tutorial video number (1-3)
- * @returns {HTMLVideoElement} Configured video element
+ * Create a video element for one section
+ *
+ * `preload` starts at `none`: the poster stands in until the section is the one
+ * being looked at, or the one after it. The poster is the clip's own first
+ * frame, so there is no jump between the still and the start of playback.
  */
-function buildVideoElement(videoNumber) {
+function buildVideoElement(clip) {
+  const theme = currentTheme();
   const video = document.createElement('video');
-  video.style.width = '100%';
-  video.style.height = '100%';
-  video.style.objectFit = 'cover';
+  video.className = 'tutorial-video';
   video.muted = true;
-  video.loop = true;
-  video.autoplay = true;
+  video.loop = false;
+  video.autoplay = false;
   video.playsInline = true;
-  video.preload = 'auto';
+  video.preload = 'none';
+  video.poster = clipUrl(clip, theme, 'webp');
+  video.dataset.clip = String(clip);
 
-  // Prefer webm, fallback to mp4
-  const webmSource = document.createElement('source');
-  webmSource.src = `/videos/tutorial-${videoNumber}.webm`;
-  webmSource.type = 'video/webm';
-  video.appendChild(webmSource);
+  // mp4 first, deliberately. On line art this flat x264 beats VP9 outright, so
+  // the h.264 file is the smaller one and should be what almost every browser
+  // takes; the webm is there for a Chromium built without proprietary codecs,
+  // which cannot decode h.264 at all. See docs/recording-tutorial-videos.md.
+  const mp4 = document.createElement('source');
+  mp4.type = 'video/mp4';
+  mp4.src = clipUrl(clip, theme, 'mp4');
+  video.appendChild(mp4);
 
-  const mp4Source = document.createElement('source');
-  mp4Source.src = `/videos/tutorial-${videoNumber}.mp4`;
-  mp4Source.type = 'video/mp4';
-  video.appendChild(mp4Source);
+  const webm = document.createElement('source');
+  webm.type = 'video/webm';
+  webm.src = clipUrl(clip, theme, 'webm');
+  video.appendChild(webm);
 
   return video;
 }
 
 /**
- * Create a tutorial section with video and message
- * @param {number} sectionIndex - The lesson section index (0-2)
- * @returns {HTMLElement} Section element with video and message
+ * Repoint every video at the other theme's clips
+ *
+ * Called from the `themeChanged` event the token system dispatches, which is
+ * also what makes the game canvas redraw. Position is preserved so a theme
+ * flipping mid-clip does not restart the lesson under the viewer.
  */
+function applyTheme() {
+  const theme = currentTheme();
+
+  for (const video of sectionVideos) {
+    const clip = video.dataset.clip;
+    const [mp4, webm] = video.querySelectorAll('source');
+    if (mp4.src.endsWith(`${clip}-${theme}.mp4`)) continue;
+
+    const wasPlaying = !video.paused && !video.ended;
+    const position = video.currentTime;
+
+    video.poster = clipUrl(clip, theme, 'webp');
+    mp4.src = clipUrl(clip, theme, 'mp4');
+    webm.src = clipUrl(clip, theme, 'webm');
+    video.load();
+
+    // `load()` resets to zero, and the new source has to be seekable before the
+    // old position can be restored
+    video.addEventListener(
+      'loadedmetadata',
+      () => {
+        video.currentTime = position;
+        if (wasPlaying) video.play().catch(() => {});
+      },
+      { once: true }
+    );
+  }
+}
+
+/** Fetch the clips around a section, leaving the rest on their posters */
+function preloadAround(index) {
+  sectionVideos.forEach((video, position) => {
+    if (position < index || position > index + PRELOAD_AHEAD) return;
+    if (video.preload === 'auto') return;
+    video.preload = 'auto';
+    video.load();
+  });
+}
+
+/**
+ * Drive every visible progress bar from its video's position
+ *
+ * On requestAnimationFrame rather than `timeupdate`, which fires about four
+ * times a second and makes the bar visibly step.
+ */
+function tickProgress() {
+  progressFrame = requestAnimationFrame(tickProgress);
+  sectionVideos.forEach((video, index) => {
+    const bar = progressBars[index];
+    if (!bar) return;
+    const fraction = video.duration ? video.currentTime / video.duration : 0;
+    bar.style.transform = `scaleX(${Math.min(1, fraction)})`;
+  });
+}
+
 function createTutorialSection(sectionIndex) {
   const section = document.createElement('div');
   section.className = 'tutorial-section';
-  section.dataset.sectionIndex = sectionIndex;
+  section.dataset.sectionIndex = String(sectionIndex);
 
-  // Video container with skeleton loader
   const videoContainer = document.createElement('div');
   videoContainer.className = 'bottom-sheet-video-container';
 
-  const skeleton = document.createElement('div');
-  skeleton.className = 'bottom-sheet-video-skeleton';
-  videoContainer.appendChild(skeleton);
-
-  // Get the pre-created video
-  const video = tutorialVideos[sectionIndex];
-  video.currentTime = 0; // Reset to beginning
-
-  // Remove skeleton when video is ready
-  const removeSkeletonHandler = () => {
-    if (skeleton.parentNode) {
-      skeleton.remove();
-    }
-  };
-
-  if (video.readyState >= 3) {
-    removeSkeletonHandler();
-  } else {
-    video.addEventListener('canplay', removeSkeletonHandler, { once: true });
-  }
-
+  const video = sectionVideos[sectionIndex];
+  video.currentTime = 0;
   videoContainer.appendChild(video);
+
+  const progressTrack = document.createElement('div');
+  progressTrack.className = 'tutorial-progress-track';
+  const progressBar = document.createElement('div');
+  progressBar.className = 'tutorial-progress-bar';
+  progressTrack.appendChild(progressBar);
+  videoContainer.appendChild(progressTrack);
+  progressBars[sectionIndex] = progressBar;
+
   section.appendChild(videoContainer);
 
-  // Message below video
   const message = document.createElement('div');
   message.className = 'tutorial-section-message';
   message.appendChild(document.createElement('p')).textContent = t(
@@ -116,258 +208,230 @@ function createTutorialSection(sectionIndex) {
   return section;
 }
 
-/**
- * Get current section index based on scroll position
- * @returns {number} Current section index (0-2)
- */
+/** Current section index from scroll position */
 function getCurrentSectionIndex() {
   if (!scrollContainer) return 0;
-  const scrollLeft = scrollContainer.scrollLeft;
-  const sectionWidth = scrollContainer.offsetWidth;
-  return Math.round(scrollLeft / sectionWidth);
+  return Math.round(scrollContainer.scrollLeft / scrollContainer.offsetWidth);
 }
 
-/**
- * Update paging dots to reflect current section
- */
 function updatePagingDots() {
   const currentIndex = getCurrentSectionIndex();
   pagingDots.forEach((dot, index) => {
-    if (index === currentIndex) {
-      dot.classList.add('active');
-    } else {
-      dot.classList.remove('active');
-    }
+    dot.classList.toggle('active', index === currentIndex);
   });
 
   // Track section view when scrolling (only once per section)
-  if (currentIndex !== lastTrackedSection && currentIndex >= 0 && currentIndex < LESSON_SECTIONS.length) {
+  if (
+    currentIndex !== lastTrackedSection &&
+    currentIndex >= 0 &&
+    currentIndex < LESSON_SECTIONS.length
+  ) {
     lastTrackedSection = currentIndex;
-    trackTutorialSectionViewed(
-      currentIndex,
-      LESSON_SECTIONS[currentIndex].name,
-      'scroll'
-    );
+    trackTutorialSectionViewed(currentIndex, LESSON_SECTIONS[currentIndex].name, 'scroll');
   }
 }
 
-/**
- * Update next button text based on current section
- * @param {HTMLElement} nextBtn - Next button element
- */
 function updateNextButton(nextBtn) {
-  const currentIndex = getCurrentSectionIndex();
-  const isLastSection = currentIndex === LESSON_SECTIONS.length - 1;
+  const isLastSection = getCurrentSectionIndex() === LESSON_SECTIONS.length - 1;
   nextBtn.textContent = isLastSection ? t('tutorial.gotIt') : t('tutorial.next');
 }
 
-/**
- * Scroll to next section or dismiss sheet if on last section
- * @param {HTMLElement} nextBtn - Next button element
- */
-function handleNextClick(nextBtn) {
+function finishTutorial() {
+  trackTutorialCompleted();
+  markTutorialCompleted();
+  window.dispatchEvent(new CustomEvent('tutorialCompleted'));
+  activeSheet.destroy();
+}
+
+function handleNextClick() {
   const currentIndex = getCurrentSectionIndex();
 
   if (currentIndex === LESSON_SECTIONS.length - 1) {
-    // Track tutorial completion
-    trackTutorialCompleted();
-
-    // Mark tutorial as completed when user clicks "Got it"
-    markTutorialCompleted();
-
-    // Dispatch event to notify that tutorial was completed
-    window.dispatchEvent(new CustomEvent('tutorialCompleted'));
-
-    // Dismiss the sheet on last section
-    activeSheet.destroy();
-  } else {
-    // Scroll to next section
-    const nextSection = scrollContainer.children[currentIndex + 1];
-    nextSection.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+    finishTutorial();
+    return;
   }
+
+  scrollContainer.children[currentIndex + 1].scrollIntoView({
+    behavior: 'smooth',
+    block: 'nearest',
+    inline: 'start'
+  });
 }
 
 /**
- * Setup Intersection Observer to play/pause videos based on visibility
+ * Play the section being looked at, rewind the ones that are not
+ *
+ * Rewinding on the way out is what stops a swipe back landing on a finished
+ * clip's last frame, which reads as a video that will not play.
  */
 function setupVideoObserver() {
-  // Clean up existing observer if any
-  if (intersectionObserver) {
-    intersectionObserver.disconnect();
-  }
+  if (intersectionObserver) intersectionObserver.disconnect();
 
-  // Create new observer
   intersectionObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         const video = entry.target.querySelector('video');
+        const index = Number(entry.target.dataset.sectionIndex);
+
         if (entry.isIntersecting && entry.intersectionRatio >= VIDEO_VISIBILITY_THRESHOLD) {
-          // Section is visible, play video
+          preloadAround(index);
           video.currentTime = 0;
           video.play().catch(() => {
-            // Autoplay might be blocked
+            // Autoplay can be blocked; the poster and replay button cover it
           });
         } else {
-          // Section not visible, pause video
           video.pause();
+          video.currentTime = 0;
         }
       });
     },
-    {
-      root: scrollContainer,
-      threshold: [VIDEO_VISIBILITY_THRESHOLD]
-    }
+    { root: scrollContainer, threshold: [VIDEO_VISIBILITY_THRESHOLD] }
   );
 
-  // Observe all sections
-  const sections = scrollContainer.querySelectorAll('.tutorial-section');
-  sections.forEach((section) => {
-    intersectionObserver.observe(section);
-  });
+  scrollContainer
+    .querySelectorAll('.tutorial-section')
+    .forEach((section) => intersectionObserver.observe(section));
 }
 
-/**
- * Show the multi-section tutorial lesson sheet with horizontal carousel
- */
-function showLessonSheet() {
-  // Build the content container
-  const content = document.createElement('div');
-  content.style.display = 'flex';
-  content.style.flexDirection = 'column';
-  content.style.gap = '0';
+function releaseResources() {
+  if (intersectionObserver) {
+    intersectionObserver.disconnect();
+    intersectionObserver = null;
+  }
+  if (progressFrame) {
+    cancelAnimationFrame(progressFrame);
+    progressFrame = null;
+  }
+  if (themeListener) {
+    window.removeEventListener('themeChanged', themeListener);
+    themeListener = null;
+  }
+  sectionVideos.forEach((video) => video.pause());
+}
 
-  // Horizontal scroll container with all 3 sections
+function showLessonSheet() {
+  const content = document.createElement('div');
+  content.className = 'tutorial-content';
+
   scrollContainer = document.createElement('div');
   scrollContainer.className = 'tutorial-scroll-container';
+  progressBars = [];
 
-  // Create all 3 sections
-  for (let i = 0; i < LESSON_SECTIONS.length; i++) {
-    const section = createTutorialSection(i);
-    scrollContainer.appendChild(section);
+  for (let i = 0; i < LESSON_SECTIONS.length; i += 1) {
+    scrollContainer.appendChild(createTutorialSection(i));
   }
-
   content.appendChild(scrollContainer);
 
-  // Paging dots container
   const pagingDotsContainer = document.createElement('div');
   pagingDotsContainer.className = 'tutorial-paging-dots';
   pagingDots = [];
 
-  for (let i = 0; i < LESSON_SECTIONS.length; i++) {
-    const dot = document.createElement('div');
+  for (let i = 0; i < LESSON_SECTIONS.length; i += 1) {
+    const dot = document.createElement('button');
+    dot.type = 'button';
     dot.className = 'tutorial-paging-dot';
-    if (i === 0) dot.classList.add('active'); // First dot active initially
+    dot.setAttribute('aria-label', `${i + 1}`);
+    if (i === 0) dot.classList.add('active');
 
-    // Click dot to scroll to that section
     dot.addEventListener('click', () => {
-      // Track dot click (different from scroll-based view)
       trackTutorialSectionViewed(i, LESSON_SECTIONS[i].name, 'dot_click');
-
-      const section = scrollContainer.children[i];
-      section.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+      scrollContainer.children[i].scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'start'
+      });
     });
 
     pagingDots.push(dot);
     pagingDotsContainer.appendChild(dot);
   }
+  // Replay, at the right of the dots row rather than over the clip. It is the
+  // only control that says a clip has an end, so it is present from the start
+  // rather than appearing once one finishes — but nothing should sit on top of
+  // the board, which is the whole picture.
+  const replay = document.createElement('button');
+  replay.className = 'tutorial-replay-btn';
+  replay.type = 'button';
+  replay.setAttribute('aria-label', t('tutorial.replay'));
+  replay.innerHTML = '<i data-lucide="rotate-ccw" width="18" height="18"></i>';
+  replay.addEventListener('click', () => {
+    const video = sectionVideos[getCurrentSectionIndex()];
+    if (!video) return;
+    video.currentTime = 0;
+    video.play().catch(() => {});
+  });
+  pagingDotsContainer.appendChild(replay);
 
   content.appendChild(pagingDotsContainer);
 
-  // Navigation button container
   const navButtons = document.createElement('div');
-  navButtons.style.display = 'flex';
-  navButtons.style.gap = '12px';
-  navButtons.style.alignItems = 'center';
-  navButtons.style.width = 'calc(100% - 40px)';
-  navButtons.style.margin = '24px 20px 20px 20px';
+  navButtons.className = 'tutorial-nav';
 
-  // Next button
   const nextBtn = document.createElement('button');
   nextBtn.className = 'bottom-sheet-btn bottom-sheet-btn-primary';
-  nextBtn.style.flex = '1';
+  nextBtn.type = 'button';
   nextBtn.textContent = t('tutorial.next');
-  nextBtn.onclick = () => handleNextClick(nextBtn);
+  nextBtn.onclick = handleNextClick;
   navButtons.appendChild(nextBtn);
-
   content.appendChild(navButtons);
 
-  // Add scroll listener to update paging dots and button text
   scrollContainer.addEventListener('scroll', () => {
     updatePagingDots();
     updateNextButton(nextBtn);
   });
 
-  // Create and show the bottom sheet
   activeSheet = showBottomSheetAsync({
-    title: ' ', // Empty title - content speaks for itself
-    content: content,
+    title: ' ', // Empty title - the clips speak for themselves
+    content,
     colorScheme: 'info',
     dismissLabel: null, // No default dismiss button - we use custom navigation
-    onClose: () => {
-      // Clean up observer when sheet is dismissed
-      if (intersectionObserver) {
-        intersectionObserver.disconnect();
-        intersectionObserver = null;
-      }
-    }
+    onClose: releaseResources
   });
 
-  // Setup video observer after sheet is shown
-  // Use double RAF for guaranteed DOM ready (more reliable than setTimeout)
+  // Double RAF for guaranteed DOM ready (more reliable than setTimeout)
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       setupVideoObserver();
+      preloadAround(0);
+      tickProgress();
       initIcons();
     });
   });
+
+  themeListener = () => applyTheme();
+  window.addEventListener('themeChanged', themeListener);
 }
 
-/**
- * Initialize tutorial videos (lazy - only on first call)
- */
+/** Create the video elements once, on first open */
 function initializeVideos() {
-  if (tutorialVideos.length === 0) {
-    // Create all 3 videos upfront for reliable preloading
-    for (let i = 1; i <= 3; i++) {
-      const video = buildVideoElement(i);
-      tutorialVideos.push(video);
-    }
-  }
+  if (sectionVideos.length) return;
+  sectionVideos = LESSON_SECTIONS.map((section) => buildVideoElement(section.clip));
 }
 
 /**
  * Show the tutorial bottom sheet
+ *
  * Can be called from anywhere in the app (home screen, game screens, etc.)
- * Videos are lazy-loaded on first open and cached for subsequent opens
+ * Video elements are created on first open and reused for the session.
+ *
  * @param {string} [source='unknown'] - Where tutorial was opened from ('home', 'game')
  * @param {string} [difficulty] - Difficulty being played, when opened from a game
  */
 export function showTutorialSheet(source = 'unknown', difficulty) {
-  // Track tutorial opened
   trackTutorialOpened(source, difficulty);
 
-  // Ensure videos are created (only happens once)
   initializeVideos();
+  releaseResources();
 
-  // Clean up any existing sheet and observer
-  if (intersectionObserver) {
-    intersectionObserver.disconnect();
-    intersectionObserver = null;
-  }
+  if (activeSheet) activeSheet.destroy();
 
-  if (activeSheet) {
-    activeSheet.destroy();
-  }
-
-  // Pause all videos before opening new sheet
-  tutorialVideos.forEach((video) => {
-    video.pause();
+  // The theme may have changed since the last open, and a reopened sheet always
+  // starts from the first card
+  applyTheme();
+  sectionVideos.forEach((video) => {
     video.currentTime = 0;
   });
-
-  // Reset section tracking
   lastTrackedSection = -1;
 
-  // Show the lesson sheet
   showLessonSheet();
 }

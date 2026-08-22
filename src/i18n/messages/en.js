@@ -97,12 +97,13 @@ export default {
   },
 
   // Tutorial carousel
-  'tutorial.drawing': 'Drag to draw a closed loop of any shape or size. Tap to erase.',
-  'tutorial.counting':
-    'Whenever your path bends in the squares on or around a number, the number counts down.',
-  'tutorial.winning': 'To win, draw a single continuous loop that makes all numbers zero.',
+  'tutorial.draw': 'Drag to draw a loop of any shape or size.',
+  'tutorial.erase': 'Tap to erase parts of your loop.',
+  'tutorial.numbers': 'Numbers count down when your loop bends in nearby squares.',
+  'tutorial.win': 'To win, draw a loop that makes every number zero.',
   'tutorial.next': 'Next',
   'tutorial.gotIt': 'Got it',
+  'tutorial.replay': 'Replay',
 
   // Score labels. Only "Perfect" reaches a player today - the rest are
   // reported on game_abandoned, where partial progress is the point

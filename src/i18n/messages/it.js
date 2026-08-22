@@ -70,14 +70,13 @@ export default {
     other: '{n} giorni di fila ({difficulty})',
   },
 
-  'tutorial.drawing':
-    'Trascina per disegnare un anello chiuso di qualsiasi forma o dimensione. Tocca per cancellare.',
-  'tutorial.counting':
-    'Ogni volta che il tuo percorso curva nelle caselle su un numero o intorno a esso, quel numero diminuisce.',
-  'tutorial.winning':
-    'Per vincere, disegna un unico anello continuo che porti tutti i numeri a zero.',
+  'tutorial.draw': 'Trascina per disegnare un anello di qualsiasi forma o dimensione.',
+  'tutorial.erase': 'Tocca per cancellare parti del tuo anello.',
+  'tutorial.numbers': 'I numeri scendono quando il tuo anello curva nelle caselle vicine.',
+  'tutorial.win': 'Per vincere, disegna un anello che porti ogni numero a zero.',
   'tutorial.next': 'Avanti',
   'tutorial.gotIt': 'Ho capito',
+  'tutorial.replay': 'Rivedi',
 
   'score.perfect': 'Perfetto',
   'score.genius': 'Geniale',

@@ -3,3 +3,4 @@ dist/
 dist-itch/
 loopy-itch.zip
 .DS_Store
+.tutorial-capture/

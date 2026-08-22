@@ -70,14 +70,13 @@ export default {
     other: '{n} días seguidos ({difficulty})',
   },
 
-  'tutorial.drawing':
-    'Arrastra para dibujar un bucle cerrado de cualquier forma o tamaño. Toca para borrar.',
-  'tutorial.counting':
-    'Cada vez que tu camino gira en las casillas sobre un número o a su alrededor, ese número baja.',
-  'tutorial.winning':
-    'Para ganar, dibuja un único bucle continuo que deje todos los números a cero.',
+  'tutorial.draw': 'Arrastra para dibujar un bucle de cualquier forma o tamaño.',
+  'tutorial.erase': 'Toca para borrar partes de tu bucle.',
+  'tutorial.numbers': 'Los números bajan cuando tu bucle gira en las casillas cercanas.',
+  'tutorial.win': 'Para ganar, dibuja un bucle que deje todos los números a cero.',
   'tutorial.next': 'Siguiente',
   'tutorial.gotIt': 'Entendido',
+  'tutorial.replay': 'Repetir',
 
   'score.perfect': 'Perfecto',
   'score.genius': 'Genial',

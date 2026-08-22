@@ -1200,47 +1200,107 @@ button {
   flex-shrink: 0;
 }
 
-/* Video container - square aspect ratio, matches button width */
-.bottom-sheet-video-container {
-  width: calc(100% - 40px); /* Match button width (full width minus 20px margins on each side) */
-  aspect-ratio: 1 / 1; /* Square container */
-  margin: 16px 20px; /* 16px top/bottom spacing, 20px side margins to match buttons */
-  border-radius: 12px;
-  background-color: var(--color-neutral-200); /* Grey background shows during loading */
-  overflow: hidden; /* Clip video to rounded corners */
-  position: relative; /* For skeleton positioning */
+/* ============================================================================
+ * TUTORIAL SHEET
+ *
+ * Four square clips of the real game in a snapping carousel. The clips are
+ * recorded cropped to the canvas alone, so the rounding and elevation here are
+ * the only ones in the picture — see docs/recording-tutorial-videos.md.
+ * ========================================================================= */
+
+/* Clips play once and hold their last frame, so the sheet has to be shorter
+   than the screen: it is not a full-height takeover, and there has to be enough
+   backdrop left to tap. Below this the video shrinks rather than the copy or
+   the button being pushed off the bottom. */
+.tutorial-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
-/* Skeleton loader for video loading state */
-.bottom-sheet-video-skeleton {
-  position: absolute;
-  top: 0;
-  left: 0;
+/* Video container - square, matched to the button width */
+.bottom-sheet-video-container {
+  position: relative;
+  /* The clip is square, so its width sets the sheet's height. `88vh - 300px`
+     is a budget for everything else — the header, the copy, the dots and the
+     button — and without it the sheet is the entire screen on a short phone
+     with no backdrop left to dismiss it with. That matters more than it used
+     to: the sheet has no close icon, so a backdrop tap is one of only two ways
+     out.
+
+     The 300px is deliberately larger than the chrome now needs. Dropping the
+     copy's fixed height freed 40px, and leaving the budget alone spends it on
+     backdrop rather than on a bigger clip. Reduce it only if the clip is the
+     thing that needs the room.
+
+     400px is the game's own canvas size, and as large as the clip stays sharp:
+     it is captured at 1200px, which is 3x (see
+     docs/recording-tutorial-videos.md). Without the cap a tall desktop window
+     renders it near 500px and starts upscaling. */
+  width: min(calc(100% - 40px), calc(88vh - 300px), 400px);
+  aspect-ratio: 1 / 1;
+  margin: 16px auto;
+  border-radius: 12px;
+  /* The clips are cropped to the canvas, whose own background this is. Any
+     other colour shows as a frame around the grid while the poster loads. */
+  background-color: var(--color-bg-elevated);
+  /* The clip is a white board on a white sheet, so without this its edges are
+     invisible and the grid appears to float. The same token as the game's own
+     grid lines, so the frame reads as part of the board. */
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.tutorial-video {
+  display: block;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    var(--color-neutral-200) 0%,
-    var(--color-neutral-300) 50%,
-    var(--color-neutral-200) 100%
-  );
-  background-size: 200% 100%;
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
-  z-index: 1; /* Above video but below other content */
+  object-fit: cover;
 }
 
-@keyframes skeleton-pulse {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+/* Replay, parked at the right end of the dots row. Over the clip it would
+   collide with the sheet's close button and cover a hint number. */
+.tutorial-replay-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity 150ms ease;
 }
 
-.bottom-sheet-video-container video {
-  position: relative;
-  z-index: 2; /* Above skeleton */
+.tutorial-replay-btn:hover {
+  opacity: 1;
+}
+
+/* Playback progress, pinned to the bottom edge of the clip. A clip that stops
+   has to say so, or a viewer waits for a loop that is never coming. */
+.tutorial-progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background-color: var(--color-neutral-200);
+}
+
+.tutorial-progress-bar {
+  width: 100%;
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background-color: var(--color-primary);
 }
 
 /* Tutorial horizontal scroll container */
@@ -1266,9 +1326,16 @@ button {
   flex-direction: column;
 }
 
-/* Tutorial section message (below video) */
+/* Tutorial section message (below video).
+
+   No fixed height. It used to reserve three lines so that a longer line in one
+   language could not shuffle the dots and button as the carousel scrolls — but
+   the sections are flex items in a row, so they already stretch to the tallest
+   of them and the dots already could not move. The reservation only ever added
+   dead space: the longest English card is two lines, leaving 40px of nothing
+   under the one-line cards and 16px under the rest. */
 .tutorial-section-message {
-  padding: 8px 20px 16px 20px; /* Reduced top padding for tighter spacing with video */
+  padding: 8px 20px;
   text-align: center;
   font-size: 16px;
   line-height: 1.5;
@@ -1280,30 +1347,67 @@ button {
   margin: 0;
 }
 
-/* Paging dots container (fixed below scroll container) */
+/* Paging dots container (fixed below scroll container).
+
+   No vertical padding: each dot already carries 18px of its own to make a 44px
+   tap target, and that reads as space whether or not it is touchable. Stacking
+   more on the container put 42px between the copy and the dots. */
 .tutorial-paging-dots {
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 8px;
-  padding: 16px 20px;
+  padding: 0 20px;
 }
 
-/* Individual paging dot */
+/* Individual paging dot. 8px with an 8px gap, so the row reads as one group
+   rather than a spread-out set of controls — the tap target is bought with
+   vertical padding instead of width, which would push the dots apart. */
 .tutorial-paging-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
-  background-color: var(--color-neutral-300);
-  transition: all 200ms ease;
+  padding: 18px 0;
+  box-sizing: content-box;
+  border: none;
+  background: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 200ms ease;
+}
+
+.tutorial-paging-dot::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background-color: var(--color-neutral-300);
+  transition: background-color 200ms ease;
 }
 
 .tutorial-paging-dot.active {
-  background-color: var(--color-primary);
   width: 24px;
-  border-radius: 4px;
 }
+
+.tutorial-paging-dot.active::after {
+  background-color: var(--color-primary);
+}
+
+.tutorial-nav {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: calc(100% - 40px);
+  margin: 16px 20px 20px 20px;
+}
+
+.tutorial-nav .bottom-sheet-btn {
+  flex: 1;
+}
+
 
 /* Button container for multiple buttons */
 .bottom-sheet-buttons {
