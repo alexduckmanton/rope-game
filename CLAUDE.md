@@ -1230,7 +1230,7 @@ This menu is the **only** place the support link appears. It used to also sit as
 - iOS-style onboarding pattern familiar to mobile users
 - Natural swipe gesture for progression through lessons
 - Scroll-snap ensures crisp section alignment
-- Paging dots track position and jump straight to a section - the only way back to an earlier card. 8px with an 8px gap so the row reads as one group; the 44px tap target comes from vertical padding, which does not push them apart
+- Paging dots track position and jump straight to a section - the only way back to an earlier card. 8px with an 8px gap so the row reads as one group; the 44px tap target comes from vertical padding on each dot, which does not push them apart. The dots' *container* carries no vertical padding of its own - that 18px per dot already reads as space, and stacking more on top put 42px between the copy and the dots
 
 **The four cards**, in the order a player meets the mechanics: the two gestures, then what the numbers mean, then the goal.
 
@@ -1276,6 +1276,8 @@ Cards 1, 2 and 4 run on **one puzzle** and 3 on another, so three quarters of th
 **Layout:** the clip is square and its width therefore sets the sheet's height, so it is capped at `min(100% - 40px, 88vh - 300px, 400px)`. Without the `88vh` term the sheet is the entire screen on a short phone (it measured 640px of a 640px viewport), leaving no backdrop to tap. The 400px is the game's own canvas size, and the clips are captured at 1200px so a 3x screen renders that cap without upscaling.
 
 **No close icon.** The sheet carries no X, so it closes on a backdrop tap or on the nav button, which reads "Got it" on the last card. The `88vh` height cap is what makes that safe - it is the guarantee that a backdrop exists to tap on a short phone, and removing it would leave the nav the only way out. `showCloseIcon` is still available on the bottom sheet component and the win sheet uses it.
+
+**The copy has no fixed height.** It used to reserve three lines so a longer line in one language could not shuffle the dots as the carousel scrolls, but the sections are flex items in a row and already stretch to the tallest of them - the dots could never have moved. The reservation only added dead space, 40px of it under a one-line card. Removing it and the dots container's own padding took 40px off the whole sheet and cut the gap between copy and dots from 82px to 26px. It is also more correct per language: four captions (de, fr, pt-BR) wrap to three lines at 320px and now get three, while English pays for the two it uses. The `88vh - 300px` budget was deliberately *not* reduced to match - the 40px goes to backdrop instead, which matters more now the close icon is gone.
 
 **Integration Points:**
 - Accessible via `showTutorialSheet()` from `home.js`, `homeMenu.js` and `game.js`

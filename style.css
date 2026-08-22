@@ -1319,12 +1319,16 @@ button {
   flex-direction: column;
 }
 
-/* Tutorial section message (below video). Fixed height for three lines, so a
-   longer line in one language does not shuffle the dots and button as the
-   carousel scrolls. */
+/* Tutorial section message (below video).
+
+   No fixed height. It used to reserve three lines so that a longer line in one
+   language could not shuffle the dots and button as the carousel scrolls — but
+   the sections are flex items in a row, so they already stretch to the tallest
+   of them and the dots already could not move. The reservation only ever added
+   dead space: the longest English card is two lines, leaving 40px of nothing
+   under the one-line cards and 16px under the rest. */
 .tutorial-section-message {
-  padding: 8px 20px 16px 20px;
-  min-height: 88px;
+  padding: 8px 20px;
   text-align: center;
   font-size: 16px;
   line-height: 1.5;
@@ -1336,14 +1340,18 @@ button {
   margin: 0;
 }
 
-/* Paging dots container (fixed below scroll container) */
+/* Paging dots container (fixed below scroll container).
+
+   No vertical padding: each dot already carries 18px of its own to make a 44px
+   tap target, and that reads as space whether or not it is touchable. Stacking
+   more on the container put 42px between the copy and the dots. */
 .tutorial-paging-dots {
   position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 8px;
-  padding: 8px 20px;
+  padding: 0 20px;
 }
 
 /* Individual paging dot. 8px with an 8px gap, so the row reads as one group
