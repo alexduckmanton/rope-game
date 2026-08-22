@@ -85,7 +85,7 @@ export default {
 
   'tutorial.draw': 'Przeciągnij, aby narysować pętlę o dowolnym kształcie i rozmiarze.',
   'tutorial.erase': 'Dotknij, aby wymazać fragmenty pętli.',
-  'tutorial.numbers': 'Liczby maleją, gdy pętla skręca w ich ramce.',
+  'tutorial.numbers': 'Liczby maleją, gdy pętla skręca na sąsiednich polach.',
   'tutorial.win': 'Aby wygrać, narysuj pętlę i sprowadź każdą liczbę do zera.',
   'tutorial.next': 'Dalej',
   'tutorial.gotIt': 'Jasne',

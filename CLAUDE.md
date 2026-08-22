@@ -369,7 +369,7 @@ When an unvalidated hint displays zero, showing it in green doesn't create confu
 
 **Tutorial Visual Design:**
 
-The tutorial clips are recordings of the real game, so the hint numbers in them carry the magnitude-based gradient unchanged. Card 3 additionally records with Borders set to Full, which outlines each hint's 3x3 area in that same magnitude colour - so the boundary and the number it belongs to change colour together, and both turn green when the constraint is satisfied.
+The tutorial clips are recordings of the real game, so the hint numbers in them carry the magnitude-based gradient unchanged. Card 3 additionally records with Borders set to Full, which outlines each hint's 3x3 area in that same magnitude colour - so the boundary and the number it belongs to change colour together. Card 3 stops at 1 rather than 0, so neither ever goes green there; green is card 4's.
 
 -----
 
@@ -1238,16 +1238,16 @@ This menu is the **only** place the support link appears. It used to also sit as
 |---|---|---|
 | 1 | `Drawing loops` | Drag to draw a loop, any shape or size |
 | 2 | `Erasing` | Tap to erase parts of the loop |
-| 3 | `Counting bends` | Bends inside the box a number watches count it down; a bend outside it does not |
+| 3 | `Counting bends` | Bends inside the box a number watches count it down; bends outside it do not, and the loop closes on a 1 |
 | 4 | `Win condition` | A loop closes with one number still at 2 and nothing happens; fix it, both read zero, the loop goes green |
 
 Card 4 carries the near-miss rather than giving it a card of its own. A closed loop that fails its hints is Loopy's most common stuck state - it fires `validation_error` - and nothing else in the product explains it, but split across two cards the first ends on "nothing happened", which is a weak place to leave a viewer and a weak place to start one.
 
-Cards 1, 2 and 4 run on **one puzzle** and 3 on another, so three quarters of the tutorial is a single game developing rather than four unrelated boards. Card 3 needs a hint in the middle of the grid — the only way to show a bend that is plainly *outside* the area a number watches without it being off the grid.
+Cards 1, 2 and 4 run on **one puzzle** and 3 on another, so three quarters of the tutorial is a single game developing rather than four unrelated boards. Card 3 needs a hint away from the edges — the only way to show a bend that is plainly *outside* the area a number watches without it being off the grid.
 
 **Cards 1 and 2 show a bare grid.** The runner masks the two hint cells, which is not the same as planting a board with no hints: a board with no hints is one where every constraint is trivially satisfied, so a closed loop turns green two cards before green means anything. Keeping the hints and hiding the numbers keeps the loop black.
 
-**Card 3 is recorded with Borders set to Full**, the game's own setting, planted into `loop-game:settings` for that scene alone. The card's lesson is *which* squares a number watches, so the boundary has to be visible, and `drawHintBorders()` already outlines each hint's 3x3 area in the hint's own colour - so the outline turns green with the number it belongs to, and the card ends on a green box round a green 0 with the one bend that fell outside it plainly outside it. An earlier cut drew a pulsing blue rectangle behind the canvas instead, copied from `renderHintPulse()` in `renderer.js` (which draws exactly that and **has no callers**); that made card 3 the one place a clip showed something a player could never see on their own board. `settingsFor()` in the runner is the only door for this and rejects any key that is not already a capture default.
+**Card 3 is recorded with Borders set to Full**, the game's own setting, planted into `loop-game:settings` for that scene alone. The card's lesson is *which* squares a number watches, so the boundary has to be visible, and `drawHintBorders()` already outlines each hint's 3x3 area in the hint's own colour - so the outline and the number always agree. The card's loop bends four times: twice inside the box, walking the number 3 to 2 to 1, and twice outside it, changing nothing — including the bend that closes the loop. **It deliberately stops at 1.** Zero is green and green means solved, which is card 4's job; a card 3 that finished on zero would show a closed loop being rejected and a satisfied hint in the same frame, which is two lessons fighting. An earlier cut drew a pulsing blue rectangle behind the canvas instead, copied from `renderHintPulse()` in `renderer.js` (which draws exactly that and **has no callers**); that made card 3 the one place a clip showed something a player could never see on their own board. `settingsFor()` in the runner is the only door for this and rejects any key that is not already a capture default.
 
 **Video-Based Content:**
 - Four clips, recorded by playing the real game - see `docs/recording-tutorial-videos.md`. Never author or hand-edit one; re-record instead

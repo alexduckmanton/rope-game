@@ -72,7 +72,7 @@ export default {
 
   'tutorial.draw': 'Ziehe, um eine Schleife beliebiger Form und Größe zu zeichnen.',
   'tutorial.erase': 'Tippe, um Teile deiner Schleife zu löschen.',
-  'tutorial.numbers': 'Zahlen zählen herunter, wenn deine Schleife in ihrem Kasten abbiegt.',
+  'tutorial.numbers': 'Zahlen zählen herunter, wenn deine Schleife in den Feldern daneben abbiegt.',
   'tutorial.win': 'Zum Gewinnen: zeichne eine Schleife und bring jede Zahl auf null.',
   'tutorial.next': 'Weiter',
   'tutorial.gotIt': 'Verstanden',

@@ -46,11 +46,12 @@
  * Two rules every stroke keeps, both for legibility rather than legality:
  *
  * 1. **Never draw over a hint cell.** The path is drawn after the numbers, so a
- *    number under it is unreadable — and on cards 4 and 5 the number turning
- *    green is the entire lesson.
- * 2. **Never zero a hint on a card that has not introduced them.** Zero renders
- *    green, which on cards 1 and 2 reads as a reward for something the viewer
- *    was not asked to do.
+ *    number under it is unreadable — and on cards 3 and 4 what the number is
+ *    doing is the entire lesson.
+ * 2. **Green belongs to card 4 alone.** Zero renders green and green reads as
+ *    solved, so no earlier card may take a hint to zero: on cards 1 and 2 it
+ *    would reward something the viewer was not asked to do, and on card 3 it
+ *    would answer the question card 4 is there to ask.
  *
  * `expect` is asserted against the live game after the scene plays. `won` is the
  * only state the DOM exposes, and it is what proves the last card really reaches
@@ -58,14 +59,20 @@
  */
 
 /**
- * A real Easy daily puzzle with a single hint at (1,1) reading 3.
+ * A real Easy daily puzzle with a single hint at (2,1) reading 3.
  *
- * Its 3x3 area is rows 0-2 x cols 0-2, so the grid holds both kinds of cell:
- * bends the number watches and bends it does not. Card 3 needs both, and a
- * central hint is the only way to have a bend that is plainly *outside* the area
- * without being off the grid.
+ * Its 3x3 area is rows 1-3 x cols 0-2, which holds both kinds of cell: bends
+ * the number watches and bends it does not. Card 3 needs both, and the hint
+ * cell itself has to stay off the loop, or the path would cover the number the
+ * whole card is about.
+ *
+ * The 3 is not a free choice. Card 3's loop (CARD_THREE_LOOP) has four bends,
+ * one near each corner of the grid, and no 3x3 window can reach more than two
+ * of them — so the number can only ever be walked down by two. Ending on 1,
+ * which is the point, therefore means starting on 3. Any board whose hint here
+ * reads something else changes where the card finishes.
  */
-const SEED_ONE_HINT = 202602050;
+const SEED_ONE_HINT = 202602210;
 
 /**
  * A real Easy daily puzzle with hints in opposite corners, (3,0) and (0,3),
@@ -88,6 +95,28 @@ const SEED_TWO_HINTS = 202603020;
 const FREEHAND_LOOP = [
   [0, 0], [1, 0], [1, 1], [2, 1], [3, 1], [3, 2],
   [2, 2], [1, 2], [0, 2], [0, 1], [0, 0],
+];
+
+/**
+ * Card 3's loop: bottom-right, all the way left, up two, all the way right,
+ * down to close.
+ *
+ * A plain rectangle over rows 1-3, and every part of it is doing work for the
+ * hint at (2,1):
+ *
+ *   - it bends at (3,0) and (1,0), both inside the hint's area, which is what
+ *     walks the number 3 -> 2 -> 1;
+ *   - it bends at (1,3) and (3,3), both outside it, which is the contrast the
+ *     card exists for — the loop keeps bending and the number stops moving;
+ *   - it never enters (2,1), so the number is legible throughout;
+ *   - and it *closes*, on a number still reading 1, so nothing turns green.
+ *
+ * That last part previews card 4 rather than stealing it: card 3 shows a closed
+ * loop is not automatically a solved one, card 4 shows what to do about it.
+ */
+const CARD_THREE_LOOP = [
+  [3, 3], [3, 2], [3, 1], [3, 0], [2, 0], [1, 0],
+  [1, 1], [1, 2], [1, 3], [2, 3], [3, 3],
 ];
 
 /**
@@ -165,18 +194,19 @@ export const SCENES = [
     // player would ever see on their own board. A real setting is strictly
     // better, and it is one tap away in the settings sheet if they want it.
     settings: { borderMode: 'full' },
-    // Two strokes, and the first one is still doing work. It bends at (3,0),
-    // outside the border, and the number does not move; the second bends
-    // three times inside it and walks the number down 3, 2, 1, 0.
+    // Two strokes, split where the number stops moving. The first bends once
+    // inside the box (3 -> 2); the second bends inside it once more (2 -> 1)
+    // and then twice outside it, closing the loop without shifting the number
+    // again. The pause between them is what makes the first drop readable.
     steps: [
       { type: 'mark', name: 'start' },
-      { type: 'draw', cells: [[3, 3], [3, 2], [3, 1], [3, 0], [2, 0]], pauseAfter: 700 },
-      { type: 'draw', cells: [[2, 0], [2, 1], [2, 2], [1, 2], [0, 2], [0, 1]] },
+      { type: 'draw', cells: CARD_THREE_LOOP.slice(0, 5), pauseAfter: 700 },
+      { type: 'draw', cells: CARD_THREE_LOOP.slice(4) },
       { type: 'wait', ms: 1200 },
       { type: 'mark', name: 'end' },
     ],
     trim: { from: 'start', to: 'end' },
-    // An open path, so nothing wins however many numbers reach zero
+    // The loop closes, but on a hint reading 1 — so no win, and no green
     expect: { cells: 10, won: false },
   },
 

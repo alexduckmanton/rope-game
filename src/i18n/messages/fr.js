@@ -75,7 +75,7 @@ export default {
 
   'tutorial.draw': 'Faites glisser pour tracer une boucle de n’importe quelle forme ou taille.',
   'tutorial.erase': 'Touchez pour effacer des parties de votre boucle.',
-  'tutorial.numbers': 'Les nombres diminuent quand votre boucle tourne dans leur cadre.',
+  'tutorial.numbers': 'Les nombres diminuent quand votre boucle tourne dans les cases voisines.',
   'tutorial.win': 'Pour gagner, tracez une boucle et mettez tous les nombres à zéro.',
   'tutorial.next': 'Suivant',
   'tutorial.gotIt': 'J’ai compris',

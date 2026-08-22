@@ -75,7 +75,7 @@ export default {
 
   'tutorial.draw': 'Arraste para desenhar um laço de qualquer forma ou tamanho.',
   'tutorial.erase': 'Toque para apagar partes do seu laço.',
-  'tutorial.numbers': 'Os números diminuem quando seu laço faz uma curva dentro da moldura deles.',
+  'tutorial.numbers': 'Os números diminuem quando seu laço faz uma curva nas casas próximas.',
   'tutorial.win': 'Para vencer, desenhe um laço e zere todos os números.',
   'tutorial.next': 'Próximo',
   'tutorial.gotIt': 'Entendi',

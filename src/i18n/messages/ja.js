@@ -78,7 +78,7 @@ export default {
 
   'tutorial.draw': 'ドラッグして、好きな形と大きさのループを描きましょう。',
   'tutorial.erase': 'タップするとループの一部を消せます。',
-  'tutorial.numbers': '数字の枠の中で線が曲がると、その数字が減ります。',
+  'tutorial.numbers': '近くのマスで線が曲がると、その数字が減ります。',
   'tutorial.win': 'ループを描いて、すべての数字を0にすればクリアです。',
   'tutorial.next': '次へ',
   'tutorial.gotIt': 'わかった',

@@ -110,9 +110,15 @@ Card 3's lesson is *which* squares a number watches, so the boundary has to be
 visible; with no marker the clip can only imply it by contrast and hope the
 viewer infers it. `drawHintBorders()` in `renderer.js` outlines each hint's 3x3
 area in the hint's own colour, which does the job better than an annotation
-could: the outline is already tied to the number, and it turns green with it
-when the constraint is satisfied. The last frame of the card is a green box
-around a green 0, with the one bend that fell outside it plainly outside it.
+could: the outline is already tied to the number, so the two can never disagree
+about which squares are being talked about.
+
+The card's loop bends four times, twice inside the box and twice outside it, and
+**stops on 1**. Both halves of that are deliberate. The two bends outside are the
+contrast the card is for — the loop visibly keeps bending while the number sits
+still. And stopping short of zero keeps green out of card 3 entirely: zero is
+green, green reads as solved, and a card that closed a loop *and* satisfied its
+hint would be running card 4's lesson a card early.
 
 **An earlier cut drew a pulsing blue rectangle behind the canvas instead**,
 copied from `renderHintPulse()` in `renderer.js` — a function that draws exactly
