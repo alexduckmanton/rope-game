@@ -27,13 +27,15 @@
  * recorded without one. That beat is also what makes the poster — always the
  * first frame — a readable starting position rather than something mid-stroke.
  *
- * Two scenes carry a presentational overlay, and both are the runner's doing
- * rather than the game's:
+ * Two scenes reach outside their own steps, and the two are not the same kind
+ * of thing:
  *
- *   highlight  — the 3x3 area a hint watches, drawn behind the canvas. Nothing
- *                in the shipped game draws it. See the comment on card 3.
- *   maskCells  — covers a cell so its number does not show. Cards 1 and 2 use
- *                it to clear the board of numbers nobody has explained yet.
+ *   settings   — overrides on the planted `loop-game:settings`. A real setting
+ *                a player can switch on, so the clip is still the shipped game.
+ *                Card 3 turns Borders to Full for exactly one reason: see it.
+ *   maskCells  — a runner overlay that covers a cell so its number does not
+ *                show. Cards 1 and 2 use it to clear the board of numbers
+ *                nobody has explained yet. Nothing in the game does this.
  *
  * `maskCells` is not the same as planting a board with no hints, and the
  * difference matters: a board with no hints is one where every constraint is
@@ -151,15 +153,20 @@ export const SCENES = [
     section: 'Counting bends',
     captionKey: 'tutorial.numbers',
     seed: SEED_ONE_HINT,
-    // The only scene with an annotation: the 3x3 area the number watches, drawn
-    // by the runner because the game itself does not. `renderHintPulse()` in
-    // `renderer.js` draws exactly this and has no callers, so the highlight is
-    // a tutorial overlay rather than something a player will see on their own
-    // board. It is what makes the lesson legible: without it the card can only
-    // teach the neighbourhood by contrast and hope the viewer infers the edge.
-    highlight: { row: 1, col: 1 },
+    // The only scene that changes a setting, and the card is unteachable
+    // without it: "the squares around a number" has to be visible before a
+    // bend can be shown landing inside or outside it.
+    //
+    // Borders: Full is the game's own answer to that — `drawHintBorders()`
+    // outlines each hint's 3x3 area in the hint's own colour, so the boundary
+    // turns green with the number it belongs to. An earlier cut drew a pulsing
+    // blue rectangle behind the canvas instead, copied from `renderHintPulse()`
+    // in `renderer.js`, which has no callers: that put a thing on the card no
+    // player would ever see on their own board. A real setting is strictly
+    // better, and it is one tap away in the settings sheet if they want it.
+    settings: { borderMode: 'full' },
     // Two strokes, and the first one is still doing work. It bends at (3,0),
-    // outside the highlight, and the number does not move; the second bends
+    // outside the border, and the number does not move; the second bends
     // three times inside it and walks the number down 3, 2, 1, 0.
     steps: [
       { type: 'mark', name: 'start' },

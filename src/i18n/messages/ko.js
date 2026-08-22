@@ -81,8 +81,8 @@ export default {
 
   'tutorial.draw': '드래그해서 원하는 모양과 크기의 고리를 그려 보세요.',
   'tutorial.erase': '탭하면 고리의 일부를 지울 수 있어요.',
-  'tutorial.numbers': '숫자 칸과 그 주변에서 선이 꺾일 때마다 그 숫자가 줄어듭니다.',
-  'tutorial.win': '모든 숫자가 0이 되는 고리를 그리면 성공이에요.',
+  'tutorial.numbers': '숫자의 테두리 안에서 선이 꺾이면 그 숫자가 줄어듭니다.',
+  'tutorial.win': '고리를 그려서 모든 숫자를 0으로 만들면 성공이에요.',
   'tutorial.next': '다음',
   'tutorial.gotIt': '알겠어요',
   'tutorial.replay': '다시 재생',

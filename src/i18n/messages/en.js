@@ -99,9 +99,8 @@ export default {
   // Tutorial carousel
   'tutorial.draw': 'Drag to draw a loop of any shape or size.',
   'tutorial.erase': 'Tap to erase parts of your loop.',
-  'tutorial.numbers':
-    'Whenever your path bends in the squares on or around a number, the number counts down.',
-  'tutorial.win': 'Draw a loop that makes every number zero to win.',
+  'tutorial.numbers': 'Numbers count down as your loop bends inside their box.',
+  'tutorial.win': 'To win, draw a loop and make every number zero.',
   'tutorial.next': 'Next',
   'tutorial.gotIt': 'Got it',
   'tutorial.replay': 'Replay',

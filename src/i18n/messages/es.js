@@ -72,9 +72,8 @@ export default {
 
   'tutorial.draw': 'Arrastra para dibujar un bucle de cualquier forma o tamaño.',
   'tutorial.erase': 'Toca para borrar partes de tu bucle.',
-  'tutorial.numbers':
-    'Cada vez que tu camino gira en las casillas sobre un número o a su alrededor, ese número baja.',
-  'tutorial.win': 'Dibuja un bucle que deje todos los números a cero para ganar.',
+  'tutorial.numbers': 'Los números bajan cuando tu bucle gira dentro de su recuadro.',
+  'tutorial.win': 'Para ganar, dibuja un bucle y deja todos los números a cero.',
   'tutorial.next': 'Siguiente',
   'tutorial.gotIt': 'Entendido',
   'tutorial.replay': 'Repetir',

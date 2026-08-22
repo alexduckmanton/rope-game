@@ -80,8 +80,8 @@ export default {
 
   'tutorial.draw': '拖动即可画出任意形状和大小的环线。',
   'tutorial.erase': '点击可以擦掉环线的一部分。',
-  'tutorial.numbers': '每当你的线在某个数字所在的格子或它周围转弯时，那个数字就会减少。',
-  'tutorial.win': '画出一条让所有数字都归零的环线就算通关。',
+  'tutorial.numbers': '当你的环线在数字的方框里转弯时，那个数字就会减少。',
+  'tutorial.win': '画一条环线，让所有数字归零就算通关。',
   'tutorial.next': '下一步',
   'tutorial.gotIt': '知道了',
   'tutorial.replay': '重新播放',

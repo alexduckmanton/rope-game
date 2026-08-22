@@ -369,7 +369,7 @@ When an unvalidated hint displays zero, showing it in green doesn't create confu
 
 **Tutorial Visual Design:**
 
-In tutorial pages, hint numbers use the magnitude-based gradient for educational clarity, while pulsing backgrounds use a uniform blue color (matching the primary button color). This design separates the information hierarchy: numbers communicate difficulty through color variation, while the pulsing animation provides a consistent, non-distracting spatial indicator. Validated hints display green in both cases, creating immediate positive feedback when constraints are satisfied.
+The tutorial clips are recordings of the real game, so the hint numbers in them carry the magnitude-based gradient unchanged. Card 3 additionally records with Borders set to Full, which outlines each hint's 3x3 area in that same magnitude colour - so the boundary and the number it belongs to change colour together, and both turn green when the constraint is satisfied.
 
 -----
 
@@ -395,7 +395,7 @@ rope-game/
 ├── public/
 │   ├── _redirects         # SPA routing for Netlify (serves index.html for all routes)
 │   ├── streak-flame.webp  # Animated Fluent fire emoji for the streak lines (75KB)
-│   └── videos/            # Tutorial clips, <scene>-<theme>.{mp4,webm,webp} (2.0MB, generated)
+│   └── videos/            # Tutorial clips, <scene>-<theme>.{mp4,webm,webp} (1.7MB, generated)
 ├── src/
 │   ├── main.js            # App entry point, initializes router and icons
 │   ├── router.js          # Client-side routing with History API
@@ -1238,7 +1238,7 @@ This menu is the **only** place the support link appears. It used to also sit as
 |---|---|---|
 | 1 | `Drawing loops` | Drag to draw a loop, any shape or size |
 | 2 | `Erasing` | Tap to erase parts of the loop |
-| 3 | `Counting bends` | Bends in the squares on or around a number count it down |
+| 3 | `Counting bends` | Bends inside the box a number watches count it down; a bend outside it does not |
 | 4 | `Win condition` | A loop closes with one number still at 2 and nothing happens; fix it, both read zero, the loop goes green |
 
 Card 4 carries the near-miss rather than giving it a card of its own. A closed loop that fails its hints is Loopy's most common stuck state - it fires `validation_error` - and nothing else in the product explains it, but split across two cards the first ends on "nothing happened", which is a weak place to leave a viewer and a weak place to start one.
@@ -1247,7 +1247,7 @@ Cards 1, 2 and 4 run on **one puzzle** and 3 on another, so three quarters of th
 
 **Cards 1 and 2 show a bare grid.** The runner masks the two hint cells, which is not the same as planting a board with no hints: a board with no hints is one where every constraint is trivially satisfied, so a closed loop turns green two cards before green means anything. Keeping the hints and hiding the numbers keeps the loop black.
 
-**Card 3 carries the tutorial's one annotation.** The runner draws the 3x3 area the hint watches as a pulsing tint behind the canvas, because nothing in the shipped game draws it: `renderHintPulse()` in `renderer.js` draws exactly that and **has no callers** - it was dropped from the render at some point, and the pre-2026 clips, which still showed it, were the last place it appeared. That makes card 3 the one place a clip shows something a player will not see on their own board, and it is there because the card is unteachable without it. Restoring the pulse to the game would let the annotation go and the card get shorter.
+**Card 3 is recorded with Borders set to Full**, the game's own setting, planted into `loop-game:settings` for that scene alone. The card's lesson is *which* squares a number watches, so the boundary has to be visible, and `drawHintBorders()` already outlines each hint's 3x3 area in the hint's own colour - so the outline turns green with the number it belongs to, and the card ends on a green box round a green 0 with the one bend that fell outside it plainly outside it. An earlier cut drew a pulsing blue rectangle behind the canvas instead, copied from `renderHintPulse()` in `renderer.js` (which draws exactly that and **has no callers**); that made card 3 the one place a clip showed something a player could never see on their own board. `settingsFor()` in the runner is the only door for this and rejects any key that is not already a capture default.
 
 **Video-Based Content:**
 - Four clips, recorded by playing the real game - see `docs/recording-tutorial-videos.md`. Never author or hand-edit one; re-record instead
@@ -1256,7 +1256,8 @@ Cards 1, 2 and 4 run on **one puzzle** and 3 on another, so three quarters of th
 - A **progress bar** along the bottom edge of the clip and a **replay button** at the right of the dots row. A clip that stops has to say so, or a viewer waits for a loop that is never coming
 - The **poster is the clip's own first frame** (a webp), so the still and the start of playback are the same picture. This replaced a shimmering skeleton loader that cut hard to frame 1
 - A **light border** on the container. The clips are a white board cropped to its own edges, so on a white sheet they would otherwise float with no boundary; the border uses the same token as the game's grid lines
-- **The mp4 is listed before the webm**, which is the reverse of the usual order. On line art this flat x264 generally beats VP9, so mp4-first hands most browsers the smaller file; the exception is card 3, whose pulsing annotation is a large soft gradient that plays to VP9's strengths. The webm stays because a Chromium built without proprietary codecs cannot decode h.264 at all, and needs something to fall through to. Total 2.0MB for eight clips in two formats plus eight posters — but only the visible clip and the next are ever fetched, so swiping the whole tutorial costs about 465KB. Deployed once at the domain root, since locale builds reference `/videos/` absolutely rather than copying it twelve times
+- **The mp4 is listed before the webm**, which is the reverse of the usual order. On line art this flat x264 beats VP9 on every clip, so mp4-first hands most browsers the smaller file. The webm stays because a Chromium built without proprietary codecs cannot decode h.264 at all, and needs something to fall through to
+- **Captured at 1200px** — 3x the game's own 400px canvas, which is what a 3x phone renders at the width the sheet caps the clip to. The capture scale is a frame-rate setting as much as a resolution one and used to be pinned at 2 by it; recording in slow motion is what lifted the ceiling. See the recording doc. Total 1.7MB for eight clips in two formats plus eight posters, but only the visible clip and the next are ever fetched, so swiping the whole tutorial in one theme costs about 390KB. Deployed once at the domain root, since locale builds reference `/videos/` absolutely rather than copying it twelve times
 
 **Technical Implementation:**
 
@@ -1272,7 +1273,7 @@ Cards 1, 2 and 4 run on **one puzzle** and 3 on another, so three quarters of th
 - Video element reuse - no DOM thrashing on section changes
 - Sections scrolled out of view **pause and rewind**, so swiping back never lands on a finished clip's last frame
 
-**Layout:** the clip is square and its width therefore sets the sheet's height, so it is capped at `min(100% - 40px, 88vh - 300px, 400px)`. Without the `88vh` term the sheet is the entire screen on a short phone (it measured 640px of a 640px viewport), leaving no backdrop to tap. The 400px is the game's own canvas size and also the point past which the clip starts upscaling: it is captured at 1000px, and the capture's frame rate caps that (see the recording doc). `showCloseIcon` is set for the same reason as the height cap - on a small screen "Next" four times was otherwise the only way out.
+**Layout:** the clip is square and its width therefore sets the sheet's height, so it is capped at `min(100% - 40px, 88vh - 300px, 400px)`. Without the `88vh` term the sheet is the entire screen on a short phone (it measured 640px of a 640px viewport), leaving no backdrop to tap. The 400px is the game's own canvas size, and the clips are captured at 1200px so a 3x screen renders that cap without upscaling. `showCloseIcon` is set for the same reason as the height cap - on a small screen "Next" four times was otherwise the only way out.
 
 **Integration Points:**
 - Accessible via `showTutorialSheet()` from `home.js`, `homeMenu.js` and `game.js`

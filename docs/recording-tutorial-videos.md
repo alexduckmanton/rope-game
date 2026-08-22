@@ -27,7 +27,8 @@ grid lines dates every one of them. That is not hypothetical: the clips this
 pipeline replaced were recorded by hand at three different resolutions, and the
 oldest of them still showed a pulsing 3x3 highlight behind each hint that the
 game stopped rendering long ago. `renderHintPulse()` is still exported from
-`renderer.js` and has no callers.
+`renderer.js` and has no callers, which is why card 3 shows the hint's area with
+the game's own Borders setting instead.
 
 ---
 
@@ -84,12 +85,15 @@ backstop is each scene's `expect.won`, asserted against the live game after the
 scene plays: it is the only game state the DOM exposes, and it is what proves
 the last card really reaches the win rather than stopping a square short.
 
-### The two overlays
+### The mask, and the one setting override
 
-Two scenes carry something the runner draws rather than the game.
+Two scenes reach outside their own steps. They are not the same kind of thing,
+and the difference is the rule: **one is a runner overlay, the other is a
+setting a player can switch on themselves.**
 
-**`maskCells`, on cards 1 and 2.** Covers a cell so its hint number does not
-show, leaving a bare grid for the cards that are only about the gesture.
+**`maskCells`, on cards 1 and 2** — a runner overlay. Covers a cell so its hint
+number does not show, leaving a bare grid for the cards that are only about the
+gesture.
 
 This is not the same as planting a board with no hints, and the difference is
 not cosmetic: a board with no hints is a board where every constraint is
@@ -99,28 +103,27 @@ hints and hiding the numbers keeps the loop black, which is what a real board
 does. The masks are inset two pixels so the cell's own grid lines survive, and
 only ever go on cells the scene's strokes never enter.
 
-**`highlight`, on card 3.** The runner draws the 3x3 area the hint watches, as a
-pulsing tint behind the canvas.
+**`settings: { borderMode: 'full' }`, on card 3** — the game's own Borders
+setting, planted into `loop-game:settings` before the page loads.
 
-Nothing in the shipped game draws this either. `renderHintPulse()` in `renderer.js`
-draws exactly it and has no callers — it was dropped from the render at some
-point, and the hand-recorded clips this pipeline replaced, which still showed
-it, were the last place it appeared. So this is a tutorial annotation, and the
-one place a clip shows something a player will not see on their own board.
+Card 3's lesson is *which* squares a number watches, so the boundary has to be
+visible; with no marker the clip can only imply it by contrast and hope the
+viewer infers it. `drawHintBorders()` in `renderer.js` outlines each hint's 3x3
+area in the hint's own colour, which does the job better than an annotation
+could: the outline is already tied to the number, and it turns green with it
+when the constraint is satisfied. The last frame of the card is a green box
+around a green 0, with the one bend that fell outside it plainly outside it.
 
-It is there because the card is unteachable without it: the lesson is *which*
-squares a number watches, and with no marker the clip can only imply the
-boundary by contrast and hope the viewer infers it.
+**An earlier cut drew a pulsing blue rectangle behind the canvas instead**,
+copied from `renderHintPulse()` in `renderer.js` — a function that draws exactly
+that and has no callers, having been dropped from the render at some point. That
+made card 3 the one place a clip showed something a player could never see on
+their own board. A real setting has none of that problem and is one tap away in
+the settings sheet.
 
-It goes *behind* the canvas rather than over it. `clearCanvas()` uses
-`clearRect`, so the canvas is genuinely transparent and its white comes from
-CSS; the runner moves that background to the container and slots the tint
-between the two. Grid lines, numbers and the path all stay on top, which is
-where `renderHintPulse()` put them. The colour, the 20% peak and the 2s cycle
-are copied from that function.
-
-If the pulse is ever restored to the game, delete the annotation and the scene
-gets shorter and clearer for free.
+`settingsFor()` in the runner merges the override over `CAPTURE_DEFAULTS` and
+throws on a key that is not already a default, so a scene cannot invent a
+setting or silently depend on one being removed.
 
 ### Trim marks and the cursor
 
@@ -181,9 +184,19 @@ The first row is what shipped in the first pass of this pipeline: the path
 advanced twenty times a second inside a 60fps clip. Nothing in the capture or
 the encode was wrong — the page genuinely only moved twenty times.
 
-**Fix:** issue the moves back to back and let their own cost do the pacing.
-`STEPS_PER_CELL` then sets the speed as well as the smoothness: 16 samples at
-~16.3ms is ~260ms per cell.
+**Fix:** issue the moves back to back, with no sleep between them.
+
+**Do not then let their cost set the pace**, which is what the first version of
+this fix did. A move's cost is a frame's cost, and a frame's cost depends on the
+capture scale, so a stroke built from a fixed number of moves runs at whatever
+speed the renderer happens to be managing: raising `DEVICE_SCALE` from 2 to 3
+stretched scene 1 from 5.6s to 8.3s, the same gesture half again as slow, for a
+reason nothing in the scene mentioned.
+
+`glide()` instead interpolates along the paced track against elapsed real time
+and emits as many moves as fit in it. **Pacing is a property of the scene
+(`CELL_MS`), sample density a property of the machine** — which is the right way
+round, and means the clips come out the same length on a laptop as they do here.
 
 The same reasoning killed the old per-sample `page.evaluate` that positioned the
 cursor. The cursor now follows `pointermove` inside the page, which costs
@@ -204,7 +217,7 @@ headroom and every one of them is wrong:
 | blank page, screencast, scale 2.5 | 60.5fps |
 | game page, screencast, scale 2.5 | 53.3fps, 22 frames over 30ms |
 | game page, screencast, scale 2.25 | 59.3fps, 3 frames over 30ms |
-| **game page, screencast, scale 2** | **60.4fps, 0 frames over 30ms** |
+| game page, screencast, scale 2 | 60.4fps, 0 frames over 30ms |
 
 **Measure it as the page's own rAF cadence while a stroke is being drawn.** An
 idle board holds 58.7fps even at scale 3.5, and a blank page holds 60 at 2.5;
@@ -212,13 +225,32 @@ only the two together reproduce it. It also gets worse as a stroke goes on,
 because a longer path costs more to render — which is why the first pass of this
 pipeline looked fine at the start of every clip and fell apart towards the end.
 
-So the clip is 800px from a 400px canvas, and any more sharpness has to come from
-the bitrate. There is no need for more anyway: `--force-device-scale-factor`
-makes the game's own canvas back itself at the same ratio, so a 400 CSS-px canvas
-is genuinely 800 sharp pixels against the 400px the sheet caps its render at.
+**That table set the ceiling at 2, and slow motion moved it.** It has to be
+re-read once trap 4's fix is in place, because the two interact: one 60Hz tick
+of *finished clip* is `SLOWDOWN` ticks of real capture, so the renderer may take
+three frames over a frame's work and still have a new frame ready for every tick
+of the output. What matters is no longer whether the capture holds 60fps, but
+whether the real gap between delivered frames stays under `SLOWDOWN × 16.7ms`.
+Measured on scene 1, in real time, at `SLOWDOWN` 3:
 
-`DEVICE_SCALE` can be overridden from the environment so the table above can be
-reproduced. That is what it is for, not a dial to turn up.
+| scale | median gap | p95 | mid-clip freezes | mp4 |
+|---|---|---|---|---|
+| 2 | 16.6ms | 19.1ms | 4 | 45KB |
+| 2.5 | 22.0ms | 25.5ms | 1 | 62KB |
+| **3** | **32.1ms** | **37.0ms** | **1** | **97KB** |
+
+32ms of real capture is 10.7ms of clip, comfortably inside a 16.7ms tick, so
+scale 3 resamples clean — and beats scale 2 on freeze count, because there is
+more captured motion between output frames to pick from. Above 3 the gap crosses
+the tick and the freezes come straight back.
+
+So the clip is **1200px from a 400px canvas**, which is what a 3x phone renders
+at the 400px the sheet caps its width to — `--force-device-scale-factor` makes
+the game's own canvas back itself at the same ratio, so those are real pixels
+rather than an upscale. 800px was visibly soft on anything above 2x.
+
+`DEVICE_SCALE` can be overridden from the environment so both tables can be
+reproduced.
 
 A Playwright context `deviceScaleFactor` does not work in its place: that only
 sharpens screenshots, and screencast keeps returning CSS-pixel frames.
@@ -285,8 +317,8 @@ wrong trade: the cursor visibly skips. Trading a freeze for a jump is not a fix.
 
 `#game-canvas` is in the DOM at its default 300x150 long before `setupCanvas()`
 gives it a size. `locator().waitFor()` resolves in that window, so anything
-measured straight afterwards — the crop rectangle, the cell size the hint-area
-annotation is positioned from — is computed against the wrong geometry. The
+measured straight afterwards — the crop rectangle, the cell size the masks are
+positioned from — is computed against the wrong geometry. The
 runner waits for `canvas.style.width` to be set instead.
 
 ### 6. Cropping wider than the canvas puts a card inside a card
@@ -351,20 +383,25 @@ Then decode one row of pixels per output frame, find the bar's leading edge, and
 histogram the differences. A healthy run is a single step value (plus its
 neighbour, from rounding) and no zeros.
 
-**What the runner prints per clip** — `5.6s, 542 frames, 16.6ms median gap,
-19.2ms p95`:
+**What the runner prints per clip** — `7.6s, 351 frames, 31.6ms median gap,
+36.9ms p95`:
 
-- *median gap* — the median interval between captured frames. It should sit near
-  16.7ms; under about 20ms means capture is keeping up.
-- *p95 gap* — and this is the one that catches a stutter. A hitch lasting a
-  handful of frames barely moves the median: at scale 3 the median rose to
-  22.3ms while the p95 went to 42.4ms, and it is the p95 that matches what the
-  clip looks like. Under about 20ms is healthy.
-- *frames* — captured frames kept after trimming. Expect roughly `SLOWDOWN`
-  times what the clip's own length would suggest; the resample discards the
-  surplus.
-- *duration* — clip length, which is ticks ÷ 60 by construction, after time has
-  been divided by `SLOWDOWN`.
+- *median gap* — the median interval between captured frames, **in real time,
+  not clip time**. The budget it has to fit inside is therefore
+  `SLOWDOWN × 16.7ms` — 50ms at the shipping settings — not 16.7ms. Anything
+  under about 40ms leaves headroom.
+- *p95 gap* — the one that catches a stutter, because a hitch lasting a handful
+  of frames barely moves the median. It wants to be under the same 50ms.
+- *frames* — captured frames kept after trimming. At scale 3 this lands close to
+  one per output tick; at a lower scale it is several times that and the
+  resample discards the surplus.
+- *duration* — clip length, ticks ÷ 60 by construction, after time has been
+  divided by `SLOWDOWN`. **It should not change when `DEVICE_SCALE` does.** If
+  it does, something has gone back to pacing a stroke by its sample count — see
+  trap 2.
+
+Both gap figures rise with `DEVICE_SCALE` and that is expected; what matters is
+the 50ms ceiling, not proximity to 16.7ms.
 
 Frames-per-second-of-clip is **not** a useful figure: screencast emits nothing
 while the page is still, and those stretches legitimately become one held frame.
@@ -448,16 +485,18 @@ content's apparent simplicity suggests.** An earlier pass shipped x264 crf 36 /
 VP9 crf 50, which measured small and looked mushy in the sheet. The shipping
 values are crf 26 and 36.
 
-They are also, now, the only lever on sharpness left: the capture scale is
-pinned at 2.5 by the frame rate (trap 3), so quality above that comes from the
-encode or nowhere.
+Resolution is the other half and it is no longer the binding one: slow motion
+lifted the capture scale to 3 (trap 3), so the source is 1200px and the CRFs are
+working on real detail rather than on an upscale. That costs bytes — roughly
+double what scale 2 produced — which is affordable because the sheet only ever
+fetches the visible clip and the next one.
 
 **The mp4 is listed first in the sheet, which is the reverse of the usual
 order.** On this content x264 generally beats VP9, so listing the mp4 first
-hands most browsers the smaller file. The exception is the card with the pulsing
-annotation, where the large smooth gradient plays to VP9's strengths and the
-webm comes out ahead — worth knowing if the clips ever gain more soft-edged
-content, because the ordering would stop being the right default.
+hands most browsers the smaller file. It was not always true: while card 3 drew
+its hint area as a large soft gradient, that one clip played to VP9's strengths
+and its webm came out ahead. Worth knowing if the clips ever gain soft-edged
+content again, because the ordering would stop being the right default.
 
 The webm is not dead weight, and dropping it was tried and reverted. **A
 Chromium built without proprietary codecs cannot decode H.264 at all** —
@@ -470,10 +509,16 @@ and again after it ends, so it has to match what pressing replay starts from —
 which is why the runner holds every scene on a settled board for `LEAD_IN_MS`
 before anything moves.
 
-The whole set is 2.0MB — four clips in two formats and four posters, in two
-themes. A player who opens the tutorial and swipes through it in one theme
-fetches about 465KB of that, because only the visible clip and the next one are
-ever loaded.
+The whole set is 1.7MB — four clips in two formats and four posters, in two
+themes. A player who swipes the whole tutorial in one theme fetches about 390KB
+of that (the mp4s plus the posters), and one who reads card 1 and closes fetches
+two clips, because `preload` is raised only for the visible section and the one
+after it.
+
+Worth noting that this is *smaller* than the 2.0MB the 800px set came to, at
+half again the resolution. The card that dominated the old total was card 3,
+whose full-frame pulsing gradient was expensive in a way line art is not; the
+Borders setting that replaced it costs a few thin rectangles.
 
 ---
 
@@ -485,12 +530,14 @@ can be followed rather than merely watched.
 - `SLOWDOWN` — how much slower everything is recorded than it plays back. See
   trap 4. Costs recording time and nothing else: a 9s card takes about 27s to
   shoot.
-- `STEPS_PER_CELL` — pointer samples per cell **of finished clip**; the real
-  count is this times `SLOWDOWN`. Each sample costs a frame (trap 2), so this
-  sets the speed as well as the smoothness. 16 gives ~260ms per cell —
-  deliberately slow. Loopy's whole input is one continuous drag, and a stroke
-  that crosses the grid in half a second reads as a line appearing rather than
-  as someone drawing it.
+- `CELL_MS` — how long the pointer spends crossing one cell, in finished-clip
+  time. 260ms, deliberately slow: Loopy's whole input is one continuous drag,
+  and a stroke that crosses the grid in half a second reads as a line appearing
+  rather than as someone drawing it. It is a duration rather than a sample
+  count on purpose — see trap 2. `APPROACH_MS` is the same idea for the cursor
+  travelling in to its first cell.
+- `TRACK_SAMPLES` — resolution of the paced position track `glide()` reads out
+  of. Not a pacing dial; 1200 is far finer than any machine can emit.
 - `LEAD_IN_MS` — every clip holds on its opening board before anything moves.
   The runner applies it at the `start` mark rather than each scene writing its
   own, so no scene can be recorded without one. It is also what makes the poster

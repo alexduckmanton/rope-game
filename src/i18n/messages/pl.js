@@ -85,9 +85,8 @@ export default {
 
   'tutorial.draw': 'Przeciągnij, aby narysować pętlę o dowolnym kształcie i rozmiarze.',
   'tutorial.erase': 'Dotknij, aby wymazać fragmenty pętli.',
-  'tutorial.numbers':
-    'Za każdym razem, gdy twoja linia skręca w polach na liczbie lub wokół niej, ta liczba maleje.',
-  'tutorial.win': 'Narysuj pętlę, która sprowadzi każdą liczbę do zera, aby wygrać.',
+  'tutorial.numbers': 'Liczby maleją, gdy pętla skręca w ich ramce.',
+  'tutorial.win': 'Aby wygrać, narysuj pętlę i sprowadź każdą liczbę do zera.',
   'tutorial.next': 'Dalej',
   'tutorial.gotIt': 'Jasne',
   'tutorial.replay': 'Odtwórz ponownie',

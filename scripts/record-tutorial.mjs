@@ -41,33 +41,44 @@ const BASE_URL = process.env.BASE_URL ?? 'http://localhost:5173';
  */
 const VIEWPORT = { width: 440, height: 560 };
 /**
- * A frame-rate setting, not a resolution one, and 2 is the ceiling.
+ * Capture scale. 3 gives a 1200px clip from the 400px canvas.
  *
- * The browser JPEG-encodes every screencast frame on the renderer, and that
- * work competes with the game's own canvas render for the same frame budget.
- * Neither is expensive alone — which is why every cheaper way of measuring this
- * says there is headroom, and every one of them is wrong:
+ * **This is a frame-rate setting as much as a resolution one**, and the reason
+ * is worth keeping: the browser JPEG-encodes every screencast frame on the
+ * renderer, and that work competes with the game's own canvas render for the
+ * same frame budget. Neither is expensive alone, so every cheap way of
+ * measuring it says there is headroom, and every one of them is wrong:
  *
  *   game page, no screencast, scale 2.5   60.3fps, 0 frames over 30ms
  *   blank page, screencast, scale 2.5     60.5fps
  *   game page, screencast, scale 2.5      53.3fps, 22 frames over 30ms
- *   game page, screencast, scale 2.25     59.3fps, 3 frames over 30ms
- *   **game page, screencast, scale 2**    **60.4fps, 0 frames over 30ms**
+ *   game page, screencast, scale 2         60.4fps, 0 frames over 30ms
  *
  * Measured as the page's own rAF cadence while a stroke is being drawn, which
  * is the only condition that reproduces it: an idle board is fine at 3.5.
  *
- * The dropped frames are what "stuttering" looks like — they land as 150-350ms
- * freezes in the encoded clip, one per cell towards the end of a long stroke,
- * because a longer path costs more to render and pushes the pair over budget.
+ * Those numbers set the ceiling at 2 while the scene was being played in real
+ * time, and 800px from a 400px canvas is soft on any phone above 2x. **Slow
+ * motion is what raised the ceiling**, and it does so by exactly the factor it
+ * slows by: one 60Hz tick of finished clip is SLOWDOWN ticks of real capture,
+ * so the renderer may take three frames over a frame's work and still deliver
+ * a new frame for every tick of the output. Measured on scene 1, in real time,
+ * under SLOWDOWN 3:
  *
- * So the clip is 800px from a 400px canvas, and any more sharpness has to come
- * from the bitrate. Forced at launch rather than set on the context —
- * screencast ignores the latter and keeps returning CSS-pixel frames. The env
- * override exists so the table above can be reproduced, not so the value can
- * be raised.
+ *   scale   median gap   p95    mid-clip freezes   mp4
+ *   2       16.6ms       19.1   4                  45KB
+ *   2.5     22.0ms       25.5   1                  62KB
+ *   **3**   **32.1ms**   37.0   **1**              97KB
+ *
+ * A 32ms real gap is 10.7ms of clip, still inside a 16.7ms tick, so scale 3
+ * resamples clean — and does *better* than scale 2 did on the freeze count,
+ * because there is more captured motion between output frames to choose from.
+ * Above 3 the gap crosses the tick and freezes come back.
+ *
+ * Forced at launch rather than set on the context — screencast ignores the
+ * latter and keeps returning CSS-pixel frames.
  */
-const DEVICE_SCALE = Number(process.env.DEVICE_SCALE ?? 2);
+const DEVICE_SCALE = Number(process.env.DEVICE_SCALE ?? 3);
 const FPS = 60;
 
 const THEMES = ['light', 'dark'];
@@ -108,18 +119,33 @@ const THEMES = ['light', 'dark'];
 const SLOWDOWN = Number(process.env.SLOWDOWN ?? 3);
 
 /**
- * Pointer samples per cell of finished clip.
+ * How long the pointer spends crossing one cell, in finished-clip time.
  *
- * `page.mouse.move` costs about 16.3ms on its own — it is bound to a frame —
- * so back-to-back moves land one per 60Hz tick. **Do not sleep between them.**
- * An earlier version paced the stroke with a timeout on top of that cost and
- * got 8 samples per cell at a 50ms gap: the path advanced 20 times a second,
- * which is exactly what "laggy" looked like.
+ * The stroke is paced by the clock, not by a sample count, and that is the
+ * whole point of the number. `page.mouse.move` is bound to a frame and costs
+ * whatever a frame currently costs — about 16ms at capture scale 2, about 48ms
+ * at scale 3 — so a stroke built from a fixed number of moves runs at whatever
+ * speed the renderer happens to be managing. Raising DEVICE_SCALE from 2 to 3
+ * that way stretched scene 1 from 5.6s to 8.3s: same gesture, half again as
+ * slow, for a reason nothing in the scene mentions.
  *
- * The real count is this times SLOWDOWN, which is where the extra motion the
- * resample draws on comes from.
+ * `glide()` therefore interpolates along the paced track against elapsed real
+ * time and emits as many moves as fit. Pacing is then a property of the scene
+ * and sample density a property of the machine, which is the right way round.
+ *
+ * **Do not sleep between the moves.** An earlier version paced the stroke with
+ * a timeout on top of the move's own cost and got 8 samples per cell at a 50ms
+ * gap: the path advanced 20 times a second, which is exactly what "laggy"
+ * looked like. Slow motion is what buys the density now — three times the real
+ * time per tick of clip means three times the samples land in it.
  */
-const STEPS_PER_CELL = 16;
+const CELL_MS = 260;
+
+/** Pointer samples the paced track is resolved at. Only ever read from. */
+const TRACK_SAMPLES = 1200;
+
+/** How long the cursor takes to travel in from below its first cell */
+const APPROACH_MS = 170;
 
 const STROKE_SETTLE_MS = 420;
 const LEAD_IN_MS = 900;
@@ -227,9 +253,9 @@ function initScript({ save, settings, slowdown }) {
          layout, not to a clip that will sit inside the sheet's rounded box —
          leaving them in puts a card inside a card.
 
-         The background moves to the container so the hint-area annotation can
-         sit behind the canvas: clearCanvas() uses clearRect, so the canvas is
-         genuinely transparent and the white is CSS. */
+         The background sits on the container rather than the canvas, so the
+         clip's ground does not depend on how the canvas clears itself:
+         clearCanvas() uses clearRect, which leaves it genuinely transparent. */
       #play-view .game-container .canvas-container {
         background-color: var(--color-bg-elevated);
       }
@@ -246,24 +272,6 @@ function initScript({ save, settings, slowdown }) {
          the board, not the app chrome around it, and the sheet would cover the
          green loop that card exists to show. */
       .bottom-sheet-overlay { display: none !important; }
-
-      /* The 3x3 area a number watches. Nothing in the shipped game draws this —
-         renderHintPulse() in renderer.js does exactly it and has no callers — so
-         this is a tutorial annotation, matched to what that function would have
-         drawn: the solution-path blue, 20% at the peak, on a 2s cycle. It sits
-         under the canvas rather than over it, so grid lines, numbers and path
-         all stay on top, which is where renderHintPulse() put them. */
-      #capture-hint-area {
-        position: absolute;
-        z-index: 1;
-        pointer-events: none;
-        background-color: var(--color-solution-path);
-        animation: capture-hint-pulse ${ms(2000)} ease-in-out infinite;
-      }
-      @keyframes capture-hint-pulse {
-        0%, 100% { opacity: 0; }
-        50% { opacity: .2; }
-      }
 
       /* Hides a hint number without removing the hint. Sits above the canvas
          and takes the canvas's own colour, so the cell reads as empty. */
@@ -381,24 +389,6 @@ function initScript({ save, settings, slowdown }) {
           cover.style.height = `${cell - 4}px`;
           container.appendChild(cover);
         }
-      },
-      /** Draw the 3x3 area a hint watches, behind the canvas */
-      highlight: ({ row, col, gridSize }) => {
-        const canvas = document.getElementById('game-canvas');
-        const container = canvas.parentElement;
-        const cell = canvas.getBoundingClientRect().width / gridSize;
-        const minRow = Math.max(0, row - 1);
-        const minCol = Math.max(0, col - 1);
-        const rows = Math.min(gridSize - 1, row + 1) - minRow + 1;
-        const cols = Math.min(gridSize - 1, col + 1) - minCol + 1;
-
-        const area = document.createElement('div');
-        area.id = 'capture-hint-area';
-        area.style.left = `${minCol * cell}px`;
-        area.style.top = `${minRow * cell}px`;
-        area.style.width = `${cols * cell}px`;
-        area.style.height = `${rows * cell}px`;
-        container.appendChild(area);
       },
     };
   };
@@ -535,7 +525,7 @@ function roundedPath(points, radius) {
  * change of pace is gradual rather than a gear change at the arc boundary.
  *
  * @param {Array<{x: number, y: number, corner: boolean}>} dense - From roundedPath
- * @param {number} count - How many pointer samples to emit
+ * @param {number} count - Track resolution; glide() reads positions out of it
  * @returns {Array<{x: number, y: number}>} Samples, first and last inclusive
  */
 function paceSamples(dense, count) {
@@ -576,14 +566,31 @@ function paceSamples(dense, count) {
 }
 
 /**
- * Move the real pointer through a list of samples, one per frame.
+ * Move the real pointer along a paced track, over a fixed span of clip time.
  *
- * No sleep: `page.mouse.move` already costs about a frame, so back-to-back
- * calls land at 60Hz. Adding a timeout on top is what made an earlier version
- * advance the path 20 times a second. See STEPS_PER_CELL.
+ * Position comes from the clock rather than from the loop counter, so the
+ * gesture takes exactly as long as the scene asked for however fast or slow
+ * `page.mouse.move` is returning. See CELL_MS.
+ *
+ * No sleep: the move already costs a frame, and every one of them is a sample
+ * the resample can draw on. The loop simply issues them as fast as it can and
+ * lets the clock decide where each one lands.
+ *
+ * @param {import('playwright').Page} page
+ * @param {Array<{x: number, y: number}>} track - From paceSamples
+ * @param {number} clipMs - Duration in finished-clip milliseconds
  */
-async function glide(page, samples) {
-  for (const point of samples) await page.mouse.move(point.x, point.y);
+async function glide(page, track, clipMs) {
+  const realMs = clipMs * SLOWDOWN;
+  const started = performance.now();
+  for (;;) {
+    const progress = (performance.now() - started) / realMs;
+    if (progress >= 1) break;
+    const point = track[Math.min(track.length - 1, Math.floor(progress * track.length))];
+    await page.mouse.move(point.x, point.y);
+  }
+  const end = track[track.length - 1];
+  await page.mouse.move(end.x, end.y);
 }
 
 const capture = (page, method, arg) =>
@@ -594,7 +601,7 @@ async function approach(page, target) {
   await page.mouse.move(target.x, target.y + 56);
   await capture(page, 'show', true);
   const dense = roundedPath([{ x: target.x, y: target.y + 56 }, target], 0);
-  await glide(page, paceSamples(dense, 10 * SLOWDOWN));
+  await glide(page, paceSamples(dense, TRACK_SAMPLES), APPROACH_MS);
 }
 
 /** Fade the cursor out and wait for the fade to finish painting */
@@ -613,7 +620,7 @@ async function drawStroke(page, centre, cells, drift) {
   await hold(page, 120);
 
   const dense = roundedPath(points, centre.cellSize * CORNER_RADIUS);
-  await glide(page, paceSamples(dense, (cells.length - 1) * STEPS_PER_CELL * SLOWDOWN));
+  await glide(page, paceSamples(dense, TRACK_SAMPLES), (cells.length - 1) * CELL_MS);
 
   await page.mouse.up();
   await hold(page, STROKE_SETTLE_MS);
@@ -679,13 +686,26 @@ async function playScene(page, scene, marks) {
  * Written explicitly rather than left to `loadSettings()` so a clip can never
  * quietly demonstrate a non-default setting, and so changing a default is a
  * visible diff here rather than a silent change to every video.
+ *
+ * A scene may override one — card 3 turns Borders to Full — and that is a
+ * deliberately narrow door: the override still goes through the game's own
+ * settings, so the clip shows a state a player can reach, which a runner-drawn
+ * annotation never is.
  */
-const CAPTURE_SETTINGS = JSON.stringify({
+const CAPTURE_DEFAULTS = {
   hintMode: 'partial',
   borderMode: 'off',
   countdown: 'on',
   lastUnlimitedDifficulty: 'easy',
-});
+};
+
+function settingsFor(scene) {
+  const settings = { ...CAPTURE_DEFAULTS, ...(scene.settings ?? {}) };
+  for (const key of Object.keys(settings)) {
+    if (!(key in CAPTURE_DEFAULTS)) throw new Error(`scene ${scene.id}: unknown setting ${key}`);
+  }
+  return JSON.stringify(settings);
+}
 
 async function record(browser, scene, theme) {
   const board = buildBoard(scene.seed);
@@ -706,7 +726,7 @@ async function record(browser, scene, theme) {
   const page = await context.newPage();
   await page.addInitScript(initScript, {
     save: plantedSave(board),
-    settings: CAPTURE_SETTINGS,
+    settings: settingsFor(scene),
     slowdown: SLOWDOWN,
   });
 
@@ -723,7 +743,7 @@ async function record(browser, scene, theme) {
   await page.goto(`${BASE_URL}/play?difficulty=unlimited`);
   // Not just `waitFor()`: the element exists at its 300x150 default long before
   // `setupCanvas()` sizes it, and anything measured in that window — the cell
-  // size the highlight is positioned from, the crop — comes out wrong.
+  // size the masks are positioned from, the crop — comes out wrong.
   await page.waitForFunction(() => {
     const canvas = document.getElementById('game-canvas');
     return canvas && canvas.style.width !== '';
@@ -732,12 +752,6 @@ async function record(browser, scene, theme) {
   // Let the canvas finish its fade-in before capture starts
   await page.waitForTimeout(1200);
 
-  if (scene.highlight) {
-    await page.evaluate(
-      (area) => window.__capture.highlight(area),
-      { ...scene.highlight, gridSize: GRID_SIZE }
-    );
-  }
   if (scene.maskCells) {
     await page.evaluate(
       (spec) => window.__capture.mask(spec),
