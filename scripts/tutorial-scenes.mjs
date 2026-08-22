@@ -59,20 +59,21 @@
  */
 
 /**
- * A real Easy daily puzzle with a single hint at (2,1) reading 3.
+ * A real Easy daily puzzle with a single hint at (1,1) reading 5.
  *
- * Its 3x3 area is rows 1-3 x cols 0-2, which holds both kinds of cell: bends
- * the number watches and bends it does not. Card 3 needs both, and the hint
- * cell itself has to stay off the loop, or the path would cover the number the
- * whole card is about.
+ * The 5 is not a choice, and the reason is worth knowing before designing any
+ * card around a number. **A hint whose 3x3 area fits entirely inside the grid
+ * always reads an odd number on a 4x4.** Across 1500 daily seeds, (1,1) and
+ * (1,2) — the only two such cells on an Easy board, once the clipped edge cells
+ * are set aside — read 3, 5 or 7 and never 2, 4 or 6. It falls out of the
+ * solution being a Hamiltonian cycle; edge cells, whose area is clipped by the
+ * grid, take either parity freely.
  *
- * The 3 is not a free choice. Card 3's loop (CARD_THREE_LOOP) has four bends,
- * one near each corner of the grid, and no 3x3 window can reach more than two
- * of them — so the number can only ever be walked down by two. Ending on 1,
- * which is the point, therefore means starting on 3. Any board whose hint here
- * reads something else changes where the card finishes.
+ * So a card whose number starts on 4 cannot put that number here, and 5 is the
+ * lowest value that survives card 3's three counted bends without
+ * reaching zero. 3 would land on green, which belongs to card 4.
  */
-const SEED_ONE_HINT = 202602210;
+const SEED_ONE_HINT = 202602090;
 
 /**
  * A real Easy daily puzzle with hints in opposite corners, (3,0) and (0,3),
@@ -96,29 +97,6 @@ const FREEHAND_LOOP = [
   [0, 0], [1, 0], [1, 1], [2, 1], [3, 1], [3, 2],
   [2, 2], [1, 2], [0, 2], [0, 1], [0, 0],
 ];
-
-/**
- * Card 3's loop: bottom-right, all the way left, up two, all the way right,
- * down to close.
- *
- * A plain rectangle over rows 1-3, and every part of it is doing work for the
- * hint at (2,1):
- *
- *   - it bends at (3,0) and (1,0), both inside the hint's area, which is what
- *     walks the number 3 -> 2 -> 1;
- *   - it bends at (1,3) and (3,3), both outside it, which is the contrast the
- *     card exists for — the loop keeps bending and the number stops moving;
- *   - it never enters (2,1), so the number is legible throughout;
- *   - and it *closes*, on a number still reading 1, so nothing turns green.
- *
- * That last part previews card 4 rather than stealing it: card 3 shows a closed
- * loop is not automatically a solved one, card 4 shows what to do about it.
- */
-const CARD_THREE_LOOP = [
-  [3, 3], [3, 2], [3, 1], [3, 0], [2, 0], [1, 0],
-  [1, 1], [1, 2], [1, 3], [2, 3], [3, 3],
-];
-
 /**
  * The 10-cell loop that closes but leaves the top-right hint reading 2.
  *
@@ -194,19 +172,39 @@ export const SCENES = [
     // player would ever see on their own board. A real setting is strictly
     // better, and it is one tap away in the settings sheet if they want it.
     settings: { borderMode: 'full' },
-    // Two strokes, split where the number stops moving. The first bends once
-    // inside the box (3 -> 2); the second bends inside it once more (2 -> 1)
-    // and then twice outside it, closing the loop without shifting the number
-    // again. The pause between them is what makes the first drop readable.
+    // The loop is a rectangle over rows 1-3 x cols 1-3 with a notch out to col 0
+    // across rows 2-3. Six bends, and the split down the middle is the whole
+    // card: (1,1), (2,1) and (2,0) sit inside the area the hint watches, and
+    // (1,3), (3,3) and (3,0) sit outside it.
+    //
+    // The notch is what makes that possible. A plain rectangle puts one bend
+    // near each corner of the grid and no 3x3 area can reach more than two of
+    // them; it takes a shape that doubles back for three to crowd into one.
+    //
+    // Two strokes, and the order is doing the teaching. The first draws the
+    // bottom and right: two bends, both outside, and the number does not move
+    // once. The second draws the notch: three bends, all inside, and the number
+    // steps 5 -> 4 -> 3 -> 2, one per bend, finishing as the loop closes. The
+    // bend that closes it is outside, so the last thing the card shows is a
+    // bend that does not count.
+    //
+    // The hint cell is on the loop, which rule 1 above otherwise forbids. It
+    // stays legible because the bend at (1,1) enters from the right edge and
+    // leaves through the bottom, hugging that corner of the cell while the
+    // digit sits above and left of it — checked on the frames, not assumed.
     steps: [
       { type: 'mark', name: 'start' },
-      { type: 'draw', cells: CARD_THREE_LOOP.slice(0, 5), pauseAfter: 700 },
-      { type: 'draw', cells: CARD_THREE_LOOP.slice(4) },
+      {
+        type: 'draw',
+        cells: [[3, 0], [3, 1], [3, 2], [3, 3], [2, 3], [1, 3], [1, 2], [1, 1]],
+        pauseAfter: 700,
+      },
+      { type: 'draw', cells: [[1, 1], [2, 1], [2, 0], [3, 0]] },
       { type: 'wait', ms: 1200 },
       { type: 'mark', name: 'end' },
     ],
     trim: { from: 'start', to: 'end' },
-    // The loop closes, but on a hint reading 1 — so no win, and no green
+    // The loop closes, but on a hint reading 2 — so no win, and no green
     expect: { cells: 10, won: false },
   },
 

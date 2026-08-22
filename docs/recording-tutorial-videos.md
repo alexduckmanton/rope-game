@@ -113,12 +113,21 @@ area in the hint's own colour, which does the job better than an annotation
 could: the outline is already tied to the number, so the two can never disagree
 about which squares are being talked about.
 
-The card's loop bends four times, twice inside the box and twice outside it, and
-**stops on 1**. Both halves of that are deliberate. The two bends outside are the
-contrast the card is for — the loop visibly keeps bending while the number sits
+The card's loop bends six times, three inside the box and three outside it, and
+**stops on 2**. Both halves of that are deliberate. The three outside are the
+contrast the card is for — a whole stroke of bending while the number sits
 still. And stopping short of zero keeps green out of card 3 entirely: zero is
 green, green reads as solved, and a card that closed a loop *and* satisfied its
 hint would be running card 4's lesson a card early.
+
+**Where a number can start is constrained, and not obviously.** A hint whose 3x3
+fits entirely inside the grid always reads an *odd* number on a 4x4 — across
+1500 daily seeds the two such cells, (1,1) and (1,2), read 3, 5 or 7 and never
+2, 4 or 6. It falls out of the solution being a Hamiltonian cycle. Edge cells,
+whose area the grid clips, take either parity. So "start this card on 4" is
+simply unavailable in the middle of an Easy board, however the loop is drawn,
+and a scene that wants a particular pair of numbers has to be designed around
+that before a seed is looked for.
 
 **An earlier cut drew a pulsing blue rectangle behind the canvas instead**,
 copied from `renderHintPulse()` in `renderer.js` — a function that draws exactly
@@ -515,7 +524,7 @@ and again after it ends, so it has to match what pressing replay starts from —
 which is why the runner holds every scene on a settled board for `LEAD_IN_MS`
 before anything moves.
 
-The whole set is 1.7MB — four clips in two formats and four posters, in two
+The whole set is 1.8MB — four clips in two formats and four posters, in two
 themes. A player who swipes the whole tutorial in one theme fetches about 390KB
 of that (the mp4s plus the posters), and one who reads card 1 and closes fetches
 two clips, because `preload` is raised only for the visible section and the one

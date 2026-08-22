@@ -369,7 +369,7 @@ When an unvalidated hint displays zero, showing it in green doesn't create confu
 
 **Tutorial Visual Design:**
 
-The tutorial clips are recordings of the real game, so the hint numbers in them carry the magnitude-based gradient unchanged. Card 3 additionally records with Borders set to Full, which outlines each hint's 3x3 area in that same magnitude colour - so the boundary and the number it belongs to change colour together. Card 3 stops at 1 rather than 0, so neither ever goes green there; green is card 4's.
+The tutorial clips are recordings of the real game, so the hint numbers in them carry the magnitude-based gradient unchanged. Card 3 additionally records with Borders set to Full, which outlines each hint's 3x3 area in that same magnitude colour - so the boundary and the number it belongs to change colour together. Card 3 stops short of 0, so neither ever goes green there; green is card 4's.
 
 -----
 
@@ -395,7 +395,7 @@ rope-game/
 ├── public/
 │   ├── _redirects         # SPA routing for Netlify (serves index.html for all routes)
 │   ├── streak-flame.webp  # Animated Fluent fire emoji for the streak lines (75KB)
-│   └── videos/            # Tutorial clips, <scene>-<theme>.{mp4,webm,webp} (1.7MB, generated)
+│   └── videos/            # Tutorial clips, <scene>-<theme>.{mp4,webm,webp} (1.8MB, generated)
 ├── src/
 │   ├── main.js            # App entry point, initializes router and icons
 │   ├── router.js          # Client-side routing with History API
@@ -1238,7 +1238,7 @@ This menu is the **only** place the support link appears. It used to also sit as
 |---|---|---|
 | 1 | `Drawing loops` | Drag to draw a loop, any shape or size |
 | 2 | `Erasing` | Tap to erase parts of the loop |
-| 3 | `Counting bends` | Bends inside the box a number watches count it down; bends outside it do not, and the loop closes on a 1 |
+| 3 | `Counting bends` | Bends inside the box a number watches count it down; bends outside it do not, and the loop closes without reaching zero |
 | 4 | `Win condition` | A loop closes with one number still at 2 and nothing happens; fix it, both read zero, the loop goes green |
 
 Card 4 carries the near-miss rather than giving it a card of its own. A closed loop that fails its hints is Loopy's most common stuck state - it fires `validation_error` - and nothing else in the product explains it, but split across two cards the first ends on "nothing happened", which is a weak place to leave a viewer and a weak place to start one.
@@ -1247,7 +1247,7 @@ Cards 1, 2 and 4 run on **one puzzle** and 3 on another, so three quarters of th
 
 **Cards 1 and 2 show a bare grid.** The runner masks the two hint cells, which is not the same as planting a board with no hints: a board with no hints is one where every constraint is trivially satisfied, so a closed loop turns green two cards before green means anything. Keeping the hints and hiding the numbers keeps the loop black.
 
-**Card 3 is recorded with Borders set to Full**, the game's own setting, planted into `loop-game:settings` for that scene alone. The card's lesson is *which* squares a number watches, so the boundary has to be visible, and `drawHintBorders()` already outlines each hint's 3x3 area in the hint's own colour - so the outline and the number always agree. The card's loop bends four times: twice inside the box, walking the number 3 to 2 to 1, and twice outside it, changing nothing — including the bend that closes the loop. **It deliberately stops at 1.** Zero is green and green means solved, which is card 4's job; a card 3 that finished on zero would show a closed loop being rejected and a satisfied hint in the same frame, which is two lessons fighting. An earlier cut drew a pulsing blue rectangle behind the canvas instead, copied from `renderHintPulse()` in `renderer.js` (which draws exactly that and **has no callers**); that made card 3 the one place a clip showed something a player could never see on their own board. `settingsFor()` in the runner is the only door for this and rejects any key that is not already a capture default.
+**Card 3 is recorded with Borders set to Full**, the game's own setting, planted into `loop-game:settings` for that scene alone. The card's lesson is *which* squares a number watches, so the boundary has to be visible, and `drawHintBorders()` already outlines each hint's 3x3 area in the hint's own colour - so the outline and the number always agree. The card's loop bends six times: three outside the box, changing nothing — a whole stroke of it — and three inside, walking the number 5 to 4 to 3 to 2, one per bend, finishing as the loop closes on a bend that is itself outside. **It deliberately stops short of zero.** Zero is green and green means solved, which is card 4's job; a card 3 that finished on zero would show a closed loop being rejected and a satisfied hint in the same frame, which is two lessons fighting. An earlier cut drew a pulsing blue rectangle behind the canvas instead, copied from `renderHintPulse()` in `renderer.js` (which draws exactly that and **has no callers**); that made card 3 the one place a clip showed something a player could never see on their own board. `settingsFor()` in the runner is the only door for this and rejects any key that is not already a capture default.
 
 **Video-Based Content:**
 - Four clips, recorded by playing the real game - see `docs/recording-tutorial-videos.md`. Never author or hand-edit one; re-record instead
@@ -1257,7 +1257,7 @@ Cards 1, 2 and 4 run on **one puzzle** and 3 on another, so three quarters of th
 - The **poster is the clip's own first frame** (a webp), so the still and the start of playback are the same picture. This replaced a shimmering skeleton loader that cut hard to frame 1
 - A **light border** on the container. The clips are a white board cropped to its own edges, so on a white sheet they would otherwise float with no boundary; the border uses the same token as the game's grid lines
 - **The mp4 is listed before the webm**, which is the reverse of the usual order. On line art this flat x264 beats VP9 on every clip, so mp4-first hands most browsers the smaller file. The webm stays because a Chromium built without proprietary codecs cannot decode h.264 at all, and needs something to fall through to
-- **Captured at 1200px** — 3x the game's own 400px canvas, which is what a 3x phone renders at the width the sheet caps the clip to. The capture scale is a frame-rate setting as much as a resolution one and used to be pinned at 2 by it; recording in slow motion is what lifted the ceiling. See the recording doc. Total 1.7MB for eight clips in two formats plus eight posters, but only the visible clip and the next are ever fetched, so swiping the whole tutorial in one theme costs about 390KB. Deployed once at the domain root, since locale builds reference `/videos/` absolutely rather than copying it twelve times
+- **Captured at 1200px** — 3x the game's own 400px canvas, which is what a 3x phone renders at the width the sheet caps the clip to. The capture scale is a frame-rate setting as much as a resolution one and used to be pinned at 2 by it; recording in slow motion is what lifted the ceiling. See the recording doc. Total 1.8MB for eight clips in two formats plus eight posters, but only the visible clip and the next are ever fetched, so swiping the whole tutorial in one theme costs about 390KB. Deployed once at the domain root, since locale builds reference `/videos/` absolutely rather than copying it twelve times
 
 **Technical Implementation:**
 
