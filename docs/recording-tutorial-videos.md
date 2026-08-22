@@ -559,6 +559,15 @@ can be followed rather than merely watched.
   before the `start` mark, so slowing strokes by half left that clip within a
   tenth of a second of where it was — the taps it actually shows are timed by
   `TAP_TIMING` and `BETWEEN_TAPS_MS` instead.
+
+  A single stroke can override it with **`pace`** on its `draw` step — a
+  multiplier on `CELL_MS`, never a duration, so a scene says "slower than the
+  rest of the tutorial" and keeps meaning that when `CELL_MS` moves. Card 3's
+  second stroke is the only one using it, at 1.5: three of that card's four
+  number changes happen inside that stroke, one per bend, and at the shared pace
+  they arrive faster than a first-time viewer can tie each one to the bend that
+  caused it. Reach for it where a stroke has something to *read*, not to make a
+  card longer — its first stroke has nothing to read and stays at the base rate.
 - `TRACK_SAMPLES` — resolution of the paced position track `glide()` reads out
   of. Not a pacing dial; 1200 is far finer than any machine can emit.
 - `LEAD_IN_MS` — every clip holds on its opening board before anything moves.

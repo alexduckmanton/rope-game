@@ -188,6 +188,13 @@ export const SCENES = [
     // bend that closes it is outside, so the last thing the card shows is a
     // bend that does not count.
     //
+    // The second stroke runs at `pace: 1.5`. It is the only stroke in the
+    // tutorial that carries a rate of its own, and it earns it: three of the
+    // card's four number changes happen inside it, one per bend, and at the
+    // shared pace they arrive faster than a first-time viewer can connect each
+    // one to the bend that caused it. The first stroke has nothing to read, so
+    // slowing it too would only cost patience.
+    //
     // The hint cell is on the loop, which rule 1 above otherwise forbids. It
     // stays legible because the bend at (1,1) enters from the right edge and
     // leaves through the bottom, hugging that corner of the cell while the
@@ -199,7 +206,7 @@ export const SCENES = [
         cells: [[3, 0], [3, 1], [3, 2], [3, 3], [2, 3], [1, 3], [1, 2], [1, 1]],
         pauseAfter: 700,
       },
-      { type: 'draw', cells: [[1, 1], [2, 1], [2, 0], [3, 0]] },
+      { type: 'draw', cells: [[1, 1], [2, 1], [2, 0], [3, 0]], pace: 1.5 },
       { type: 'wait', ms: 1200 },
       { type: 'mark', name: 'end' },
     ],

@@ -141,6 +141,14 @@ const SLOWDOWN = Number(process.env.SLOWDOWN ?? 3);
  */
 const CELL_MS = 390;
 
+/**
+ * A stroke may ask for its own pace with `pace` — a multiplier on CELL_MS, not
+ * a duration, so a scene says "slower than the rest" rather than pinning a
+ * number that stops meaning that the moment CELL_MS moves. Card 3's second
+ * stroke runs at 1.5, because that is the stroke where the number counts down
+ * and the whole card is about watching it happen.
+ */
+
 /** Pointer samples the paced track is resolved at. Only ever read from. */
 const TRACK_SAMPLES = 1200;
 
@@ -611,7 +619,7 @@ async function withdraw(page) {
 }
 
 /** One pointer gesture through a run of cells */
-async function drawStroke(page, centre, cells, drift) {
+async function drawStroke(page, centre, cells, drift, pace = 1) {
   const points = cells.map(([row, col]) => drift(row, col));
   const first = points[0];
 
@@ -620,7 +628,7 @@ async function drawStroke(page, centre, cells, drift) {
   await hold(page, 120);
 
   const dense = roundedPath(points, centre.cellSize * CORNER_RADIUS);
-  await glide(page, paceSamples(dense, TRACK_SAMPLES), (cells.length - 1) * CELL_MS);
+  await glide(page, paceSamples(dense, TRACK_SAMPLES), (cells.length - 1) * CELL_MS * pace);
 
   await page.mouse.up();
   await hold(page, STROKE_SETTLE_MS);
@@ -652,7 +660,7 @@ async function playScene(page, scene, marks) {
   for (const step of scene.steps) {
     switch (step.type) {
       case 'draw':
-        await drawStroke(page, centre, step.cells, drift);
+        await drawStroke(page, centre, step.cells, drift, step.pace ?? 1);
         if (step.pauseAfter) await hold(page, step.pauseAfter);
         break;
       case 'tap':
