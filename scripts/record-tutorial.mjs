@@ -139,7 +139,7 @@ const SLOWDOWN = Number(process.env.SLOWDOWN ?? 3);
  * looked like. Slow motion is what buys the density now — three times the real
  * time per tick of clip means three times the samples land in it.
  */
-const CELL_MS = 260;
+const CELL_MS = 390;
 
 /** Pointer samples the paced track is resolved at. Only ever read from. */
 const TRACK_SAMPLES = 1200;

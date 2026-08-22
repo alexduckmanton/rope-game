@@ -395,7 +395,7 @@ rope-game/
 ├── public/
 │   ├── _redirects         # SPA routing for Netlify (serves index.html for all routes)
 │   ├── streak-flame.webp  # Animated Fluent fire emoji for the streak lines (75KB)
-│   └── videos/            # Tutorial clips, <scene>-<theme>.{mp4,webm,webp} (1.8MB, generated)
+│   └── videos/            # Tutorial clips, <scene>-<theme>.{mp4,webm,webp} (2.1MB, generated)
 ├── src/
 │   ├── main.js            # App entry point, initializes router and icons
 │   ├── router.js          # Client-side routing with History API
@@ -1257,7 +1257,7 @@ Cards 1, 2 and 4 run on **one puzzle** and 3 on another, so three quarters of th
 - The **poster is the clip's own first frame** (a webp), so the still and the start of playback are the same picture. This replaced a shimmering skeleton loader that cut hard to frame 1
 - A **light border** on the container. The clips are a white board cropped to its own edges, so on a white sheet they would otherwise float with no boundary; the border uses the same token as the game's grid lines
 - **The mp4 is listed before the webm**, which is the reverse of the usual order. On line art this flat x264 beats VP9 on every clip, so mp4-first hands most browsers the smaller file. The webm stays because a Chromium built without proprietary codecs cannot decode h.264 at all, and needs something to fall through to
-- **Captured at 1200px** — 3x the game's own 400px canvas, which is what a 3x phone renders at the width the sheet caps the clip to. The capture scale is a frame-rate setting as much as a resolution one and used to be pinned at 2 by it; recording in slow motion is what lifted the ceiling. See the recording doc. Total 1.8MB for eight clips in two formats plus eight posters, but only the visible clip and the next are ever fetched, so swiping the whole tutorial in one theme costs about 390KB. Deployed once at the domain root, since locale builds reference `/videos/` absolutely rather than copying it twelve times
+- **Captured at 1200px** — 3x the game's own 400px canvas, which is what a 3x phone renders at the width the sheet caps the clip to. The capture scale is a frame-rate setting as much as a resolution one and used to be pinned at 2 by it; recording in slow motion is what lifted the ceiling. See the recording doc. Total 2.1MB for eight clips in two formats plus eight posters, but only the visible clip and the next are ever fetched, so swiping the whole tutorial in one theme costs about 470KB. Deployed once at the domain root, since locale builds reference `/videos/` absolutely rather than copying it twelve times
 
 **Technical Implementation:**
 

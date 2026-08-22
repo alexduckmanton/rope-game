@@ -398,8 +398,8 @@ Then decode one row of pixels per output frame, find the bar's leading edge, and
 histogram the differences. A healthy run is a single step value (plus its
 neighbour, from rounding) and no zeros.
 
-**What the runner prints per clip** — `7.6s, 351 frames, 31.6ms median gap,
-36.9ms p95`:
+**What the runner prints per clip** — `8.9s, 561 frames, 27.9ms median gap,
+33.7ms p95`:
 
 - *median gap* — the median interval between captured frames, **in real time,
   not clip time**. The budget it has to fit inside is therefore
@@ -524,16 +524,15 @@ and again after it ends, so it has to match what pressing replay starts from —
 which is why the runner holds every scene on a settled board for `LEAD_IN_MS`
 before anything moves.
 
-The whole set is 1.8MB — four clips in two formats and four posters, in two
-themes. A player who swipes the whole tutorial in one theme fetches about 390KB
+The whole set is 2.1MB — four clips in two formats and four posters, in two
+themes. A player who swipes the whole tutorial in one theme fetches about 470KB
 of that (the mp4s plus the posters), and one who reads card 1 and closes fetches
 two clips, because `preload` is raised only for the visible section and the one
 after it.
 
-Worth noting that this is *smaller* than the 2.0MB the 800px set came to, at
-half again the resolution. The card that dominated the old total was card 3,
-whose full-frame pulsing gradient was expensive in a way line art is not; the
-Borders setting that replaced it costs a few thin rectangles.
+It sat at 1.7MB before the strokes were slowed to `CELL_MS` 390 — bytes here
+track seconds of clip almost linearly, so a pacing change is a payload change
+too, and worth a glance at this figure afterwards.
 
 ---
 
@@ -546,11 +545,20 @@ can be followed rather than merely watched.
   trap 4. Costs recording time and nothing else: a 9s card takes about 27s to
   shoot.
 - `CELL_MS` — how long the pointer spends crossing one cell, in finished-clip
-  time. 260ms, deliberately slow: Loopy's whole input is one continuous drag,
-  and a stroke that crosses the grid in half a second reads as a line appearing
-  rather than as someone drawing it. It is a duration rather than a sample
-  count on purpose — see trap 2. `APPROACH_MS` is the same idea for the cursor
-  travelling in to its first cell.
+  time. 390ms, and deliberately slow: Loopy's whole input is one continuous
+  drag, and a stroke that crosses the grid in half a second reads as a line
+  appearing rather than as someone drawing it. This is the dial for "the clips
+  feel rushed" — it scales every stroke in every scene together, and nothing
+  else. It is a duration rather than a sample count on purpose (trap 2), so
+  changing it moves the pace and leaves the smoothness alone. `APPROACH_MS` is
+  the same idea for the cursor travelling in to its first cell, and is
+  deliberately *not* scaled with it: the approach is not drawing, and a slow one
+  is just a wait.
+
+  It does not move every card equally. Card 2's drawing happens in its *setup*,
+  before the `start` mark, so slowing strokes by half left that clip within a
+  tenth of a second of where it was — the taps it actually shows are timed by
+  `TAP_TIMING` and `BETWEEN_TAPS_MS` instead.
 - `TRACK_SAMPLES` — resolution of the paced position track `glide()` reads out
   of. Not a pacing dial; 1200 is far finer than any machine can emit.
 - `LEAD_IN_MS` — every clip holds on its opening board before anything moves.
