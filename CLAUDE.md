@@ -27,8 +27,8 @@
 | `game/share.js` | Share functionality | `handleShare()`, `buildShareText()` - Web Share API + clipboard fallback |
 | `game/validation.js` | Win validation & scoring | `checkStructuralWin()`, `checkFullWin()`, `validateHints()`, `calculateScore()`, `getScoreLabel()` - Game validation logic and score calculation |
 | `game/canvasSetup.js` | Canvas sizing | `calculateCellSize(gridSize, extraSpace)`, `setupCanvas()` - Responsive sizing utilities |
-| `generation/hintPlacement.js` | Dense-arm hint placement | `generateHintCellsCovering()` - cover/anchor/fill placement; `describePuzzle()` - measured puzzle shape for analytics |
-| `experiment.js` | Hint generation A/B assignment | `getHintGenerationAssignment()`, `variantForSavedGame()`, `isDenseVariant()`, `initHintGenerationExperiment()` |
+| `generation/hintPlacement.js` | Coverage-first hint placement | `generateHintCellsCovering()` - cover/fill/anchor placement; `describePuzzle()` - measured puzzle shape for analytics |
+| `experiment.js` | Tricky hint A/B assignment | `getTrickyHintsAssignment()`, `variantForSavedGame()`, `isTrickyCoveringVariant()`, `initTrickyHintsExperiment()` |
 | `i18n/locales.js` | Locale registry | `LOCALES`, `DEFAULT_LOCALE`, `getLocale()`, `localeBasePath()` - the one place a language is added. Node-safe, imported by the build scripts |
 | `i18n/index.js` | Translation runtime | `t(key, vars)`, `formatDate()`, `localeUrl()`, `LOCALE`, `ACTIVE_LOCALE`, `BASE_PATH` - the dictionary is bound at build time, not fetched |
 | `i18n/messages/*.js` | Message dictionaries | One flat key→string map per language. `en.js` is the reference the parity check diffs against |
@@ -51,7 +51,8 @@
 | Diabolical | 8x8       | 64          | Any valid loop  | 100                 |
 
 Hint counts are **not** fixed while the hint generation experiment runs - they depend
-on which arm a player is in. See "Hint generation experiment" below for both sets.
+by difficulty, and on Tricky by which arm a player is in. See "Tricky hint placement
+experiment" below.
 
 **Labels vs keys:** players see Easy / Tricky / Diabolical, but the internal keys are `easy` / `medium` / `hard` and appear unchanged in URLs, storage keys, daily seeds and analytics. Labels now live in the dictionaries under `difficulty.<key>` and are read through `getDifficultyLabel()` / `getDifficultyLabelLower()` in `config.js` — never derive one by capitalising a key, or renaming will silently miss that surface, and never call `t('difficulty.…')` directly. `CONFIG.DIFFICULTY.KEYS` lists which keys have a label; anything else falls back to a capitalised key.
 
@@ -69,7 +70,8 @@ The labels below are the English ones. Every language has its own set — German
 - Unlimited mode: `loop-game:unlimited:medium` (one slot per difficulty)
 - Settings: `loop-game:settings` (global, shared across all modes)
 - Streaks: `loop-game:streak:easy` (per difficulty) and `loop-game:streak:overall`, each storing `{ current, best, lastDate }`
-- Hint generation arm: `loop-game:experiment:hint-generation`, storing `{ variant, source }`
+- Tricky hint arm: `loop-game:experiment:tricky-hints`, storing `{ variant, source }`
+  (round 1's `loop-game:experiment:hint-generation` is orphaned - nothing reads it)
 
 All of these are keyed per **origin**, not per path, so they are shared across every language build: switching language keeps streaks, settings and part-finished puzzles intact.
 
@@ -413,7 +415,7 @@ rope-game/
 │   │   ├── index.js       # t(), plural selection, date formatting, locale URLs
 │   │   └── messages/      # One dictionary per language (en.js is the reference)
 │   ├── generation/        # Puzzle generation strategies
-│   │   └── hintPlacement.js # Dense-arm hint placement + puzzle shape measurement
+│   │   └── hintPlacement.js # Coverage-first hint placement + puzzle shape measurement
 │   ├── components/        # Reusable UI components
 │   │   ├── tutorialSheet.js # Tutorial carousel bottom sheet with video management
 │   │   ├── homeMenu.js      # Home screen hamburger menu and slide-in sheet
@@ -450,17 +452,17 @@ Generates Hamiltonian cycles (paths visiting all cells exactly once forming a lo
 
 **Warnsdorff's Rule:** Always move to the neighbor with the fewest unvisited neighbors. This greedy strategy avoids dead ends by saving well-connected cells for later.
 
-**Hint Cell Selection:** which placement runs depends on the player's experiment arm.
+**Hint Cell Selection:** each difficulty declares its own placement in
+`CONFIG.DIFFICULTY.HINT_PLACEMENT`. Two strategies exist.
 
-*Control arm* - `generateHintCellsWithMinDistance()` in `renderer.js`. Shuffles every grid
+*`spaced`* - `generateHintCellsWithMinDistance()` in `renderer.js`. Shuffles every grid
 cell with the seeded random function, then walks the shuffled pool taking any cell at least
 `minDistance` (Chebyshev) from every hint already taken, until `count` is reached. It knows
-nothing about the solution, so what each hint ends up *saying* is pure chance. Configured by
-`CONFIG.DIFFICULTY.HINT_CONFIG`: easy 2/3, medium 5/2, hard 16/0. If the spacing is too
-tight it returns fewer hints rather than failing - which is not a rare edge case on easy,
-see below.
+nothing about the solution, so what each hint ends up *saying* is pure chance. If the
+spacing is too tight it returns fewer hints rather than failing - which is not a rare edge
+case on Easy, see below. Used by **Easy** (2/3) and **Tricky control** (5/2).
 
-*Dense arm* - `generateHintCellsCovering()` in `generation/hintPlacement.js`. Three stages:
+*`covering`* - `generateHintCellsCovering()` in `generation/hintPlacement.js`. Three stages:
 
 1. **Cover** - greedy maximum-coverage selection: repeatedly take the cell whose 3x3 area
    covers the most still-uncovered cells, breaking ties with the seeded random function so
@@ -468,128 +470,141 @@ see below.
 2. **Fill** - spend any remaining budget at random, for overlap.
 3. **Anchor** - swap hints for ones reading `<= anchorMaxValue`, checking after each swap
    that the grid is still fully covered. Any hint may be given up, including a covering one,
-   because on a tight grid the low-value positions often *are* the covering ones.
+   because on a tight grid the low-value positions often *are* the covering ones. The quota
+   is silently unmet when the grid cannot supply it.
 
-Configured by `CONFIG.DIFFICULTY.HINT_CONFIG_DENSE`.
+Used by **Diabolical** (16 hints, shipped after round 1) and by the **Tricky covering arm**
+(`CONFIG.DIFFICULTY.TRICKY_COVERING`, 5 hints).
+
+`anchorMaxValue` is also the threshold `describePuzzle()` measures `anchor_hints` at, so any
+two arms being compared must declare the same value or the figures are meaningless. Tricky's
+control placement carries one purely for that reason.
 
 Both arms apply to daily puzzles (seeded random) and unlimited mode (true random) alike.
 
-### Hint generation experiment
+### Tricky hint placement experiment
 
-**Status: running.** PostHog experiment "Hint generation density"
-(`hint-generation-density`), 50/50, created 2026-08-06, first look 2026-09-03.
+**Round 1 is finished. Round 2 is running, and it tests Tricky alone.**
 
-**Why.** Tricky completes at 37% while Diabolical - a bigger grid - completes at 53% and
-solves faster. Measuring the generator over 365 daily seeds located the cause in hint
-placement rather than grid size. Two properties matter and neither was ever chosen
-deliberately:
+#### Round 1 (2026-08-06 to 2026-08-22): what it settled
 
-- **Coverage** - a hint constrains its 3x3 area, so cells outside every hint area carry no
-  information at all. A player drawing there gets no feedback.
-- **Redundancy** - hints per constrained cell. Where hint areas overlap the hints check each
-  other and the puzzle is solvable by deduction; where they do not, each hint is an isolated
-  local puzzle you can only satisfy by trial.
+The original hypothesis was that Tricky underperforms because its hints leave much of the
+grid unconstrained, and that guaranteeing coverage would fix it. Round 1 tested a `covering`
+placement against the shipped `spaced` one on all three difficulties at once, 50/50,
+251 players and 579 starts.
 
-|            | hints (control -> dense) | coverage       | redundancy    | anchors       |
-|------------|--------------------------|----------------|---------------|---------------|
-| Easy       | 1.73 -> 4                | 62.6% -> 100%  | 1.00 -> 1.87  | n/a           |
-| Tricky     | 5 -> 8                   | 77.2% -> 100%  | 1.24 -> 1.69  | 0.31 -> 1.82  |
-| Diabolical | 16 -> 16                 | 88.9% -> 100%  | 2.13 -> 1.97  | 2.29 -> 2.45  |
+| difficulty | spaced | covering | change | |
+|---|---|---|---|---|
+| Easy | 66.2% (160) | 43.3% (164) | **-23 pts** | p < 0.0001 |
+| Tricky | 34.4% (93) | 38.8% (67) | +4.4 pts | p = 0.57, null |
+| Diabolical | 25.0% (44) | 66.7% (51) | **+42 pts** | p < 0.0001 |
 
-Tricky's 1.24 is barely above Easy's 1.00, and its worst days leave 39% of the grid
-unconstrained. Diabolical's 2.13 is why the larger grid is the more tractable one.
+**The hypothesis was right; the implementation confounded it.** Two of the three arms raised
+the hint *count* at the same time as changing placement, so they tested two things at once:
 
-**Anchors.** A hint reading 0 forces a straight run through nine cells and is the most
-informative thing a hint can say; a 4 or 5 on a nine-cell window rules out almost nothing.
-The usable threshold is a property of the grid, not a matter of taste - across every hint
-position on a year of solutions:
+| | hints | expected turns | avg win time |
+|---|---|---|---|
+| Easy spaced | 1.73 | 7.1 | 41s |
+| Easy covering | 4.00 | 21.9 | 74s |
+| Tricky spaced | 5 | 22.4 | 112s |
+| Tricky covering | 8 | 38.0 | 235s |
+| Diabolical spaced | 16 | 68.9 | 270s |
+| Diabolical covering | 16 | 64.8 | 298s |
 
-| grid | positions reading <=1 | reading <=2 |
-|------|-----------------------|-------------|
-| 4x4  | 0.0 per puzzle        | 1.7         |
-| 6x6  | 2.0                   | 7.6         |
-| 8x8  | 9.3                   | 19.6        |
+Diabolical was the only arm that held its count fixed and changed placement alone - and it
+was the only clear win. Easy tripled its constraint load and lost badly; on a 4x4, sparse is
+a feature, not the bug it looked like. Tricky doubled its time-to-win for no completion gain.
 
-A 4x4 Hamiltonian cycle packs ~11 turns into 16 cells, so every 3x3 window on it holds at
-least two turns: **Easy cannot be anchored at all**, and asks for none. Tricky uses
-threshold 2 because a quota of two at threshold 1 would demand both of the only two
-positions that exist.
+**Shipped from round 1:** Easy keeps `spaced`, Diabolical takes `covering`. Both are now
+fixed for every player and no longer branch on any arm.
 
-**Easy's hint count was also a bug.** `minDistance: 3` is unsatisfiable from any interior
-cell of a 4x4, so whenever the shuffle's first pick landed in the middle four cells - a
-quarter of days - Easy shipped with a single hint. Control keeps this behaviour deliberately,
-so the baseline stays what the already-measured players experienced. (Relatedly,
-`minDistance: 1` would be a no-op: Chebyshev >= 1 is any distinct cell.)
+**Caveats worth keeping.** Diabolical's samples are the smallest on the board (44 and 51),
+and its *control* arm ran at 25% against a 50% pre-experiment baseline (n=34, p≈0.02) - an
+unexplained shift. Randomisation still protects the comparison, since both arms drew from
+the same population, but treat +42 points as directionally solid and probably overstated.
+Localisation shipped mid-experiment and is *not* the explanation: it brought essentially no
+non-English traffic (1 player each for de/ja/fr/es).
 
-**Both arms share the day's solution.** They consume the random source in the same order -
-solution first, hints second - so on a given date the underlying loop is identical and only
-the hints differ.
+**Retention was unaffected** - day-1 return 4.5% vs 4.7%, ever-returned 13.6% vs 9.8%
+(p = 0.35). At this traffic a retention regression is only detectable if it is roughly a
+halving (~191 players per arm); anything subtler will never resolve. It is a guardrail, not
+a measurement.
 
-**Assignment is client-side, not a PostHog feature flag.** This was not the original plan.
-The experiment was built assuming `posthog.getFeatureFlag()` worked, and it does not: the
-slim posthog build the game ships has no flag network code at all (see the Analytics section
-above). The first five hours of the experiment ran with `variant_source: local` on every
-single event and zero flag exposure, which is how this was found.
+#### Round 2 (from 2026-08-22): Tricky only
 
-Rather than pay +38KB gzipped to restore flags, assignment stays where the fallback already
-put it: a 50/50 coin flip in `experiment.js`, cached in `loop-game:experiment:hint-generation`,
-resolved from cache first and never touching the network. It answers instantly, works behind
-an ad blocker, and is stable per browser for the life of the experiment.
+Tricky is the difficulty the whole effort was for, and it is still unanswered. Round 2 keeps
+the count at 5 - identical to control - so **placement is the only variable**, reproducing
+the isolation that made Diabolical's result readable.
 
-What this costs, and what it does not:
+|                | `spaced` (control) | `covering` (variant) |
+|----------------|--------------------|----------------------|
+| hints          | 5                  | 5                    |
+| coverage       | 77.2%              | 97.8%                |
+| redundancy     | 1.24               | 1.16                 |
+| anchors        | 1.18               | 0.79                 |
+| expected turns | 20.6               | 23.9                 |
 
-- **The randomisation is sound.** Independent, even, sticky per browser. This is a valid
-  experiment.
+Coverage is the only thing the variant buys. Redundancy and anchors both dip slightly - the
+same signature as Diabolical, where the win came with redundancy falling 2.13 -> 1.97. An
+anchor quota above 2 changes nothing: the 6x6 cannot supply more low-value positions without
+giving up a covering one, so the stage saturates at 0.79.
+
+> **Round 1 reported "anchors 0.31 -> 1.82" for Tricky. That comparison was invalid** - the
+> control arm was measured at `anchorMaxValue` 1 and the dense arm at 2. Measured
+> consistently at 2, `spaced` yields *more* low-value hints than `covering`, not fewer. Both
+> Tricky arms now declare the same threshold so the property is comparable.
+
+**Assignment is client-side, not a PostHog feature flag.** The slim posthog build the game
+ships has no flag network code at all (see the Analytics section), so `getFeatureFlag()`
+returns `undefined` forever. Rather than pay +38KB gzipped to restore flags, assignment is a
+50/50 coin flip in `experiment.js`, cached in `loop-game:experiment:tricky-hints`, resolved
+from cache first and never touching the network.
+
+- **The randomisation is sound.** Independent, even, sticky per browser.
 - **PostHog cannot compute the results.** Its Experiment object keys on flag exposure, of
-  which there is none, so experiment 405364 will sit permanently empty. It is kept only as a
-  record of the dates and configuration.
-- **The analysis reads `generator_variant`** off the game events instead — the property is
-  the *only* record of the assignment, so nothing may be analysed on `$feature/...`.
-- **There is no remote kill switch.** Changing or stopping the split needs a deploy. Cheap
-  here (Netlify auto-deploys from `main`), but worth knowing before it is urgent.
-- **Assignment does not survive** a cleared storage or a second device. Acceptable for
-  anonymous players who mostly visit once; it does mean a small amount of re-randomisation.
+  which there is none. Experiment 405364 is kept only as a record of round 1's dates.
+- **The analysis reads `generator_variant`** off the game events. Round 2 uses new values,
+  `tricky-control` and `tricky-covering`, so the two rounds can never be conflated; the
+  property *names* are unchanged so existing insights keep working.
+- **Filter the analysis to `difficulty = 'medium'`.** The property records the player's arm
+  and is attached to every event, but on Easy and Diabolical the arm changes nothing.
+- **There is no remote kill switch.** Changing or stopping the split needs a deploy.
+- **A fresh storage key** re-randomises everyone rather than inheriting round 1, which would
+  carry round-1 exposure into round-2 behaviour.
 
 *Saves pin their arm.* A daily save holds no puzzle data - hints are rebuilt from the date
 seed on every load - so without pinning, a player whose assignment changed between visits
 would find their part-finished puzzle rearranged around the path they had already drawn.
-`variantForSavedGame()` makes the pinned arm win.
+`variantForSavedGame()` makes the pinned arm win. Round 1's values fail the validity check
+deliberately, so a save written before this deploy falls through to a fresh assignment - a
+Tricky puzzle left in progress across the deploy will regenerate its hints once. Easy and
+Diabolical saves are unaffected, since neither branches any more.
 
-Every game event carries `generator_variant` (the arm actually generated) and
-`variant_source`, now one of `local` (coin flip in this browser) or `saved` (pinned by the
-save this puzzle was restored from).
+Every game event carries `generator_variant` and `variant_source`, the latter one of `local`
+(coin flip in this browser) or `saved` (pinned by the save this puzzle was restored from).
+Note `saved` can never appear on `game_started` - a restored game does not fire it.
 
-**Teardown checklist**, once a winner is picked:
+**Teardown checklist**, once Tricky is called:
 
-1. Fold the winning configuration into `CONFIG.DIFFICULTY.HINT_CONFIG` and delete the loser.
-   If dense wins, `generateHintCellsWithMinDistance()` in `renderer.js` becomes dead - it has
-   no other caller.
+1. Fold the winner into `CONFIG.DIFFICULTY.HINT_PLACEMENT.medium` and delete
+   `TRICKY_COVERING`. If `spaced` wins, `generateHintCellsCovering()` still has Diabolical as
+   a caller; if `covering` wins, `generateHintCellsWithMinDistance()` still has Easy.
 2. Delete `src/experiment.js`, its call in `main.js`, and `CONFIG.EXPERIMENT`.
-3. Remove `currentVariant` / `currentVariantSource` and the `buildPuzzle()` branch in
+3. Remove `currentVariant` / `currentVariantSource` and the `placementFor()` branch in
    `views/game.js`; keep `describePuzzle()` and the shape properties, which are useful
    permanently.
 4. Drop `generatorVariant` from the save format in `persistence.js`. Old saves carrying it
    are ignored harmlessly, so no migration is needed.
-5. Stop the PostHog experiment and record the conclusion on it. It holds no results - the
-   numbers come from the saved SQL insights on `generator_variant`.
-6. Leave `loop-game:experiment:hint-generation` in localStorage - it expires with nothing
-   reading it. Clean it up in `cleanupOldSaves()` only if it starts bothering you.
+5. Record the conclusion on PostHog experiment 405364. It holds no results - the numbers come
+   from the saved SQL insights on `generator_variant`.
+6. Leave both experiment keys in localStorage; they expire with nothing reading them.
 
-**Performance:** ~50ms average for 8x8.
-
-**The fallback is not rare.** Running the real generator over 365 daily seeds, the
-hand-authored `FALLBACK_CYCLES` entry is used on **6.3% of Diabolical days** (23/365), 1.9%
-of Tricky and 0.8% of Easy - not the "extremely rare" this previously claimed, and nowhere
-near the >99.99% success rate implied by 100 attempts at a 25% per-attempt success rate.
-The per-attempt rate on 8x8 must be far below 25%, and successive seeded attempts are
-evidently correlated rather than independent.
-
-This matters beyond tidiness: on those days **every player gets the same fixed solution
-loop**. The hints still vary with the seed, so the puzzle is not identical, but the
-underlying loop is - and it is the same loop every time, so it is learnable. Worth fixing
-(more attempts, a smarter restart, or several fallback cycles chosen by seed) before it is
-worth tuning anything else in the generator. `console.warn` already fires on each use, so
-the rate is observable in the field, not just in simulation.
+**Verify any config change before shipping it.** Both placements are pure functions of a grid
+size, a config and a seeded random source, so they can be exercised outside a browser -
+`generation/hintPlacement.js` deliberately imports only from `utils.js` for this reason.
+Every number in this section was produced by running the real modules across 365 daily seeds.
+Note that `config.js` now imports the i18n runtime, which resolves a Vite-only alias, so an
+offline harness needs `src/i18n/index.js` and `src/tokens.js` stubbed.
 
 ### Daily Puzzle System
 
@@ -954,6 +969,11 @@ written as person properties (`generator_variant`, `generator_variant_source`) s
 retention cohorts can be split by arm - a retention curve is built from people, not events.
 These are the **only** record of the assignment: the slim posthog build cannot read flags,
 so there is no `$feature/...` property on anything.
+
+Values are versioned per experiment round - `control`/`dense` for round 1, then
+`tricky-control`/`tricky-covering` for round 2 - so a date filter is never the only thing
+separating two experiments. Round 2's arm only affects Tricky, so filter to
+`difficulty = 'medium'` before reading it as a treatment.
 
 **Locale**, on *every* event: `locale`, the language the session was served. Also written as a person property, so retention cohorts can be split by language — a retention curve is built from people, not events. This is the only way to tell whether a translation is earning its keep, since each language is a separate build on a separate URL. Note the distinction from `language_selected`: `locale` is what a player *got*, `to_locale` is what they *asked for*.
 
@@ -1404,7 +1424,12 @@ The backtracking system uses distance-based logic to prevent accidental path era
 - **1-4 squares back**: Normal backtracking (erases those squares)
 - **5+ squares back**: Touch is ignored to prevent accidental full erasure
 - **Loop closing**: Returning to first cell always works regardless of distance
-- **Threshold**: Configurable via `CONFIG.INTERACTION.BACKTRACK_THRESHOLD` (default: 4)
+- **Threshold**: `CONFIG.INTERACTION.BACKTRACK_THRESHOLD`, **currently `1`** - the most
+  precise, least forgiving setting, where backtracking only works on the immediately
+  previous cell. This document long claimed a default of 4; the code says 1. Worth
+  knowing alongside the telemetry: `undo_used` fires ~26 times per player, more often
+  than `$pageview`, which is consistent with in-gesture correction having been pushed
+  onto the Undo button. Nobody has deliberately chosen between 1 and 4 on evidence.
 
 **Design Rationale:** Long crossing paths frequently triggered accidental full erasure when the pointer briefly touched old cells far back in the path. The threshold provides a forgiving drawing experience for complex loops while maintaining precise backtracking for small corrections. Higher values are more forgiving but make deliberate long-distance backtracking impossible. Lower values require more precision but allow backtracking across longer distances.
 
@@ -1458,8 +1483,9 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 - Localisation into 12 languages, one build and one URL each, with no runtime language switching and no content flash. CJK and Hangul use system fonts, so they cost no extra bytes
 
 **🧪 Running Experiment**
-- Hint generation density (`hint-generation-density`) - see "Hint generation experiment".
-  First look 2026-09-03. Carries a teardown checklist.
+- Tricky hint placement, round 2 - see "Tricky hint placement experiment". Tests covering
+  placement at a fixed hint count on the 6x6 only. Carries a teardown checklist.
+  Round 1 settled Easy (`spaced`, kept) and Diabolical (`covering`, shipped).
 
 **🚧 Planned Enhancements**
 - Interactive tutorial with guided puzzle examples
@@ -1485,32 +1511,42 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 2. Update validation rendering in `renderer.js:renderCellNumbers()` to display new constraint type
 3. Consider impact on puzzle generation difficulty and solvability
 
-**Modify Hint Generation Configuration:**
+**Modify Hint Placement Configuration:**
 
-**While the experiment is running, do not touch `HINT_CONFIG` (the control arm).** Tuning it
-would move the baseline mid-test and make the result meaningless. Tune `HINT_CONFIG_DENSE`
-only, and note that doing so mid-flight still muddies the comparison - prefer waiting.
+**While the Tricky re-test is running, do not touch `HINT_PLACEMENT.medium` or
+`TRICKY_COVERING`.** Tuning either moves a baseline mid-test and makes the result
+meaningless. Easy and Diabolical are settled and safe to tune.
 
-1. **Dense arm**: `CONFIG.DIFFICULTY.HINT_CONFIG_DENSE` - `count`, `lowValueAnchors`,
-   `anchorMaxValue`. Raising `count` raises redundancy; coverage is already guaranteed at
-   the current counts. An `anchorMaxValue` the grid cannot supply is silently unmet, so
-   check the table in "Hint generation experiment" before raising a quota.
-2. **Control arm**: `CONFIG.DIFFICULTY.HINT_CONFIG` - `count`, `minDistance` (Chebyshev).
-   `minDistance` trades redundancy for coverage: spacing hints out spreads their areas so
-   fewer cells go unconstrained, but the areas then overlap less and cross-checking is lost.
-   `minDistance: 1` is a no-op. On a 6x6 the spacing caps the achievable count at 9, on an
-   8x8 at 16 - asking for more silently places fewer.
-3. **Affects all modes**: new daily puzzles, restored daily puzzles, and new unlimited
+1. **Per difficulty**: `CONFIG.DIFFICULTY.HINT_PLACEMENT` - each entry names a `strategy`
+   plus its parameters. `spaced` takes `count` and `minDistance`; `covering` takes `count`,
+   `lowValueAnchors` and `anchorMaxValue`.
+2. **`spaced` tuning**: `minDistance` trades redundancy for coverage - spacing hints out
+   spreads their areas so fewer cells go unconstrained, but the areas then overlap less and
+   cross-checking is lost. `minDistance: 1` is a no-op (Chebyshev >= 1 is any distinct cell).
+   On a 6x6 the spacing caps the achievable count at 9, on an 8x8 at 16 - asking for more
+   silently places fewer.
+3. **`covering` tuning**: raising `count` raises redundancy; coverage is already at or near
+   100% at the current counts. An `anchorMaxValue` quota the grid cannot supply is silently
+   unmet, so check the tables in "Tricky hint placement experiment" before raising one.
+4. **Hint count is not a free parameter.** Round 1's clearest lesson is that raising `count`
+   changes difficulty far more than placement does - Easy lost 23 points of completion to it.
+   Change count and placement in separate releases, or you cannot attribute the result.
+5. **`anchorMaxValue` is also a measurement threshold.** `describePuzzle()` counts
+   `anchor_hints` at whatever value the placement declares, so two configs being compared
+   must declare the same one.
+6. **Affects all modes**: new daily puzzles, restored daily puzzles, and new unlimited
    puzzles alike.
-4. **Saved unlimited puzzles** keep their original hint placement when restored (no
+7. **Saved unlimited puzzles** keep their original hint placement when restored (no
    migration). **Saved daily puzzles** rebuild their hints from the seed, but pin their arm -
    so a config change *does* reach an in-progress daily puzzle, while an arm change does not.
-5. **Graceful degradation**: too-tight constraints place fewer hints rather than failing.
-6. **Verify before shipping**: both placements are pure functions of a grid size, a config
+8. **Graceful degradation**: too-tight constraints place fewer hints rather than failing.
+9. **Verify before shipping**: both placements are pure functions of a grid size, a config
    and a seeded random source, so they can be exercised outside a browser.
    `generation/hintPlacement.js` deliberately imports only from `utils.js` for this reason.
    Run a candidate config across a year of seeds and check coverage, redundancy, anchors and
    layout variety before trusting it - every number in this document was produced that way.
+   `config.js` imports the i18n runtime, which resolves a Vite-only alias, so an offline
+   harness needs `src/i18n/index.js` and `src/tokens.js` stubbed.
 
 **Modify the Win Sheet Streak Reveal:**
 1. **Timings**: `CONFIG.WIN_STREAK.REVEAL_DELAY_MS` and `CONFIG.WIN_STREAK.TRANSITION_MS` in `config.js`. The duration is applied inline to the track, so it overrides the CSS default.
@@ -1588,7 +1624,7 @@ only, and note that doing so mid-flight still muddies the comparison - prefer wa
 3. **Save frequency**: Tune `SAVE_COOLDOWN_MS` or implement debouncing instead of throttling
 
 **Modify Backtracking Sensitivity:**
-1. **Change threshold**: Update `CONFIG.INTERACTION.BACKTRACK_THRESHOLD` in `config.js` (default: 4 squares)
+1. **Change threshold**: Update `CONFIG.INTERACTION.BACKTRACK_THRESHOLD` in `config.js` (currently 1 square)
 2. **Higher values** (5-10): More forgiving, reduces accidental erasure on complex crossing paths, but makes deliberate long-distance backtracking impossible
 3. **Lower values** (1-3): More precise control, allows backtracking across shorter distances only, but easier to accidentally erase when drawing crosses itself
 4. **Special case**: Value of 1 makes backtracking work only for immediately adjacent cells (most precise, least forgiving)

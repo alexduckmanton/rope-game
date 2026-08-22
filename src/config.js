@@ -135,102 +135,126 @@ export const CONFIG = {
     // directly, so every surface stays in step.
     KEYS: ['easy', 'medium', 'hard', 'unlimited'],
 
-    // Hint generation configuration per difficulty level - CONTROL arm
+    // Hint placement per difficulty
     //
-    // This is the placement that has always shipped: shuffle every cell, take
-    // the first N that are at least minDistance apart. It is retained as the
-    // control arm of the hint-generation experiment (see EXPERIMENT below) and
-    // should not be tuned while that experiment is running - changing it would
-    // move the baseline mid-test.
+    // Each difficulty names the placement that generates its hints:
     //
-    // count: fixed number of hints to place
-    // minDistance: minimum Chebyshev distance between hints (0 = no constraint)
+    //   'spaced'   - generateHintCellsWithMinDistance() in renderer.js. Shuffles
+    //                every cell and takes the first `count` that are at least
+    //                `minDistance` (Chebyshev) apart. Knows nothing about the
+    //                solution, so what each hint ends up reading is chance.
+    //   'covering' - generateHintCellsCovering() in generation/hintPlacement.js.
+    //                Greedy maximum-coverage selection, then overlap, then swaps
+    //                for low-value "anchor" hints.
     //
-    // Known quirks, left deliberately intact so the control keeps behaving as
-    // it did for the players already measured against it:
-    //   - easy places 1.73 hints on average, not 2: minDistance 3 is
-    //     unsatisfiable from any interior cell of a 4x4, so roughly a quarter
-    //     of days ship a single-hint Easy.
-    //   - minDistance 1 would be a no-op (Chebyshev >= 1 is any distinct cell).
-    HINT_CONFIG: {
+    // Round 1 of the hint placement experiment (2026-08-06 to 08-22, 579 starts)
+    // settled two of the three difficulties. Completion rate, spaced -> covering:
+    //
+    //   Easy        66.2% -> 43.3%   (p < 0.0001)  spaced wins, kept
+    //   Tricky      34.4% -> 38.8%   (p = 0.57)    no effect, still testing
+    //   Diabolical  25.0% -> 66.7%   (p < 0.0001)  covering wins, shipped
+    //
+    // The driver is hint COUNT, not placement. Diabolical was the only arm that
+    // held its count fixed (16) and changed placement alone - and it was the only
+    // clear win. Easy quadrupled its hints (1.73 -> 4) and tripled its constraint
+    // load (7.1 -> 21.9 expected turns), which buried the placement benefit.
+    //
+    // count:           hints to place
+    // minDistance:     'spaced' only - minimum Chebyshev gap (0 = no constraint)
+    // lowValueAnchors: 'covering' only - anchors to guarantee, budget permitting
+    // anchorMaxValue:  turn count at or below which a hint counts as an anchor.
+    //                  Also the threshold describePuzzle() measures at, so both
+    //                  Tricky arms must declare the SAME value or their
+    //                  anchor_hints analytics are not comparable to each other.
+    HINT_PLACEMENT: {
+      // Kept exactly as it always was. Note it places 1.73 hints on average, not
+      // 2: minDistance 3 is unsatisfiable from any interior cell of a 4x4, so
+      // roughly a quarter of days ship a single-hint Easy. Round 1 measured
+      // players completing this far more often than a fully covered 4x4, so the
+      // quirk stays - on this grid, sparse is the feature.
       easy: {
-        count: 2,         // 2 hints on 4x4 grid
-        minDistance: 3,   // Hints must be at least 3 cells apart
+        strategy: 'spaced',
+        count: 2,
+        minDistance: 3,
       },
+      // Control arm of the Tricky re-test. Do not tune while it runs.
       medium: {
-        count: 5,         // 5 hints on 6x6 grid
-        minDistance: 2,   // Hints must be at least 2 cells apart
+        strategy: 'spaced',
+        count: 5,
+        minDistance: 2,
+        anchorMaxValue: 2,   // measurement only - see note above
       },
+      // Shipped from round 1: the same 16 hints as before, placed to cover.
       hard: {
-        count: 16,        // 16 hints on 8x8 grid
-        minDistance: 0,   // No distance constraint
-      },
-    },
-
-    // Hint generation configuration per difficulty level - DENSE arm
-    //
-    // Used by generateHintCellsCovering() in generation/hintPlacement.js, which
-    // guarantees every cell sits inside at least one hint area and then spends
-    // the remaining budget on overlap and on low-value "anchor" hints.
-    //
-    // count:           total hints to place
-    // lowValueAnchors: hints reading <= anchorMaxValue to guarantee, budget and
-    //                  solution permitting
-    // anchorMaxValue:  turn count at or below which a hint counts as an anchor
-    //
-    // Measured over 365 daily seeds, against the control above:
-    //
-    //   |            | hints       | coverage      | redundancy  | anchors     |
-    //   |------------|-------------|---------------|-------------|-------------|
-    //   | Easy       | 1.73 -> 4   | 62.6% -> 100% | 1.00 -> 1.87| n/a         |
-    //   | Tricky     | 5    -> 8   | 77.2% -> 100% | 1.24 -> 1.69| 0.31 -> 1.82|
-    //   | Diabolical | 16   -> 16  | 88.9% -> 100% | 2.13 -> 1.97| 2.29 -> 2.45|
-    //
-    // Easy asks for no anchors because it cannot have any: a 4x4 Hamiltonian
-    // cycle packs ~11 turns into 16 cells, so every 3x3 window on it holds at
-    // least two turns. Tricky uses a threshold of 2 rather than 1 for a milder
-    // version of the same constraint - only 2.0 positions per 6x6 puzzle read
-    // 0 or 1, so a quota of two at threshold 1 would be demanding both of them.
-    HINT_CONFIG_DENSE: {
-      easy: {
-        count: 4,              // 4 hints fully cover a 4x4
-        lowValueAnchors: 0,    // Impossible on this grid - see above
-      },
-      medium: {
-        count: 8,              // 8 hints fully cover a 6x6 on every seed tested
-        lowValueAnchors: 2,
-        anchorMaxValue: 2,
-      },
-      hard: {
-        count: 16,             // Unchanged, so Diabolical's density looks the same
+        strategy: 'covering',
+        count: 16,
         lowValueAnchors: 2,
         anchorMaxValue: 1,
       },
     },
+
+    // Challenger arm for the Tricky re-test (round 2)
+    //
+    // Round 1's Tricky arm changed placement AND raised the count 5 -> 8, which
+    // doubled time-to-win (112s -> 235s) for no completion gain. This holds the
+    // count at 5 so placement is the only thing differing from the control above
+    // - the same isolation that made Diabolical's result readable.
+    //
+    // Measured over 365 daily seeds, against medium's control:
+    //
+    //   |                | spaced (control) | covering (this) |
+    //   |----------------|------------------|-----------------|
+    //   | hints          | 5                | 5               |
+    //   | coverage       | 77.2%            | 97.8%           |
+    //   | redundancy     | 1.24             | 1.16            |
+    //   | anchors        | 1.18             | 0.79            |
+    //   | expected turns | 20.6             | 23.9            |
+    //
+    // **Coverage is the only thing this buys, and that is the point.** Redundancy
+    // dips slightly, as it did on Diabolical (2.13 -> 1.97): spreading hints to
+    // cover the grid necessarily overlaps them less. Anchors dip too. So this is a
+    // clean test of one property - does constraining every cell help? - rather
+    // than the three-way change round 1 shipped.
+    //
+    // Note the anchor figures are BOTH measured at threshold 2. Round 1 compared
+    // control anchors at threshold 1 (0.31) against the dense arm at threshold 2
+    // (1.82) and reported it as a 6x gain; measured consistently, spaced placement
+    // actually yields MORE low-value hints than covering does. That is why medium
+    // control carries an explicit anchorMaxValue above.
+    //
+    // A quota above 2 changes nothing - the 6x6 cannot supply more low-value
+    // positions without giving up a covering one, so the anchor stage saturates
+    // at 0.79 whether it is asked for 2, 3 or 4.
+    TRICKY_COVERING: {
+      strategy: 'covering',
+      count: 5,
+      lowValueAnchors: 2,
+      anchorMaxValue: 2,
+    },
   },
 
-  // Hint generation experiment
+  // Tricky hint placement experiment (round 2)
   //
-  // A/B test of the two HINT_CONFIG blocks above. Motivated by the observation
-  // that Tricky completes at 37% while Diabolical - a bigger grid - completes
-  // at 53% and solves faster, which traced back to Diabolical's hint areas
-  // overlapping enough to make deduction possible where Tricky's do not.
+  // Round 1 tested covering placement on all three difficulties at once and
+  // confounded it with hint count. Easy and Diabolical are now settled and fixed
+  // for everyone; this arm applies to Tricky alone, so a player's assignment
+  // changes nothing outside the 6x6 grid.
   //
-  // Assignment is per person via PostHog and is pinned into each saved game, so
-  // a puzzle already in progress can never be regenerated under a player.
+  // Variant values are deliberately distinct from round 1's 'control'/'dense' so
+  // the two rounds can never be conflated in analysis. The property names
+  // (generator_variant, variant_source) stay the same - only the values change.
   //
-  // See "Hint generation experiment" in CLAUDE.md for the teardown checklist.
+  // See "Tricky hint placement experiment" in CLAUDE.md for the teardown checklist.
   EXPERIMENT: {
-    HINT_GENERATION: {
-      CONTROL: 'control',
-      VARIANT: 'dense',
+    TRICKY_HINTS: {
+      CONTROL: 'tricky-control',
+      VARIANT: 'tricky-covering',
       // Assignment is a coin flip cached in localStorage, NOT a PostHog feature
-      // flag - the slim posthog build we ship has no flag support at all. See
-      // the module comment in experiment.js. The matching PostHog experiment
-      // (id 405364) exists only as a record of dates and configuration; it
-      // cannot compute results, so the analysis runs on the generator_variant
-      // event property instead.
-      STORAGE_KEY: 'loop-game:experiment:hint-generation',
+      // flag - the slim posthog build we ship has no flag support at all. See the
+      // module comment in experiment.js. A fresh storage key re-randomises
+      // everyone rather than inheriting round 1's assignment, which would carry
+      // round-1 exposure through into round-2 behaviour.
+      STORAGE_KEY: 'loop-game:experiment:tricky-hints',
     },
   },
 

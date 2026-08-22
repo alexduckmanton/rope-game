@@ -1,5 +1,12 @@
 /**
- * Hint generation experiment - variant assignment
+ * Tricky hint placement experiment - variant assignment
+ *
+ * **Scope: the 6x6 Tricky grid only.** Round 1 of this experiment tested
+ * covering hint placement on all three difficulties at once and confounded it
+ * with hint count, because two of the three arms raised the count at the same
+ * time. Easy and Diabolical are now settled and fixed for every player (see
+ * `HINT_PLACEMENT` in config.js); an assignment here changes nothing outside
+ * Tricky.
  *
  * **This is client-side randomisation, not a PostHog feature flag.** That is a
  * deliberate choice, and the reason is worth reading before "fixing" it.
@@ -15,7 +22,7 @@
  * The consequence is that the PostHog *Experiment* object cannot compute
  * results: it keys on flag exposure, and there is none. The experiment is
  * analysed on the `generator_variant` event property instead - see
- * "Hint generation experiment" in CLAUDE.md.
+ * "Tricky hint placement experiment" in CLAUDE.md.
  *
  * Two properties this still has to satisfy, both specific to this game:
  *
@@ -33,12 +40,17 @@
  * The assignment is cached in localStorage, so it is stable per browser for the
  * life of the experiment. It is not stable across devices or after a storage
  * clear - acceptable here, where players are anonymous and mostly visit once.
+ *
+ * Round 1's key (`loop-game:experiment:hint-generation`) is deliberately NOT
+ * reused: inheriting those assignments would carry round-1 exposure into
+ * round-2 behaviour. It is left in localStorage to expire with nothing reading
+ * it.
  */
 
 import { CONFIG } from './config.js';
 import { setPersonProperties } from './analytics.js';
 
-const { CONTROL, VARIANT, STORAGE_KEY } = CONFIG.EXPERIMENT.HINT_GENERATION;
+const { CONTROL, VARIANT, STORAGE_KEY } = CONFIG.EXPERIMENT.TRICKY_HINTS;
 
 /**
  * Where an assignment came from
@@ -60,6 +72,11 @@ let cached = null;
 
 /**
  * Whether a valid variant name
+ *
+ * Round 1's values ('control' / 'dense') fail this deliberately, so a save
+ * written before round 2 falls through to a fresh assignment rather than
+ * silently selecting a placement that no longer exists.
+ *
  * @param {*} value - Candidate
  * @returns {boolean} True for a known arm
  */
@@ -124,7 +141,7 @@ function reportAssignment(variant, source) {
  *
  * @returns {{variant: string, source: string}} The assignment and its origin
  */
-export function getHintGenerationAssignment() {
+export function getTrickyHintsAssignment() {
   if (cached) return cached;
 
   const stored = readStored();
@@ -147,9 +164,9 @@ export function getHintGenerationAssignment() {
  * Variant to generate a puzzle with
  *
  * A saved game's pinned variant always wins, so a puzzle in progress is never
- * regenerated with different hints underneath the player. Saves written before
- * the experiment shipped have no pinned variant and fall through to the current
- * assignment; their `variant_source` marks them so they can be excluded.
+ * regenerated with different hints underneath the player. Saves carrying a
+ * round-1 variant, or none at all, fall through to the current assignment;
+ * their `variant_source` marks them so they can be excluded.
  *
  * @param {string} [savedVariant] - Variant pinned in a loaded save, if any
  * @returns {{variant: string, source: string}} Variant to generate with
@@ -158,15 +175,18 @@ export function variantForSavedGame(savedVariant) {
   if (isVariant(savedVariant)) {
     return { variant: savedVariant, source: VARIANT_SOURCE.SAVED };
   }
-  return getHintGenerationAssignment();
+  return getTrickyHintsAssignment();
 }
 
 /**
- * Whether a variant name is the dense arm
+ * Whether a variant name is the covering arm
+ *
+ * Only consulted for Tricky - every other difficulty has a fixed placement.
+ *
  * @param {string} variant - Arm name
- * @returns {boolean} True for the dense arm
+ * @returns {boolean} True for the covering arm
  */
-export function isDenseVariant(variant) {
+export function isTrickyCoveringVariant(variant) {
   return variant === VARIANT;
 }
 
@@ -177,6 +197,6 @@ export function isDenseVariant(variant) {
  * person property while the player is still on the home screen - before any
  * puzzle asks for it.
  */
-export function initHintGenerationExperiment() {
-  getHintGenerationAssignment();
+export function initTrickyHintsExperiment() {
+  getTrickyHintsAssignment();
 }
