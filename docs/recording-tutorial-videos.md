@@ -252,26 +252,32 @@ else, not streaming frames to disk instead of buffering them, not a larger Node
 young-generation heap, and not driving the pointer from inside the page instead
 of over CDP.
 
-**So do not try to reconstruct the missing time.** The encode holds a frame for
-the gap its timestamps report, and for a stall that is exactly the freeze you can
-see. The fix is to decide, per gap, which of two completely different things it
-was:
+**Nothing removes the stall, so the pipeline makes it cost less.** Everything is
+recorded `SLOWDOWN` times slower than it plays back — three, currently — and
+sped back up at encode. Three consequences, all of them wanted:
 
-| the page was still | screencast stalled |
-|---|---|
-| a lead-in, a beat between taps | 150–270ms of lost motion |
-| screencast correctly sends nothing | the page was painting the whole time |
-| hold the frame for the whole gap | hold it for as little as possible |
+- A 250ms stall spans only ~80ms of finished clip.
+- Three times as many pointer samples land per frame of that clip, so the
+  resample has real motion to choose from rather than reconstructing it.
+- The clip is built by resampling onto a 60Hz grid instead of holding frames for
+  whatever the timestamps claim, so there is no lossy patch anywhere.
 
-Timing cannot tell them apart. **The pixels can.** `frameMotion()` decodes the
-clip to 32x32 greyscale in one ffmpeg pass and compares each frame with the one
-before it. Where they are identical the page really was still and the gap is
-honoured in full; where they differ, motion was lost and no reconstruction will
-bring it back, so the frame is held for `MAX_STALL_TICKS` (2, or 33ms) and the
-clip runs a hair fast across the stall rather than freezing.
+**Slowing the pointer is not enough on its own.** Every animation the game runs
+reads `Date.now()` — the path entry, the number bounce, the win fade — so a
+scene with a slow pointer and a real clock records those three times too fast
+and speeding it up makes them nine. The runner overrides `Date.now()` in an init
+script, before any page script runs, and its own CSS animations are scaled by
+hand because those are driven by the compositor rather than the clock.
+`performance.now()` is deliberately left alone: nothing in the game reads it and
+Playwright's own machinery does.
 
-Lost motion is still lost — the clip is very slightly quicker than the recording
-across a stall. That is invisible. A quarter-second freeze is not.
+Scene beats are written at the speed they should read back at; `hold()` is the
+only thing that knows about `SLOWDOWN`.
+
+An earlier attempt clamped the hold instead — if the frames either side of a gap
+differed, the gap had to be a stall, so hold for 33ms and let the clip run
+slightly fast across it. It works, in that the freeze goes away, and it is the
+wrong trade: the cursor visibly skips. Trading a freeze for a jump is not a fix.
 
 ### 5. The canvas is 300x150 for a while after it exists
 
@@ -345,8 +351,8 @@ Then decode one row of pixels per output frame, find the bar's leading edge, and
 histogram the differences. A healthy run is a single step value (plus its
 neighbour, from rounding) and no zeros.
 
-**What the runner prints per clip** — `7.5s, 396 frames, 16.6ms median gap,
-18.9ms p95`:
+**What the runner prints per clip** — `5.6s, 542 frames, 16.6ms median gap,
+19.2ms p95`:
 
 - *median gap* — the median interval between captured frames. It should sit near
   16.7ms; under about 20ms means capture is keeping up.
@@ -354,8 +360,11 @@ neighbour, from rounding) and no zeros.
   handful of frames barely moves the median: at scale 3 the median rose to
   22.3ms while the p95 went to 42.4ms, and it is the p95 that matches what the
   clip looks like. Under about 20ms is healthy.
-- *frames* — the count kept after trimming.
-- *duration* — clip length, which is ticks ÷ 60 by construction.
+- *frames* — captured frames kept after trimming. Expect roughly `SLOWDOWN`
+  times what the clip's own length would suggest; the resample discards the
+  surplus.
+- *duration* — clip length, which is ticks ÷ 60 by construction, after time has
+  been divided by `SLOWDOWN`.
 
 Frames-per-second-of-clip is **not** a useful figure: screencast emits nothing
 while the page is still, and those stretches legitimately become one held frame.
@@ -364,6 +373,12 @@ paints during it, so the clip ends on the last painted frame. That is the right
 behaviour for a player that holds its last frame, but it does mean a scene cannot
 buy a pause at the end by waiting; the pause has to come from something that
 paints, or from the sheet holding the frame.
+
+**The drawn-board assertion** runs on every scene and is the one that guards the
+cursor's shape — see "Why the cursor is not a straight line". It fires the app's
+own `pagehide` save and diffs the board the game recorded against the one
+`replayScene()` predicts. If a stroke ever starts clipping a cell it should not,
+the run fails with both boards printed rather than quietly shipping a wrong clip.
 
 **The freeze test** is what catches trap 4, and neither the median nor the p95
 will. Decode the finished clip, count consecutive frames identical to their
@@ -462,25 +477,58 @@ ever loaded.
 
 ---
 
-## Pacing
+## Pacing and the cursor
 
 The constants at the top of `scripts/record-tutorial.mjs` decide whether a clip
-can be followed rather than merely watched:
+can be followed rather than merely watched.
 
-- `STEPS_PER_CELL` — pointer samples per cell, and the only thing that sets a
-  stroke's speed, because each sample costs a frame (trap 2). 16 gives one
-  sample per 60Hz tick and ~260ms per cell — deliberately slow. Loopy's whole
-  input is one continuous drag; a stroke that crosses the grid in half a second
-  reads as a line appearing rather than as someone drawing it, and the drawing
-  is the point. It also keeps the recorded path identical to the scene's cell
-  list, since the game's own Bresenham never has to bridge more than a fraction
-  of a cell.
-- `CURSOR_FADE_MS` — how long the cursor takes to disappear, and the beat the
-  runner waits after asking it to before doing anything else.
-- `LEAD_IN_MS` — every clip holds on its opening board before anything moves. The
-  runner applies this at the `start` mark rather than each scene writing its own,
-  so no scene can be recorded without one. It is also what makes the poster
+- `SLOWDOWN` — how much slower everything is recorded than it plays back. See
+  trap 4. Costs recording time and nothing else: a 9s card takes about 27s to
+  shoot.
+- `STEPS_PER_CELL` — pointer samples per cell **of finished clip**; the real
+  count is this times `SLOWDOWN`. Each sample costs a frame (trap 2), so this
+  sets the speed as well as the smoothness. 16 gives ~260ms per cell —
+  deliberately slow. Loopy's whole input is one continuous drag, and a stroke
+  that crosses the grid in half a second reads as a line appearing rather than
+  as someone drawing it.
+- `LEAD_IN_MS` — every clip holds on its opening board before anything moves.
+  The runner applies it at the `start` mark rather than each scene writing its
+  own, so no scene can be recorded without one. It is also what makes the poster
   readable.
-- `BETWEEN_TAPS_MS` — held after a tap resolves, so the gap it leaves has a beat
-  to register before the next thing happens.
-- `TAP_TIMING` — how the cursor travels and presses.
+- `CURSOR_FADE_MS` — how long the cursor takes to disappear, and the beat the
+  runner waits after asking it to.
+- `BETWEEN_TAPS_MS`, `TAP_TIMING` — the beat after a tap resolves, and how the
+  cursor travels and presses.
+
+### Why the cursor is not a straight line
+
+A pointer that runs cell centre to cell centre at a constant speed, turning
+ninety degrees on the spot, reads as a machine — and it is drawing a line the
+game renders with rounded corners, so it does not even match its own output.
+Three things fix that:
+
+- `CORNER_RADIUS` — corners become a quadratic Bézier, close to the
+  `cellSize * 0.35` the game rounds the drawn path by.
+- `CORNER_SPEED` — the pointer slows through a turn and accelerates out of it,
+  and eases in and out at the ends of a stroke. Hands do; plotters do not. This
+  is the single biggest part of the effect.
+- `WAYPOINT_DRIFT` — waypoints sit slightly off the cell centre, because nobody
+  drags through the exact middle of every square.
+
+**None of it may move the stroke onto a different cell.** The game snaps pointer
+positions to cells, so the cursor is free inside a cell and not across its
+edges. Rounding cuts towards the inside of a turn: at 0.3 the arc's closest
+approach to the diagonal neighbour is about 0.21 of a cell, comfortably inside
+the two cells the turn belongs to, and the drift is bounded well within that.
+
+The guard is not the argument, though — it is the assertion. Every scene now
+fires the app's own `pagehide` save and compares the board the game actually
+recorded against the one `replayScene()` predicts, cell for cell. A clip with
+one extra cell in it looks perfectly plausible, and nothing else would catch it.
+
+**Deterministic on purpose.** The drift comes from a PRNG seeded on the scene id,
+never `Math.random`, because a pipeline whose output changes between identical
+runs is not one a re-record can be trusted to.
+
+Perpendicular wobble along the straights was tried and left out: on a 100px cell
+there is not room for enough of it to read as anything but an unsteady hand.

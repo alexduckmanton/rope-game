@@ -118,7 +118,7 @@ function playerTurnMap(drawnCells, connections) {
  *
  * @param {Object} scene - A scene from tutorial-scenes.mjs
  * @param {Object} board - From buildBoard()
- * @returns {{trace: Array<{cell: string, reads: Array<number>}>, cells: number}} Replay
+ * @returns {{trace: Array, cells: number, drawnCells: Array<string>}} Replay
  */
 export function replayScene(scene, board) {
   const drawn = new Set();
@@ -162,5 +162,5 @@ export function replayScene(scene, board) {
     }
   }
 
-  return { trace, cells: drawn.size };
+  return { trace, cells: drawn.size, drawnCells: [...drawn] };
 }

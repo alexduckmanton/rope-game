@@ -21,11 +21,11 @@ import { chromium } from 'playwright';
 import ffmpegPath from 'ffmpeg-static';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SCENES } from './tutorial-scenes.mjs';
-import { buildBoard, plantedSave, GRID_SIZE } from './lib/tutorial-boards.mjs';
+import { buildBoard, plantedSave, replayScene, GRID_SIZE } from './lib/tutorial-boards.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -89,13 +89,35 @@ const THEMES = ['light', 'dark'];
  * ========================================================================= */
 
 /**
- * Pointer samples per cell, and the only thing that sets a stroke's speed.
+ * Everything is recorded this many times slower than it plays back.
+ *
+ * Screencast stalls for 150-270ms at a time here whatever it is asked to do
+ * (trap 4). Nothing removes the stall, but slowing the scene down shrinks what
+ * it costs: three times slower means a 250ms stall spans only ~80ms of finished
+ * clip, and three times as many pointer samples land per frame of that clip, so
+ * there is far more captured motion to resample from.
+ *
+ * It is not enough to slow the pointer. Every animation the game runs is driven
+ * by `Date.now()`, so the runner slows the page's clock by the same factor and
+ * the whole scene — path entry, the number bounce, the win fade — stretches
+ * together. The runner's own CSS animations are scaled to match. Speeding the
+ * frames back up at encode restores all of it in step.
+ *
+ * Costs recording time and nothing else: a 9s card takes about 27s to shoot.
+ */
+const SLOWDOWN = Number(process.env.SLOWDOWN ?? 3);
+
+/**
+ * Pointer samples per cell of finished clip.
  *
  * `page.mouse.move` costs about 16.3ms on its own — it is bound to a frame —
- * so back-to-back moves land one per 60Hz tick and 16 of them take ~260ms.
- * **Do not sleep between them.** An earlier version paced the stroke with a
- * timeout on top of that cost and got 8 samples per cell at a 50ms gap: the
- * path advanced 20 times a second, which is exactly what "laggy" looked like.
+ * so back-to-back moves land one per 60Hz tick. **Do not sleep between them.**
+ * An earlier version paced the stroke with a timeout on top of that cost and
+ * got 8 samples per cell at a 50ms gap: the path advanced 20 times a second,
+ * which is exactly what "laggy" looked like.
+ *
+ * The real count is this times SLOWDOWN, which is where the extra motion the
+ * resample draws on comes from.
  */
 const STEPS_PER_CELL = 16;
 
@@ -113,6 +135,50 @@ const CURSOR_FADE_MS = 260;
 const BETWEEN_TAPS_MS = 700;
 const TAP_TIMING = { approach: 340, hold: 130, settle: 220 };
 
+/* ============================================================================
+ * CURSOR CHARACTER
+ *
+ * A pointer that runs cell centre to cell centre at a constant speed, turning
+ * ninety degrees on the spot, reads as a machine — and it is drawing a line the
+ * game renders with rounded corners, so it does not even match its own output.
+ * Three things fix that, and none of them may move the path off its cells:
+ * the game snaps pointer positions to cells, so the cursor is free inside a
+ * cell and not across its edges.
+ *
+ * All of it is deterministic. The jitter comes from a PRNG seeded on the scene,
+ * never Math.random, because a pipeline whose output changes between identical
+ * runs is not one you can trust a re-record to.
+ * ========================================================================= */
+
+/**
+ * Corner radius, as a fraction of a cell.
+ *
+ * The game draws the path itself with `cellSize * 0.35` corners, so this is
+ * close to matching what the cursor leaves behind. Rounding cuts towards the
+ * inside of the turn: at 0.3 the arc's closest approach to the diagonal
+ * neighbour is about 0.21 of a cell, comfortably inside the two cells the turn
+ * belongs to. Raising it much further starts to risk clipping a third cell,
+ * which the drawn-path assertion at the end of every scene would catch.
+ */
+const CORNER_RADIUS = 0.3;
+
+/** Speed through a corner, relative to a straight. Hands slow into turns. */
+const CORNER_SPEED = 0.55;
+
+/** How far a waypoint may drift off the cell centre, as a fraction of a cell */
+const WAYPOINT_DRIFT = 0.07;
+
+/** Deterministic PRNG — the same one the game seeds its puzzles with */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 // --- page setup ------------------------------------------------------------
 
 /**
@@ -123,7 +189,23 @@ const TAP_TIMING = { approach: 340, hold: 130, settle: 220 };
  * puzzle exactly. Settings are planted too — every clip has to show the
  * defaults, and a stale `loop-game:settings` from a previous run would not.
  */
-function initScript({ save, settings }) {
+function initScript({ save, settings, slowdown }) {
+  /**
+   * Slow the page's clock.
+   *
+   * Every animation the game runs reads `Date.now()` — the path entry, the
+   * number bounce, the win fade — so scaling it here stretches all of them by
+   * exactly the factor the pointer is stretched by, and speeding the frames up
+   * at encode puts them all back in step. Installed before any page script, so
+   * the game never sees the real clock.
+   *
+   * `performance.now()` is deliberately left alone: nothing in the game reads
+   * it, and Playwright's own machinery does.
+   */
+  const epoch = Date.now();
+  const realNow = Date.now.bind(Date);
+  Date.now = () => Math.round(epoch + (realNow() - epoch) / slowdown);
+
   try {
     localStorage.clear();
     localStorage.setItem(save.key, save.value);
@@ -133,6 +215,10 @@ function initScript({ save, settings }) {
   } catch {
     /* storage disabled; the run will fail its expect assertions and say so */
   }
+
+  // The runner's own animations are CSS, driven by the compositor rather than
+  // by Date.now(), so they have to be stretched by hand to stay in step.
+  const ms = (base) => `${base * slowdown}ms`;
 
   const install = () => {
     const style = document.createElement('style');
@@ -172,7 +258,7 @@ function initScript({ save, settings }) {
         z-index: 1;
         pointer-events: none;
         background-color: var(--color-solution-path);
-        animation: capture-hint-pulse 2s ease-in-out infinite;
+        animation: capture-hint-pulse ${ms(2000)} ease-in-out infinite;
       }
       @keyframes capture-hint-pulse {
         0%, 100% { opacity: 0; }
@@ -203,7 +289,7 @@ function initScript({ save, settings }) {
         border: 2.5px solid var(--capture-cursor-edge);
         background: var(--capture-cursor-fill);
         box-shadow: 0 2px 10px var(--capture-cursor-shadow);
-        transition: opacity 260ms linear;
+        transition: opacity ${ms(260)} linear;
       }
       #capture-ripple {
         z-index: 2147483646;
@@ -255,20 +341,20 @@ function initScript({ save, settings }) {
         cursor.style.transition = 'none';
         cursor.style.opacity = '0';
         void cursor.offsetWidth;
-        cursor.style.transition = 'opacity 260ms linear';
+        cursor.style.transition = `opacity ${ms(260)} linear`;
       },
       press: (pressed) => {
         scale = pressed ? 0.8 : 1;
         cursor.style.transition = pressed
-          ? 'transform 110ms ease-out, opacity 260ms linear'
-          : 'transform 260ms cubic-bezier(.33,.9,.35,1), opacity 260ms linear';
+          ? `transform ${ms(110)} ease-out, opacity ${ms(260)} linear`
+          : `transform ${ms(260)} cubic-bezier(.33,.9,.35,1), opacity ${ms(260)} linear`;
         paint();
         if (!pressed) return;
         ripple.style.setProperty('--x', `${x}px`);
         ripple.style.setProperty('--y', `${y}px`);
         ripple.style.animation = 'none';
         void ripple.offsetWidth;
-        ripple.style.animation = 'capture-ripple 520ms ease-out';
+        ripple.style.animation = `capture-ripple ${ms(520)} ease-out`;
       },
       /**
        * Cover cells so their hint numbers do not show.
@@ -341,24 +427,163 @@ async function cellCentres(page) {
   const box = await page.locator('#game-canvas').boundingBox();
   if (!box) throw new Error('canvas not found');
   const cell = box.width / GRID_SIZE;
-  return (row, col) => ({
+  const centre = (row, col) => ({
     x: box.x + (col + 0.5) * cell,
     y: box.y + (row + 0.5) * cell,
   });
+  centre.cellSize = cell;
+  return centre;
 }
 
 /**
- * Move the real pointer along a line, one sample per frame.
+ * A cell centre, nudged off centre by a fixed amount for this scene.
+ *
+ * Nobody drags through the exact middle of every square, and a path that does
+ * is the other half of why the cursor reads as mechanical. Seeded on the scene
+ * so a re-record reproduces, and bounded well inside the cell so the drift can
+ * never change which cells the stroke draws.
+ */
+function driftedCentres(centre, seed) {
+  const random = mulberry32(seed);
+  const reach = centre.cellSize * WAYPOINT_DRIFT;
+  const cache = new Map();
+  return (row, col) => {
+    const key = `${row},${col}`;
+    if (!cache.has(key)) {
+      cache.set(key, { x: (random() * 2 - 1) * reach, y: (random() * 2 - 1) * reach });
+    }
+    const nudge = cache.get(key);
+    const base = centre(row, col);
+    return { x: base.x + nudge.x, y: base.y + nudge.y };
+  };
+}
+
+/**
+ * Wait, in finished-clip milliseconds.
+ *
+ * Every beat a scene asks for is written at the speed it should read back at,
+ * so the runner is the only place that knows about SLOWDOWN.
+ */
+const hold = (page, ms) => page.waitForTimeout(ms * SLOWDOWN);
+
+/**
+ * Turn a run of waypoints into a rounded path, sampled densely.
+ *
+ * Each interior corner becomes a quadratic Bézier whose control point is the
+ * corner itself, which is the cheapest curve that leaves the straights
+ * untouched and meets them tangentially. Samples come back tagged with whether
+ * they sit on a corner, which is what the speed profile keys off.
+ *
+ * @param {Array<{x: number, y: number}>} points - Waypoints, already drifted
+ * @param {number} radius - Corner radius in pixels
+ * @returns {Array<{x: number, y: number, corner: boolean}>} Dense samples
+ */
+function roundedPath(points, radius) {
+  const DENSITY = 60; // samples per segment or arc; only feeds the resample
+  const out = [];
+  const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+
+  // Where each corner's arc starts and ends, clamped so two corners on a short
+  // segment can never overlap
+  const cut = points.map((point, i) => {
+    if (i === 0 || i === points.length - 1) return 0;
+    const before = dist(points[i - 1], point);
+    const after = dist(point, points[i + 1]);
+    return Math.min(radius, before / 2, after / 2);
+  });
+
+  let cursor = points[0];
+  for (let i = 1; i < points.length; i += 1) {
+    const corner = points[i];
+    const isLast = i === points.length - 1;
+    const arcIn = cut[i];
+
+    // Straight run up to where this corner's arc begins
+    const straightEnd = isLast || arcIn === 0
+      ? corner
+      : lerp(corner, cursor, arcIn / dist(cursor, corner));
+    for (let step = 0; step < DENSITY; step += 1) {
+      out.push({ ...lerp(cursor, straightEnd, step / DENSITY), corner: false });
+    }
+    if (isLast || arcIn === 0) {
+      cursor = corner;
+      continue;
+    }
+
+    // Quadratic arc through the corner
+    const next = points[i + 1];
+    const arcEnd = lerp(corner, next, arcIn / dist(corner, next));
+    for (let step = 0; step < DENSITY; step += 1) {
+      const t = step / DENSITY;
+      const a = lerp(straightEnd, corner, t);
+      const b = lerp(corner, arcEnd, t);
+      out.push({ ...lerp(a, b, t), corner: true });
+    }
+    cursor = arcEnd;
+  }
+  out.push({ ...points[points.length - 1], corner: false });
+  return out;
+}
+
+/**
+ * Pick `count` points along a dense path, spaced by time rather than distance.
+ *
+ * Speed drops through corners and ramps in and out at the ends, so samples
+ * bunch up where the pointer is slow — which is what makes the motion read as a
+ * hand rather than a plotter. Both curves are smoothed over a window so the
+ * change of pace is gradual rather than a gear change at the arc boundary.
+ *
+ * @param {Array<{x: number, y: number, corner: boolean}>} dense - From roundedPath
+ * @param {number} count - How many pointer samples to emit
+ * @returns {Array<{x: number, y: number}>} Samples, first and last inclusive
+ */
+function paceSamples(dense, count) {
+  const SMOOTH = 12;
+
+  // Corner-ness, averaged over a window, so speed eases into and out of a turn
+  const speed = dense.map((_, i) => {
+    let corners = 0;
+    let seen = 0;
+    for (let j = Math.max(0, i - SMOOTH); j <= Math.min(dense.length - 1, i + SMOOTH); j += 1) {
+      corners += dense[j].corner ? 1 : 0;
+      seen += 1;
+    }
+    const curvature = corners / seen;
+    const ends = Math.min(i, dense.length - 1 - i) / (dense.length * 0.12);
+    // Start and finish gently; a stroke that begins at full pelt reads as a jump
+    const ramp = 0.35 + 0.65 * Math.min(1, ends);
+    return (1 - curvature * (1 - CORNER_SPEED)) * ramp;
+  });
+
+  // Time to traverse each step, then invert to find equal-time positions
+  const clock = [0];
+  for (let i = 1; i < dense.length; i += 1) {
+    const length = Math.hypot(dense[i].x - dense[i - 1].x, dense[i].y - dense[i - 1].y);
+    clock.push(clock[i - 1] + length / ((speed[i] + speed[i - 1]) / 2));
+  }
+
+  const total = clock[clock.length - 1];
+  const samples = [];
+  let cursor = 0;
+  for (let n = 1; n <= count; n += 1) {
+    const target = (total * n) / count;
+    while (cursor + 1 < clock.length && clock[cursor + 1] < target) cursor += 1;
+    samples.push({ x: dense[cursor].x, y: dense[cursor].y });
+  }
+  samples[samples.length - 1] = { x: dense[dense.length - 1].x, y: dense[dense.length - 1].y };
+  return samples;
+}
+
+/**
+ * Move the real pointer through a list of samples, one per frame.
  *
  * No sleep: `page.mouse.move` already costs about a frame, so back-to-back
  * calls land at 60Hz. Adding a timeout on top is what made an earlier version
  * advance the path 20 times a second. See STEPS_PER_CELL.
  */
-async function glide(page, from, to, steps) {
-  for (let step = 1; step <= steps; step += 1) {
-    const t = step / steps;
-    await page.mouse.move(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
-  }
+async function glide(page, samples) {
+  for (const point of samples) await page.mouse.move(point.x, point.y);
 }
 
 const capture = (page, method, arg) =>
@@ -368,32 +593,30 @@ const capture = (page, method, arg) =>
 async function approach(page, target) {
   await page.mouse.move(target.x, target.y + 56);
   await capture(page, 'show', true);
-  await glide(page, { x: target.x, y: target.y + 56 }, target, 10);
+  const dense = roundedPath([{ x: target.x, y: target.y + 56 }, target], 0);
+  await glide(page, paceSamples(dense, 10 * SLOWDOWN));
 }
 
 /** Fade the cursor out and wait for the fade to finish painting */
 async function withdraw(page) {
   await capture(page, 'show', false);
-  await page.waitForTimeout(CURSOR_FADE_MS + 60);
+  await hold(page, CURSOR_FADE_MS + 60);
 }
 
 /** One pointer gesture through a run of cells */
-async function drawStroke(page, centre, cells) {
-  const first = centre(...cells[0]);
+async function drawStroke(page, centre, cells, drift) {
+  const points = cells.map(([row, col]) => drift(row, col));
+  const first = points[0];
 
   await approach(page, first);
   await page.mouse.down();
-  await page.waitForTimeout(120);
+  await hold(page, 120);
 
-  let from = first;
-  for (const [row, col] of cells.slice(1)) {
-    const to = centre(row, col);
-    await glide(page, from, to, STEPS_PER_CELL);
-    from = to;
-  }
+  const dense = roundedPath(points, centre.cellSize * CORNER_RADIUS);
+  await glide(page, paceSamples(dense, (cells.length - 1) * STEPS_PER_CELL * SLOWDOWN));
 
   await page.mouse.up();
-  await page.waitForTimeout(STROKE_SETTLE_MS);
+  await hold(page, STROKE_SETTLE_MS);
   await withdraw(page);
 }
 
@@ -402,33 +625,34 @@ async function tapCell(page, centre, row, col) {
   const target = centre(row, col);
 
   await approach(page, target);
-  await page.waitForTimeout(TAP_TIMING.approach);
+  await hold(page, TAP_TIMING.approach);
 
   await capture(page, 'press', true);
-  await page.waitForTimeout(TAP_TIMING.hold);
+  await hold(page, TAP_TIMING.hold);
   await page.mouse.down();
   await page.mouse.up();
-  await page.waitForTimeout(TAP_TIMING.settle);
+  await hold(page, TAP_TIMING.settle);
 
   await capture(page, 'press', false);
   await withdraw(page);
-  await page.waitForTimeout(BETWEEN_TAPS_MS);
+  await hold(page, BETWEEN_TAPS_MS);
 }
 
 async function playScene(page, scene, marks) {
   const centre = await cellCentres(page);
+  const drift = driftedCentres(centre, scene.seed);
 
   for (const step of scene.steps) {
     switch (step.type) {
       case 'draw':
-        await drawStroke(page, centre, step.cells);
-        if (step.pauseAfter) await page.waitForTimeout(step.pauseAfter);
+        await drawStroke(page, centre, step.cells, drift);
+        if (step.pauseAfter) await hold(page, step.pauseAfter);
         break;
       case 'tap':
         await tapCell(page, centre, step.row, step.col);
         break;
       case 'wait':
-        await page.waitForTimeout(step.ms);
+        await hold(page, step.ms);
         break;
       case 'mark':
         // Snap the cursor out of sight before the timestamp, never fade it.
@@ -436,10 +660,10 @@ async function playScene(page, scene, marks) {
         // mid-fade, and the clip would open on the previous card's cursor
         // dissolving in a corner.
         await capture(page, 'hide');
-        await page.waitForTimeout(120);
+        await hold(page, 120);
         marks.set(step.name, Date.now());
         // Every clip opens on a still board for the same beat
-        if (step.name === scene.trim.from) await page.waitForTimeout(LEAD_IN_MS);
+        if (step.name === scene.trim.from) await hold(page, LEAD_IN_MS);
         break;
       default:
         throw new Error(`unknown step type: ${step.type}`);
@@ -483,6 +707,7 @@ async function record(browser, scene, theme) {
   await page.addInitScript(initScript, {
     save: plantedSave(board),
     settings: CAPTURE_SETTINGS,
+    slowdown: SLOWDOWN,
   });
 
   // Aborting the analytics requests above makes the page log its own failure to
@@ -554,12 +779,27 @@ async function record(browser, scene, theme) {
 
   await cdp.send('Page.stopScreencast').catch(() => {});
 
-  // The only game state the page exposes. `won` is the assertion that matters:
-  // it is the whole difference between cards 4 and 5, and a scene that stopped
-  // working would otherwise record a plausible-looking wrong clip.
-  const outcome = await page.evaluate(() => ({
-    won: document.querySelector('.bottom-sheet-overlay.visible') !== null,
-  }));
+  // What the game thinks was drawn.
+  //
+  // `pagehide` is the app's own immediate-save path, so firing it flushes the
+  // throttled save and the board can be read back out of localStorage. This is
+  // the assertion that guards the cursor: it now curves through corners and
+  // drifts off centre, and the whole reason those are safe is that they never
+  // move the stroke onto a different cell. Nothing else would catch it if they
+  // did — a clip with one extra cell in it looks perfectly plausible.
+  const outcome = await page.evaluate((key) => {
+    window.dispatchEvent(new Event('pagehide'));
+    let drawn = null;
+    try {
+      drawn = JSON.parse(localStorage.getItem(key) ?? 'null')?.playerDrawnCells ?? null;
+    } catch {
+      /* reported as a missing board below */
+    }
+    return {
+      won: document.querySelector('.bottom-sheet-overlay.visible') !== null,
+      drawn: drawn && [...drawn].sort(),
+    };
+  }, plantedSave(board).key);
 
   await context.close();
 
@@ -571,6 +811,14 @@ async function record(browser, scene, theme) {
       `scene ${scene.id} (${theme}): expected won=${scene.expect.won}, game says ${outcome.won}`
     );
   }
+  const wanted = replayScene(scene, board).drawnCells.sort();
+  if (!outcome.drawn || outcome.drawn.join('|') !== wanted.join('|')) {
+    throw new Error(
+      `scene ${scene.id} (${theme}): the stroke drew a different board.\n` +
+      `  expected ${wanted.join(' ')}\n` +
+      `  drew     ${outcome.drawn ? outcome.drawn.join(' ') : '(no saved board)'}`
+    );
+  }
   if (frames.length < 10) {
     throw new Error(`scene ${scene.id} (${theme}): only ${frames.length} frames captured`);
   }
@@ -580,15 +828,6 @@ async function record(browser, scene, theme) {
 
 // --- encoding --------------------------------------------------------------
 
-/**
- * How long a frame may be held when the picture is moving.
- *
- * Two ticks is 33ms — a dropped frame, not a freeze. Anything longer only
- * happens because screencast stalled, and holding for it is what reads as
- * stuttering.
- */
-const MAX_STALL_TICKS = 2;
-
 async function ffmpeg(args) {
   try {
     await run(ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-y', ...args], {
@@ -597,42 +836,6 @@ async function ffmpeg(args) {
   } catch (error) {
     throw new Error(`ffmpeg failed:\n${error.stderr || error.message}`);
   }
-}
-
-/**
- * Which frames differ from the one before them
- *
- * Decodes the whole clip to 32x32 greyscale in one ffmpeg pass — far cheaper
- * than a JPEG decoder in Node, and 1KB per frame is plenty to tell "the board
- * moved" from "nothing at all happened".
- *
- * @param {string} dir - Working directory holding the frame jpegs
- * @param {Array<string>} names - Frame filenames in order
- * @returns {Promise<Array<boolean>>} True where the frame after this one differs
- */
-async function frameMotion(dir, names) {
-  const SIZE = 32;
-  const listPath = path.join(dir, 'motion.txt');
-  await writeFile(listPath, names.map((name) => `file '${name}'`).join('\n'));
-  const rawPath = path.join(dir, 'motion.gray');
-  await ffmpeg([
-    '-f', 'concat', '-safe', '0', '-i', listPath,
-    '-vf', `scale=${SIZE}:${SIZE},format=gray`, '-fps_mode', 'passthrough',
-    '-f', 'rawvideo', rawPath,
-  ]);
-
-  const raw = await readFile(rawPath);
-  const stride = SIZE * SIZE;
-  const moved = new Array(names.length).fill(false);
-  for (let i = 1; i < names.length; i += 1) {
-    let delta = 0;
-    for (let p = 0; p < stride; p += 1) {
-      delta += Math.abs(raw[i * stride + p] - raw[(i - 1) * stride + p]);
-    }
-    // Averaged over the frame; JPEG noise alone sits well under one level
-    moved[i - 1] = delta / stride > 0.6;
-  }
-  return moved;
 }
 
 /**
@@ -658,7 +861,6 @@ async function encode({ frames, crop, marks }, scene, theme) {
   const dir = path.join(WORK_DIR, `${scene.id}-${theme}`);
   await mkdir(dir, { recursive: true });
 
-  // Write every kept frame, then work out how long each should be held.
   const names = [];
   for (const [index, frame] of clip.entries()) {
     const name = `f${String(index).padStart(5, '0')}.jpg`;
@@ -666,41 +868,28 @@ async function encode({ frames, crop, marks }, scene, theme) {
     names.push(name);
   }
 
-  // Which consecutive frames actually differ. See the note below on why a gap
-  // in the capture cannot be trusted on its own.
-  const moved = await frameMotion(dir, names);
-
-  // Each frame is listed once per 60Hz tick it occupies, rather than once with
-  // a `duration` directive — the demuxer rounds those up to its 25fps default
-  // and silently resamples a 60fps capture to 25. Gaps are snapped to whole
-  // ticks first, since the page only paints on vsync and the spread in the
-  // timestamps is capture jitter, not content. See the doc.
+  // Resample the capture onto a 60Hz grid, with time divided by SLOWDOWN.
   //
-  // A long gap means one of two completely different things, and getting them
-  // confused is what a stutter is:
+  // Each frame is listed once per output tick it is the most recent frame for.
+  // That does three things at once: it speeds the slow-motion recording back up
+  // to the intended pace, it drops the surplus frames slow motion produces, and
+  // it turns what is left of a screencast stall (trap 4) into a hold a third of
+  // its real length.
   //
-  //   the page was still     — a lead-in, a beat between taps. Screencast sends
-  //                            nothing while nothing changes, so the gap is real
-  //                            and the frame should be held for all of it.
-  //   screencast stalled     — it stops delivering for 150-270ms at a time even
-  //                            while the page paints a clean 60fps. Holding a
-  //                            frame for that is a freeze in the middle of a
-  //                            movement.
-  //
-  // Timing alone cannot tell them apart; the pixels can. If the frames either
-  // side of a gap are identical the page was still, so the gap is honoured. If
-  // they differ, motion was lost and no reconstruction can bring it back — so
-  // the frame is held for as little as possible and the clip runs very slightly
-  // fast across the stall instead of freezing.
+  // Frames are listed rather than given `duration` directives because the
+  // concat demuxer rounds those up to its 25fps default and silently resamples
+  // a 60fps capture to 25 — see the doc. `-r 60` before `-i` is the other half.
   const TICK = 1 / FPS;
+  const started = clip[0].pageTime;
+  const clipTime = (frame) => (frame.pageTime - started) / SLOWDOWN;
+  const lastTick = Math.round(clipTime(clip[clip.length - 1]) / TICK);
+
   const lines = [];
-  for (const [index, frame] of clip.entries()) {
-    const next = clip[index + 1];
-    // The final frame has no successor to measure against; give it one tick.
-    const measured = next ? next.pageTime - frame.pageTime : TICK;
-    const ticks = Math.max(1, Math.round(measured / TICK));
-    const held = moved[index] ? Math.min(ticks, MAX_STALL_TICKS) : ticks;
-    for (let tick = 0; tick < held; tick += 1) lines.push(`file '${names[index]}'`);
+  let index = 0;
+  for (let tick = 0; tick <= lastTick; tick += 1) {
+    const at = tick * TICK;
+    while (index + 1 < clip.length && clipTime(clip[index + 1]) <= at) index += 1;
+    lines.push(`file '${names[index]}'`);
   }
   const listPath = path.join(dir, 'frames.txt');
   await writeFile(listPath, lines.join('\n'));
@@ -750,11 +939,12 @@ async function encode({ frames, crop, marks }, scene, theme) {
   // Every scene opens on a settled board for exactly this reason.
   await ffmpeg(['-i', master, '-frames:v', '1', '-c:v', 'libwebp', '-quality', '82', `${base}.webp`]);
 
-  const duration = (lines.length || clip.length) / FPS;
+  const duration = lines.length / FPS;
 
-  // Health check: the median gap between captured frames should sit near
-  // 16.7ms. Frames-per-second-of-clip is not a useful figure here — a still
-  // page emits no frames at all, and those become one held frame.
+  // Health check, in captured time rather than clip time: the median gap
+  // between delivered frames should sit near 16.7ms. Frames-per-second-of-clip
+  // is not a useful figure here — a still page emits no frames at all, and
+  // those legitimately become one held frame.
   const gaps = clip
     .slice(1)
     .map((f, i) => (f.pageTime - clip[i].pageTime) * 1000)
