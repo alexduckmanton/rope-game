@@ -395,7 +395,7 @@ rope-game/
 ├── public/
 │   ├── _redirects         # SPA routing for Netlify (serves index.html for all routes)
 │   ├── streak-flame.webp  # Animated Fluent fire emoji for the streak lines (75KB)
-│   └── videos/            # Tutorial demonstration videos (mp4/webm, ~688KB total)
+│   └── videos/            # Tutorial clips, <scene>-<theme>.{mp4,webm,webp} (1.1MB, generated)
 ├── src/
 │   ├── main.js            # App entry point, initializes router and icons
 │   ├── router.js          # Client-side routing with History API
@@ -430,9 +430,20 @@ rope-game/
 │   └── views/
 │       ├── home.js        # Home view with difficulty selection and date display
 │       └── game.js        # Game view with daily/unlimited mode logic
+├── docs/
+│   ├── growth-strategy.md
+│   └── recording-tutorial-videos.md  # How the tutorial clips are made. Read before touching the runner
 ├── scripts/
 │   ├── build-locales.mjs  # One Vite build per language + _redirects + sitemap
-│   └── check-i18n.mjs     # Dictionary parity check (runs as part of build)
+│   ├── check-i18n.mjs     # Dictionary parity check (runs as part of build)
+│   ├── record-tutorial.mjs   # Records the tutorial clips by playing the real game
+│   ├── tutorial-scenes.mjs   # What each clip does, cell by cell
+│   ├── tutorial-boards.mjs   # Designs and replays the boards the scenes run on, offline
+│   └── lib/
+│       ├── tutorial-boards.mjs    # Board building, save planting, gesture replay
+│       ├── browserless-hooks.mjs  # Lets src/ modules import in plain Node
+│       ├── stub-tokens.mjs
+│       └── stub-i18n.mjs
 └── package.json
 ```
 
@@ -950,7 +961,7 @@ Monoton only ever renders the wordmark, which stays "Loopy" in every language in
 | `validation_error` | `difficulty`, `mode` | Closed loop that fails its hints |
 | `undo_used` / `solution_viewed` / `settings_opened` | `difficulty`, `mode` | |
 | `tutorial_opened` | `source` (`home`/`game`), `difficulty` | `difficulty` is `none` when opened from home |
-| `tutorial_section_viewed` | `section_index`, `section_name`, `method` | |
+| `tutorial_section_viewed` | `section_index`, `section_name`, `method` | Five sections since the clips were re-cut. `section_name` is stable English and the three older names are unchanged, so it is the property to segment on; `section_index` shifted and is only comparable within a period |
 | `tutorial_completed` | — | |
 | `share_attempted` | `difficulty`, `completion_time` | Fires on share button click; the denominator is `game_completed` |
 | `share_completed` / `share_failed` | `difficulty`, `method` / `error_type` | |
@@ -1205,63 +1216,69 @@ This menu is the **only** place the support link appears. It used to also sit as
 
 ### Tutorial Bottom Sheet System
 
-**Architecture:** Self-contained carousel component providing interactive walkthrough accessible from any view without navigation.
+**Architecture:** Self-contained carousel component providing an interactive walkthrough accessible from any view without navigation. Five sections, each a silent clip of the real game and one line of copy.
 
 **Key Design Decisions:**
 
 **Bottom Sheet Instead of Dedicated View:**
-- Maintains user context - tutorial overlay doesn't navigate away from current screen
-- Accessible from anywhere via simple function call - no routing complexity
-- Consistent with app's modal pattern for transient content
+- Maintains user context - the tutorial overlay doesn't navigate away from the current screen
+- Accessible from anywhere via a simple function call - no routing complexity
+- Consistent with the app's modal pattern for transient content
 - Reduces bundle size by eliminating separate view scaffolding
 
 **Horizontal Scrolling Carousel:**
 - iOS-style onboarding pattern familiar to mobile users
 - Natural swipe gesture for progression through lessons
 - Scroll-snap ensures crisp section alignment
-- Paging dots provide visual progress indicator and direct navigation
+- Paging dots track position and jump straight to a section. The visible dot is 8px inside a 44px button - the dots are the only way back to an earlier card
+
+**The five cards**, in the order a player meets the mechanics: the two gestures, then what the numbers mean, then the goal and the near-miss standing in front of it.
+
+| # | Analytics name | Teaches |
+|---|---|---|
+| 1 | `Drawing loops` | Drag to draw a loop, any shape or size |
+| 2 | `Erasing` | Tap a square to rub it out |
+| 3 | `Counting bends` | Bends beside a number count it down; bends further away do not |
+| 4 | `Zeroing numbers` | A closed loop with a number still non-zero does nothing |
+| 5 | `Win condition` | Fix it, every number reads zero, the loop goes green |
+
+Card 4 is the one that did not exist before, and it is the most important: a closed loop that fails its hints is Loopy's most common stuck state (it fires `validation_error`), and nothing else in the product explains it.
+
+Cards 1, 2, 4 and 5 run on **one puzzle** and 3 on another, so most of the tutorial is a single game developing rather than five unrelated boards. Card 3 needs a hint in the middle of the grid — the only way to show a bend that is plainly *outside* the area a number watches without it being off the grid.
 
 **Video-Based Content:**
-- Three demonstration videos showing core mechanics
-- Videos cached on first open and reused across session
-- Total size ~688KB (webm format) - acceptable for educational content
-- Intersection Observer manages video playback - only visible video plays
+- Five clips, recorded by playing the real game - see `docs/recording-tutorial-videos.md`. Never author or hand-edit one; re-record instead
+- **Light and dark variants of every clip.** Sources are swapped live on the `themeChanged` event, preserving playback position, so a theme flipping mid-clip does not restart the lesson
+- **Play once and hold the last frame**, rather than looping. A loop has no beginning, so a viewer arriving mid-cycle sees an effect with no cause - and the last frame of every clip is the state its lesson is about
+- A **progress bar** along the bottom edge of the clip and a **replay button** at the right of the dots row. A clip that stops has to say so, or a viewer waits for a loop that is never coming
+- The **poster is the clip's own first frame** (a webp), so the still and the start of playback are the same picture. This replaced a shimmering skeleton loader that cut hard to frame 1
+- **The mp4 is listed before the webm**, which is the reverse of the usual order. On line art this flat x264 beats VP9 outright — the webm is 8-30% larger on every clip — so mp4-first hands almost every browser the smaller file. The webm stays because a Chromium built without proprietary codecs cannot decode h.264 at all, and needs something to fall through to. Total 1.1MB for ten clips in two formats plus ten posters, against 984KB for the three single-theme clips it replaced — deployed once at the domain root, since locale builds reference `/videos/` absolutely rather than copying it twelve times
 
 **Technical Implementation:**
 
 **Module State Management:**
-- Videos created once on first `showTutorialSheet()` call and cached for session
-- Intersection Observer cleaned up via bottom sheet's `onClose` callback
+- Video elements created once on first `showTutorialSheet()` call and reused for the session
+- Intersection Observer, theme listener and progress rAF all released via the bottom sheet's `onClose` callback, and again on reopen
 - Double requestAnimationFrame ensures DOM ready before observer setup
-- Named constants for configuration values (VIDEO_VISIBILITY_THRESHOLD)
+- Named constants for configuration values (`VIDEO_VISIBILITY_THRESHOLD`, `PRELOAD_AHEAD`)
 
-**Performance Optimizations:**
-- Lazy video initialization - no overhead until tutorial accessed
+**Performance:**
+- `preload="none"` on every clip, raised to `auto` only for the visible section and the one after it (`PRELOAD_AHEAD`). Opening the sheet used to fetch all the clips before the first had played; a player who reads card 1 and closes now downloads two
+- Progress bars are driven on `requestAnimationFrame`, not `timeupdate` - the latter fires about four times a second and the bar visibly steps
 - Video element reuse - no DOM thrashing on section changes
-- Scroll event listener updates paging dots in real-time (lightweight operations)
-- Skeleton loader provides perceived performance during video load
+- Sections scrolled out of view **pause and rewind**, so swiping back never lands on a finished clip's last frame
 
-**Content Structure:**
-
-Each of three sections contains:
-- Demonstration video (square aspect ratio, muted, looping, autoplay)
-- Body copy explaining mechanic (centered below video)
-- Shared paging dots (fixed position, iOS-style pill expansion on active)
-- Navigation button ("Next" → "Next" → "Got it")
-
-**Tutorial Content:**
-1. Drawing closed loops with drag gesture and tap-to-erase
-2. How numbers count down based on path bends in surrounding area
-3. Win condition - single continuous loop with all numbers at zero
+**Layout:** the clip is square and its width therefore sets the sheet's height, so it is capped at `min(100% - 40px, 88vh - 300px)`. Without the second term the sheet is the entire screen on a short phone (it measured 640px of a 640px viewport), leaving no backdrop to tap. `showCloseIcon` is set for the same reason - on a small screen "Next" five times was otherwise the only way out.
 
 **Integration Points:**
-- Accessible via `showTutorialSheet()` from home.js and game.js
+- Accessible via `showTutorialSheet()` from `home.js`, `homeMenu.js` and `game.js`
 - No dependencies on game state or routing
-- Shares bottom sheet component for consistent UX
-- Videos stored in public/videos/ folder
+- Shares the bottom sheet component for consistent UX
+- Clips live in `public/videos/<scene>-<theme>.{mp4,webm,webp}`
 
-**Resource Cleanup:**
-Observer disconnected on sheet close via onClose callback. Videos remain cached in memory for instant reopening. On app reload, videos re-initialize on first tutorial access.
+**Resource Cleanup:** observer disconnected, theme listener removed and the progress rAF cancelled on sheet close. Video elements remain cached in memory for instant reopening; on app reload they are rebuilt on first tutorial access.
+
+**A note on what card 3 can show.** Nothing in the shipped game marks the 3x3 area a number watches. `renderHintPulse()` in `renderer.js` draws exactly that highlight and **has no callers** - it was dropped from the render at some point, and the pre-2026 tutorial clips, which still showed it, were the last place it appeared. Card 3 therefore teaches the neighbourhood by contrast rather than by pointing at it: one bend two cells away that changes nothing, then three beside the number that count it down. Restoring the pulse would let that card be half as long and twice as clear.
 
 -----
 
@@ -1493,6 +1510,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 - Home screen hamburger menu with slide-in sheet for secondary destinations
 - Design token system with CSS-as-source-of-truth architecture
 - Localisation into 12 languages, one build and one URL each, with no runtime language switching and no content flash. CJK and Hangul use system fonts, so they cost no extra bytes
+- Five-card tutorial whose clips are recorded from the real game by a scripted runner, in light and dark, at a verified 60fps
 
 **🧪 Running Experiment**
 - Tricky hint placement, round 2 - see "Tricky hint placement experiment". Tests covering
@@ -1559,6 +1577,32 @@ meaningless. Easy and Diabolical are settled and safe to tune.
    layout variety before trusting it - every number in this document was produced that way.
    `config.js` imports the i18n runtime, which resolves a Vite-only alias, so an offline
    harness needs `src/i18n/index.js` and `src/tokens.js` stubbed.
+
+**Modify the Tutorial Clips or Cards:**
+
+Read `docs/recording-tutorial-videos.md` first. The clips are recordings of the
+real game, so most changes mean re-recording rather than editing anything.
+
+1. **Re-record after any visual change to the grid** - line weight, hint colours,
+   corner radius, grid lines, the win green. The clips date the moment the board
+   does, and there is no way to tell from the sheet that they have.
+2. **Change what a card shows**: edit the scene in `scripts/tutorial-scenes.mjs`,
+   check it with `npm run boards:tutorial` (which prints what every hint reads
+   after each cell), then `npm run record:tutorial -- <n>`.
+3. **Change a card's words**: the `tutorial.*` keys in every dictionary. Adding or
+   removing a card means adding or removing a key in all twelve, and
+   `npm run check:i18n` will fail until they agree.
+4. **Add or remove a card**: `LESSON_SECTIONS` in `components/tutorialSheet.js` and
+   `SCENES` in `scripts/tutorial-scenes.mjs` must stay in step - the `clip` field
+   is the scene id and the filename. Keep `section` (the analytics name) stable
+   for any card that already existed.
+5. **Never edit `src/` or `style.css` while a recording is running.** HMR reloads
+   the page and the run dies part-way through with "Execution context was
+   destroyed".
+6. **Two things the runner cannot check**: whether the path covers a hint number
+   (it is drawn after them, so it hides them), and whether a card turns something
+   green before the cards have explained what green means. Both are stated as
+   rules at the top of `tutorial-scenes.mjs`; both need an eye on the output.
 
 **Modify the Win Sheet Streak Reveal:**
 1. **Timings**: `CONFIG.WIN_STREAK.REVEAL_DELAY_MS` and `CONFIG.WIN_STREAK.TRANSITION_MS` in `config.js`. The duration is applied inline to the track, so it overrides the CSS default.
@@ -1712,6 +1756,12 @@ npm run check:i18n   # Diff every dictionary against en.js (also runs in build)
 npm run build        # All 8 locales + _redirects + sitemap (outputs to dist/)
 npm run build:single # One locale only, for a quick check (LOCALE=xx to choose)
 npm run preview      # Preview production build
+
+# Tutorial clips (see docs/recording-tutorial-videos.md)
+npm run boards:tutorial            # Replay every scene offline, no browser
+npm run boards:tutorial -- search  # Find Easy seeds a new scene could run on
+npm run record:tutorial            # Record all five scenes, both themes (needs npm run dev)
+npm run record:tutorial -- 3       # ...just one scene
 
 # Deployment (Netlify)
 # Push to git, Netlify auto-deploys from branch

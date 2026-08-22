@@ -73,14 +73,15 @@ export default {
     other: '{n} dias seguidos ({difficulty})',
   },
 
-  'tutorial.drawing':
-    'Arraste para desenhar um laço fechado de qualquer forma ou tamanho. Toque para apagar.',
-  'tutorial.counting':
-    'Sempre que seu caminho faz uma curva nas casas sobre um número ou ao redor dele, esse número diminui.',
-  'tutorial.winning':
-    'Para vencer, desenhe um único laço contínuo que zere todos os números.',
+  'tutorial.draw': 'Arraste para desenhar um laço — qualquer forma, qualquer tamanho.',
+  'tutorial.erase': 'Toque numa casa para apagá-la.',
+  'tutorial.numbers':
+    'Curvas nas casas ao redor de um número o fazem diminuir. As mais distantes, não.',
+  'tutorial.zero': 'Um laço fechado não basta: todo número precisa chegar a zero.',
+  'tutorial.win': 'Zere todos e o quebra-cabeça é seu.',
   'tutorial.next': 'Próximo',
   'tutorial.gotIt': 'Entendi',
+  'tutorial.replay': 'Repetir',
 
   'score.perfect': 'Perfeito',
   'score.genius': 'Genial',

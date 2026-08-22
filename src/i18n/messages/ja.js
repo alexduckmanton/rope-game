@@ -76,14 +76,14 @@ export default {
     other: '{n}日連続（{difficulty}）',
   },
 
-  'tutorial.drawing':
-    'ドラッグして、好きな形と大きさの閉じたループを描きましょう。タップで消せます。',
-  'tutorial.counting':
-    '数字のマスとその周りで線が曲がるたびに、その数字が減っていきます。',
-  'tutorial.winning':
-    'すべての数字が0になる一本の連続したループを描けばクリアです。',
+  'tutorial.draw': 'ドラッグしてループを描きましょう。形も大きさも自由です。',
+  'tutorial.erase': 'マスをタップすると消せます。',
+  'tutorial.numbers': '数字のまわりのマスで線が曲がると、その数字が減ります。離れた場所の曲がりは数えません。',
+  'tutorial.zero': 'ループを閉じるだけでは足りません。すべての数字を0にしましょう。',
+  'tutorial.win': 'すべて0になれば、クリアです。',
   'tutorial.next': '次へ',
   'tutorial.gotIt': 'わかった',
+  'tutorial.replay': 'もう一度再生',
 
   'score.perfect': '完璧',
   'score.genius': '天才的',

@@ -79,14 +79,14 @@ export default {
     other: '{n}일 연속 ({difficulty})',
   },
 
-  'tutorial.drawing':
-    '드래그해서 원하는 모양과 크기의 닫힌 고리를 그려 보세요. 탭하면 지워집니다.',
-  'tutorial.counting':
-    '숫자 칸과 그 주변에서 선이 꺾일 때마다 그 숫자가 줄어듭니다.',
-  'tutorial.winning':
-    '모든 숫자가 0이 되는 하나의 이어진 고리를 그리면 성공입니다.',
+  'tutorial.draw': '드래그해서 고리를 그려 보세요. 모양과 크기는 자유예요.',
+  'tutorial.erase': '칸을 탭하면 지워져요.',
+  'tutorial.numbers': '숫자 주변 칸에서 선이 꺾이면 숫자가 줄어요. 멀리 떨어진 곳은 세지 않아요.',
+  'tutorial.zero': '고리를 닫는 것만으로는 부족해요. 모든 숫자가 0이 되어야 해요.',
+  'tutorial.win': '전부 0으로 만들면 성공이에요.',
   'tutorial.next': '다음',
   'tutorial.gotIt': '알겠어요',
+  'tutorial.replay': '다시 재생',
 
   'score.perfect': '완벽',
   'score.genius': '천재적',

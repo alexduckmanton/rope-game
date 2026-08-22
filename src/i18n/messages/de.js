@@ -70,14 +70,15 @@ export default {
     other: '{n} Tage in Folge ({difficulty})',
   },
 
-  'tutorial.drawing':
-    'Ziehe, um eine geschlossene Schleife beliebiger Form und Größe zu zeichnen. Tippe zum Löschen.',
-  'tutorial.counting':
-    'Immer wenn dein Weg in den Feldern auf oder um eine Zahl herum abbiegt, zählt die Zahl herunter.',
-  'tutorial.winning':
-    'Zum Gewinnen zeichnest du eine einzige durchgehende Schleife, die alle Zahlen auf null bringt.',
+  'tutorial.draw': 'Zieh mit dem Finger eine Schleife – jede Form, jede Größe.',
+  'tutorial.erase': 'Tippe auf ein Feld, um es zu löschen.',
+  'tutorial.numbers':
+    'Knicke in den Feldern rund um eine Zahl zählen sie herunter. Knicke weiter weg nicht.',
+  'tutorial.zero': 'Eine geschlossene Schleife reicht nicht – jede Zahl muss auf null stehen.',
+  'tutorial.win': 'Bring alle auf null, und das Rätsel gehört dir.',
   'tutorial.next': 'Weiter',
   'tutorial.gotIt': 'Verstanden',
+  'tutorial.replay': 'Erneut abspielen',
 
   'score.perfect': 'Perfekt',
   'score.genius': 'Genial',

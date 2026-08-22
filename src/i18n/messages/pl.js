@@ -83,14 +83,14 @@ export default {
     other: '{n} dnia z rzędu ({difficulty})',
   },
 
-  'tutorial.drawing':
-    'Przeciągnij, aby narysować zamkniętą pętlę o dowolnym kształcie i rozmiarze. Dotknij, aby wymazać.',
-  'tutorial.counting':
-    'Za każdym razem, gdy twoja linia skręca w polach na liczbie lub wokół niej, ta liczba maleje.',
-  'tutorial.winning':
-    'Aby wygrać, narysuj jedną ciągłą pętlę, która sprowadzi wszystkie liczby do zera.',
+  'tutorial.draw': 'Przeciągnij, aby narysować pętlę – dowolny kształt, dowolny rozmiar.',
+  'tutorial.erase': 'Dotknij pola, aby je wymazać.',
+  'tutorial.numbers': 'Zakręty w polach wokół liczby zmniejszają ją. Te dalej — nie.',
+  'tutorial.zero': 'Zamknięta pętla to za mało: każda liczba musi dojść do zera.',
+  'tutorial.win': 'Sprowadź wszystkie do zera i zagadka jest twoja.',
   'tutorial.next': 'Dalej',
   'tutorial.gotIt': 'Jasne',
+  'tutorial.replay': 'Odtwórz ponownie',
 
   'score.perfect': 'Perfekcyjnie',
   'score.genius': 'Genialnie',
