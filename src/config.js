@@ -105,19 +105,26 @@ export const CONFIG = {
 
   // Interaction behavior
   INTERACTION: {
-    // Backtracking distance threshold (prevents accidental long-path erasure)
+    // How far back along the current drag a pointer may land and still count as
+    // backtracking rather than as drawing onward.
     //
-    // When user drags backwards over their existing path, backtracking only occurs
-    // if they're within this many cells from the end. Beyond this distance, the
-    // touch is ignored to prevent accidentally destroying long paths.
+    // At 1 - the shipped value - only the cell you just came from erases. Land on
+    // anything earlier in the same drag and the path is NOT erased and the touch is
+    // NOT ignored: it falls through to normal extension and draws on through the
+    // crossing, exactly as it would over a path from an earlier drag.
     //
-    // Example with path A→B→C→D→E→F (threshold = 4):
-    //   - Drag to C (3 cells back): Erases D→E→F ✓ (within threshold)
-    //   - Drag to B (4 cells back): Erases C→D→E→F ✓ (within threshold)
-    //   - Drag to A (5 cells back): Ignored ✗ (beyond threshold)
+    // Example with drag path A→B→C→D→E→F:
+    //   - Drag to E (1 cell back):  erases F              ✓ within threshold
+    //   - Drag to C (3 cells back): draws on through C    → self-intersection
+    //   - Drag to A (the drag's first cell): always tries to close the loop, and
+    //     backtracks if that fails. Distance is not consulted - see handlePointerMove
+    //     in gameCore.js, which special-cases index 0 so deliberate loop closing
+    //     always works.
     //
-    // This allows users to easily correct recent mistakes while protecting against
-    // accidental destruction when their hand crosses over earlier parts of the path.
+    // Raising this makes long-distance backtracking possible again but reinstates
+    // the original problem: on a long crossing loop, briefly clipping an earlier
+    // cell wipes everything after it. 1 is deliberate - erasure is never accidental,
+    // and larger corrections go through the Undo button instead.
     BACKTRACK_THRESHOLD: 1,
   },
 

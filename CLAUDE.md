@@ -1419,19 +1419,31 @@ Two control buttons appear below the canvas in a horizontal layout: Clear and Un
 
 **Smart Backtracking:**
 
-The backtracking system uses distance-based logic to prevent accidental path erasure while maintaining precise control:
+Dragging back over the path you are currently drawing erases it, but only one cell at a
+time. `CONFIG.INTERACTION.BACKTRACK_THRESHOLD` is **1**, so:
 
-- **1-4 squares back**: Normal backtracking (erases those squares)
-- **5+ squares back**: Touch is ignored to prevent accidental full erasure
-- **Loop closing**: Returning to first cell always works regardless of distance
-- **Threshold**: `CONFIG.INTERACTION.BACKTRACK_THRESHOLD`, **currently `1`** - the most
-  precise, least forgiving setting, where backtracking only works on the immediately
-  previous cell. This document long claimed a default of 4; the code says 1. Worth
-  knowing alongside the telemetry: `undo_used` fires ~26 times per player, more often
-  than `$pageview`, which is consistent with in-gesture correction having been pushed
-  onto the Undo button. Nobody has deliberately chosen between 1 and 4 on evidence.
+- **1 cell back** (the cell you just came from): erased.
+- **2 or more cells back**: **not** erased, and **not** ignored either. The touch falls
+  through to normal path extension and draws on through the crossing, exactly as it would
+  over a path drawn in an earlier gesture.
+- **Back to the drag's first cell**: always attempts to close the loop, and backtracks if
+  that fails. Distance is never consulted - `handlePointerMove()` in `gameCore.js`
+  special-cases index 0 so a deliberate loop close always works, however long the path.
 
-**Design Rationale:** Long crossing paths frequently triggered accidental full erasure when the pointer briefly touched old cells far back in the path. The threshold provides a forgiving drawing experience for complex loops while maintaining precise backtracking for small corrections. Higher values are more forgiving but make deliberate long-distance backtracking impossible. Lower values require more precision but allow backtracking across longer distances.
+**Design Rationale:** long crossing paths used to trigger accidental full erasure when the
+pointer briefly clipped an old cell far back in the path - the drag would silently delete
+everything after it. A threshold of 1 removes that failure mode entirely: erasure is never
+something that happens by accident, only ever one deliberate cell at a time. The cost is
+that larger corrections cannot be made by dragging backwards at all; they go through the
+Undo button, which reverts a whole gesture at once.
+
+That cost is visible in the telemetry - `undo_used` fires roughly 26 times per player, more
+often than `$pageview`. That is the intended division of labour rather than a symptom, but
+it does mean the Undo button is load-bearing and worth protecting in any UI change.
+
+Raising the threshold restores long-distance drag backtracking and reinstates the accidental
+erasure it was set to 1 to prevent. Note the two are not symmetrical: a mistaken erasure
+destroys work, whereas a mistaken draw-through is corrected by continuing to draw.
 
 **Diagonal Drawing Continuity:**
 
@@ -1446,7 +1458,7 @@ Drawing diagonally across the grid maintains smooth, uninterrupted flow:
 
 The game provides two distinct mechanisms for reversing actions:
 
-- **Drag backtracking**: During an active drawing gesture, dragging backward over recently drawn cells removes them (1-4 cells back). This is immediate, gesture-based correction.
+- **Drag backtracking**: During an active drawing gesture, dragging back onto the cell you just came from removes it - one cell at a time (see Smart Backtracking). This is immediate, fine-grained correction.
 - **Undo button**: After completing a drawing action, the undo button reverts the entire action. This provides step-by-step history navigation across multiple completed actions (up to 50).
 
 These complement each other: backtracking for in-gesture corrections, undo for multi-action history.
@@ -1624,11 +1636,20 @@ meaningless. Easy and Diabolical are settled and safe to tune.
 3. **Save frequency**: Tune `SAVE_COOLDOWN_MS` or implement debouncing instead of throttling
 
 **Modify Backtracking Sensitivity:**
-1. **Change threshold**: Update `CONFIG.INTERACTION.BACKTRACK_THRESHOLD` in `config.js` (currently 1 square)
-2. **Higher values** (5-10): More forgiving, reduces accidental erasure on complex crossing paths, but makes deliberate long-distance backtracking impossible
-3. **Lower values** (1-3): More precise control, allows backtracking across shorter distances only, but easier to accidentally erase when drawing crosses itself
-4. **Special case**: Value of 1 makes backtracking work only for immediately adjacent cells (most precise, least forgiving)
-5. **Affects**: All drawing interactions in both daily and unlimited modes, applies globally
+
+1. **Change threshold**: `CONFIG.INTERACTION.BACKTRACK_THRESHOLD` in `config.js`. **Shipped
+   value is 1** and that is a deliberate choice, not a leftover - see the rationale under
+   Smart Backtracking before changing it.
+2. **Higher values** (2-10): dragging further back erases more in one gesture. This
+   reinstates the accidental-erasure failure mode the threshold exists to prevent, since a
+   pointer briefly clipping an earlier cell on a crossing loop wipes everything after it.
+3. **Value of 1**: only the immediately previous cell erases. Anything further back draws on
+   through as a self-intersection.
+4. **Not a tunable dial between two equal risks.** A mistaken erasure destroys work; a
+   mistaken draw-through is fixed by carrying on drawing. Raise it only with evidence.
+5. **Loop closing is exempt** at any value - returning to the drag's first cell always
+   attempts to close the loop.
+6. **Affects**: all drawing interactions in both daily and unlimited modes, globally.
 
 ### Key Development Tips
 
