@@ -21,7 +21,7 @@ import { chromium } from 'playwright';
 import ffmpegPath from 'ffmpeg-static';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SCENES } from './tutorial-scenes.mjs';
@@ -41,26 +41,33 @@ const BASE_URL = process.env.BASE_URL ?? 'http://localhost:5173';
  */
 const VIEWPORT = { width: 440, height: 560 };
 /**
- * A frame-rate setting, not a resolution one, and 2.5 is the ceiling.
+ * A frame-rate setting, not a resolution one, and 2 is the ceiling.
  *
- * The browser JPEG-encodes every screencast frame on the renderer, and past a
- * certain frame size that work starves the animation being recorded. Measured
- * against the busiest scene, capturing rather than idling:
+ * The browser JPEG-encodes every screencast frame on the renderer, and that
+ * work competes with the game's own canvas render for the same frame budget.
+ * Neither is expensive alone — which is why every cheaper way of measuring this
+ * says there is headroom, and every one of them is wrong:
  *
- *   scale 2    16.6ms median, 17.6ms p95
- *   scale 2.5  16.6ms median, 18.9ms p95
- *   scale 3    22.3ms median, 42.4ms p95   <- starved
+ *   game page, no screencast, scale 2.5   60.3fps, 0 frames over 30ms
+ *   blank page, screencast, scale 2.5     60.5fps
+ *   game page, screencast, scale 2.5      53.3fps, 22 frames over 30ms
+ *   game page, screencast, scale 2.25     59.3fps, 3 frames over 30ms
+ *   **game page, screencast, scale 2**    **60.4fps, 0 frames over 30ms**
  *
- * Extra resolution has to come from the bitrate instead, and there is no need
- * for it anyway: `--force-device-scale-factor` makes the game's own canvas
- * back itself at this ratio, so a 400px canvas is genuinely 1000 sharp pixels
- * against the ~350px the sheet renders it at.
+ * Measured as the page's own rAF cadence while a stroke is being drawn, which
+ * is the only condition that reproduces it: an idle board is fine at 3.5.
  *
- * Forced at launch rather than set on the context — screencast ignores the
- * latter and keeps returning CSS-pixel frames. The env override exists so this
- * table can be reproduced, not so the value can be raised.
+ * The dropped frames are what "stuttering" looks like — they land as 150-350ms
+ * freezes in the encoded clip, one per cell towards the end of a long stroke,
+ * because a longer path costs more to render and pushes the pair over budget.
+ *
+ * So the clip is 800px from a 400px canvas, and any more sharpness has to come
+ * from the bitrate. Forced at launch rather than set on the context —
+ * screencast ignores the latter and keeps returning CSS-pixel frames. The env
+ * override exists so the table above can be reproduced, not so the value can
+ * be raised.
  */
-const DEVICE_SCALE = Number(process.env.DEVICE_SCALE ?? 2.5);
+const DEVICE_SCALE = Number(process.env.DEVICE_SCALE ?? 2);
 const FPS = 60;
 
 const THEMES = ['light', 'dark'];
@@ -172,6 +179,15 @@ function initScript({ save, settings }) {
         50% { opacity: .2; }
       }
 
+      /* Hides a hint number without removing the hint. Sits above the canvas
+         and takes the canvas's own colour, so the cell reads as empty. */
+      .capture-mask {
+        position: absolute;
+        z-index: 3;
+        pointer-events: none;
+        background-color: var(--color-bg-elevated);
+      }
+
       /* A fingertip, not a UI badge: a translucent disc under half a cell, its
          ring carrying most of the weight. A denser fill reads as a control
          sitting on the board and competes with the line it is drawing — which
@@ -253,6 +269,32 @@ function initScript({ save, settings }) {
         ripple.style.animation = 'none';
         void ripple.offsetWidth;
         ripple.style.animation = 'capture-ripple 520ms ease-out';
+      },
+      /**
+       * Cover cells so their hint numbers do not show.
+       *
+       * Cards 1 and 2 are about the gesture, and a number nobody has explained
+       * yet is a distraction on them. The board still *has* its hints — that is
+       * what keeps a closed loop black rather than turning it green, since a
+       * board with no hints is one where every constraint is trivially
+       * satisfied — they are just not painted.
+       *
+       * Inset by a couple of pixels so the cell's own grid lines survive, and
+       * only ever used on cells the scene's strokes never enter.
+       */
+      mask: ({ cells, gridSize }) => {
+        const canvas = document.getElementById('game-canvas');
+        const container = canvas.parentElement;
+        const cell = canvas.getBoundingClientRect().width / gridSize;
+        for (const [row, col] of cells) {
+          const cover = document.createElement('div');
+          cover.className = 'capture-mask';
+          cover.style.left = `${col * cell + 2}px`;
+          cover.style.top = `${row * cell + 2}px`;
+          cover.style.width = `${cell - 4}px`;
+          cover.style.height = `${cell - 4}px`;
+          container.appendChild(cover);
+        }
       },
       /** Draw the 3x3 area a hint watches, behind the canvas */
       highlight: ({ row, col, gridSize }) => {
@@ -471,6 +513,12 @@ async function record(browser, scene, theme) {
       { ...scene.highlight, gridSize: GRID_SIZE }
     );
   }
+  if (scene.maskCells) {
+    await page.evaluate(
+      (spec) => window.__capture.mask(spec),
+      { cells: scene.maskCells, gridSize: GRID_SIZE }
+    );
+  }
 
   const crop = await page.evaluate((scale) => {
     const { x, y, width, height } = document.getElementById('game-canvas').getBoundingClientRect();
@@ -532,6 +580,15 @@ async function record(browser, scene, theme) {
 
 // --- encoding --------------------------------------------------------------
 
+/**
+ * How long a frame may be held when the picture is moving.
+ *
+ * Two ticks is 33ms — a dropped frame, not a freeze. Anything longer only
+ * happens because screencast stalled, and holding for it is what reads as
+ * stuttering.
+ */
+const MAX_STALL_TICKS = 2;
+
 async function ffmpeg(args) {
   try {
     await run(ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-y', ...args], {
@@ -540,6 +597,42 @@ async function ffmpeg(args) {
   } catch (error) {
     throw new Error(`ffmpeg failed:\n${error.stderr || error.message}`);
   }
+}
+
+/**
+ * Which frames differ from the one before them
+ *
+ * Decodes the whole clip to 32x32 greyscale in one ffmpeg pass — far cheaper
+ * than a JPEG decoder in Node, and 1KB per frame is plenty to tell "the board
+ * moved" from "nothing at all happened".
+ *
+ * @param {string} dir - Working directory holding the frame jpegs
+ * @param {Array<string>} names - Frame filenames in order
+ * @returns {Promise<Array<boolean>>} True where the frame after this one differs
+ */
+async function frameMotion(dir, names) {
+  const SIZE = 32;
+  const listPath = path.join(dir, 'motion.txt');
+  await writeFile(listPath, names.map((name) => `file '${name}'`).join('\n'));
+  const rawPath = path.join(dir, 'motion.gray');
+  await ffmpeg([
+    '-f', 'concat', '-safe', '0', '-i', listPath,
+    '-vf', `scale=${SIZE}:${SIZE},format=gray`, '-fps_mode', 'passthrough',
+    '-f', 'rawvideo', rawPath,
+  ]);
+
+  const raw = await readFile(rawPath);
+  const stride = SIZE * SIZE;
+  const moved = new Array(names.length).fill(false);
+  for (let i = 1; i < names.length; i += 1) {
+    let delta = 0;
+    for (let p = 0; p < stride; p += 1) {
+      delta += Math.abs(raw[i * stride + p] - raw[(i - 1) * stride + p]);
+    }
+    // Averaged over the frame; JPEG noise alone sits well under one level
+    moved[i - 1] = delta / stride > 0.6;
+  }
+  return moved;
 }
 
 /**
@@ -565,21 +658,49 @@ async function encode({ frames, crop, marks }, scene, theme) {
   const dir = path.join(WORK_DIR, `${scene.id}-${theme}`);
   await mkdir(dir, { recursive: true });
 
+  // Write every kept frame, then work out how long each should be held.
+  const names = [];
+  for (const [index, frame] of clip.entries()) {
+    const name = `f${String(index).padStart(5, '0')}.jpg`;
+    await writeFile(path.join(dir, name), Buffer.from(frame.data, 'base64'));
+    names.push(name);
+  }
+
+  // Which consecutive frames actually differ. See the note below on why a gap
+  // in the capture cannot be trusted on its own.
+  const moved = await frameMotion(dir, names);
+
   // Each frame is listed once per 60Hz tick it occupies, rather than once with
   // a `duration` directive — the demuxer rounds those up to its 25fps default
   // and silently resamples a 60fps capture to 25. Gaps are snapped to whole
   // ticks first, since the page only paints on vsync and the spread in the
   // timestamps is capture jitter, not content. See the doc.
+  //
+  // A long gap means one of two completely different things, and getting them
+  // confused is what a stutter is:
+  //
+  //   the page was still     — a lead-in, a beat between taps. Screencast sends
+  //                            nothing while nothing changes, so the gap is real
+  //                            and the frame should be held for all of it.
+  //   screencast stalled     — it stops delivering for 150-270ms at a time even
+  //                            while the page paints a clean 60fps. Holding a
+  //                            frame for that is a freeze in the middle of a
+  //                            movement.
+  //
+  // Timing alone cannot tell them apart; the pixels can. If the frames either
+  // side of a gap are identical the page was still, so the gap is honoured. If
+  // they differ, motion was lost and no reconstruction can bring it back — so
+  // the frame is held for as little as possible and the clip runs very slightly
+  // fast across the stall instead of freezing.
   const TICK = 1 / FPS;
   const lines = [];
   for (const [index, frame] of clip.entries()) {
-    const name = `f${String(index).padStart(5, '0')}.jpg`;
-    await writeFile(path.join(dir, name), Buffer.from(frame.data, 'base64'));
     const next = clip[index + 1];
     // The final frame has no successor to measure against; give it one tick.
     const measured = next ? next.pageTime - frame.pageTime : TICK;
     const ticks = Math.max(1, Math.round(measured / TICK));
-    for (let tick = 0; tick < ticks; tick += 1) lines.push(`file '${name}'`);
+    const held = moved[index] ? Math.min(ticks, MAX_STALL_TICKS) : ticks;
+    for (let tick = 0; tick < held; tick += 1) lines.push(`file '${names[index]}'`);
   }
   const listPath = path.join(dir, 'frames.txt');
   await writeFile(listPath, lines.join('\n'));

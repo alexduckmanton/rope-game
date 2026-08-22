@@ -1245,6 +1245,8 @@ Card 4 carries the near-miss rather than giving it a card of its own. A closed l
 
 Cards 1, 2 and 4 run on **one puzzle** and 3 on another, so three quarters of the tutorial is a single game developing rather than four unrelated boards. Card 3 needs a hint in the middle of the grid — the only way to show a bend that is plainly *outside* the area a number watches without it being off the grid.
 
+**Cards 1 and 2 show a bare grid.** The runner masks the two hint cells, which is not the same as planting a board with no hints: a board with no hints is one where every constraint is trivially satisfied, so a closed loop turns green two cards before green means anything. Keeping the hints and hiding the numbers keeps the loop black.
+
 **Card 3 carries the tutorial's one annotation.** The runner draws the 3x3 area the hint watches as a pulsing tint behind the canvas, because nothing in the shipped game draws it: `renderHintPulse()` in `renderer.js` draws exactly that and **has no callers** - it was dropped from the render at some point, and the pre-2026 clips, which still showed it, were the last place it appeared. That makes card 3 the one place a clip shows something a player will not see on their own board, and it is there because the card is unteachable without it. Restoring the pulse to the game would let the annotation go and the card get shorter.
 
 **Video-Based Content:**
@@ -1253,6 +1255,7 @@ Cards 1, 2 and 4 run on **one puzzle** and 3 on another, so three quarters of th
 - **Play once and hold the last frame**, rather than looping. A loop has no beginning, so a viewer arriving mid-cycle sees an effect with no cause - and the last frame of every clip is the state its lesson is about
 - A **progress bar** along the bottom edge of the clip and a **replay button** at the right of the dots row. A clip that stops has to say so, or a viewer waits for a loop that is never coming
 - The **poster is the clip's own first frame** (a webp), so the still and the start of playback are the same picture. This replaced a shimmering skeleton loader that cut hard to frame 1
+- A **light border** on the container. The clips are a white board cropped to its own edges, so on a white sheet they would otherwise float with no boundary; the border uses the same token as the game's grid lines
 - **The mp4 is listed before the webm**, which is the reverse of the usual order. On line art this flat x264 generally beats VP9, so mp4-first hands most browsers the smaller file; the exception is card 3, whose pulsing annotation is a large soft gradient that plays to VP9's strengths. The webm stays because a Chromium built without proprietary codecs cannot decode h.264 at all, and needs something to fall through to. Total 2.0MB for eight clips in two formats plus eight posters — but only the visible clip and the next are ever fetched, so swiping the whole tutorial costs about 465KB. Deployed once at the domain root, since locale builds reference `/videos/` absolutely rather than copying it twelve times
 
 **Technical Implementation:**

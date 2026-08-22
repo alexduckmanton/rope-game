@@ -84,12 +84,25 @@ backstop is each scene's `expect.won`, asserted against the live game after the
 scene plays: it is the only game state the DOM exposes, and it is what proves
 the last card really reaches the win rather than stopping a square short.
 
-### The one annotation
+### The two overlays
 
-Card 3 carries a `highlight` in its scene: the runner draws the 3x3 area the
-hint watches, as a pulsing tint behind the canvas.
+Two scenes carry something the runner draws rather than the game.
 
-**Nothing in the shipped game draws this.** `renderHintPulse()` in `renderer.js`
+**`maskCells`, on cards 1 and 2.** Covers a cell so its hint number does not
+show, leaving a bare grid for the cards that are only about the gesture.
+
+This is not the same as planting a board with no hints, and the difference is
+not cosmetic: a board with no hints is a board where every constraint is
+trivially satisfied, so the instant the loop closes the game calls it a win and
+paints it green — two cards before green has been given a meaning. Keeping the
+hints and hiding the numbers keeps the loop black, which is what a real board
+does. The masks are inset two pixels so the cell's own grid lines survive, and
+only ever go on cells the scene's strokes never enter.
+
+**`highlight`, on card 3.** The runner draws the 3x3 area the hint watches, as a
+pulsing tint behind the canvas.
+
+Nothing in the shipped game draws this either. `renderHintPulse()` in `renderer.js`
 draws exactly it and has no callers — it was dropped from the render at some
 point, and the hand-recorded clips this pipeline replaced, which still showed
 it, were the last place it appeared. So this is a tutorial annotation, and the
@@ -180,28 +193,29 @@ nothing and cannot lag behind the line it is supposed to be drawing.
 
 **Symptom:** animations record below 60fps for no obvious reason.
 
-The browser JPEG-encodes every screencast frame on the renderer. Past a certain
-frame size that work starves the animations being recorded.
+The browser JPEG-encodes every screencast frame on the renderer, and that work
+competes with the game's own canvas render for the same frame budget. Neither is
+expensive alone, which is why every cheaper way of measuring this says there is
+headroom and every one of them is wrong:
 
-**Measure this while capturing a real scene, not on an idle board.** An idle
-game view holds 58.7fps even at scale 3.5, which reads as plenty of headroom and
-is not: the moment the board is being drawn on it falls apart. Against the
-busiest scene, end to end:
+| | page rAF during a stroke |
+|---|---|
+| game page, no screencast, scale 2.5 | 60.3fps, 0 frames over 30ms |
+| blank page, screencast, scale 2.5 | 60.5fps |
+| game page, screencast, scale 2.5 | 53.3fps, 22 frames over 30ms |
+| game page, screencast, scale 2.25 | 59.3fps, 3 frames over 30ms |
+| **game page, screencast, scale 2** | **60.4fps, 0 frames over 30ms** |
 
-| | median gap | p95 gap |
-|---|---|---|
-| scale 2 | 16.6ms | 17.6ms |
-| **scale 2.5** | **16.6ms** | **18.9ms** |
-| scale 3 | 22.3ms | 42.4ms |
+**Measure it as the page's own rAF cadence while a stroke is being drawn.** An
+idle board holds 58.7fps even at scale 3.5, and a blank page holds 60 at 2.5;
+only the two together reproduce it. It also gets worse as a stroke goes on,
+because a longer path costs more to render — which is why the first pass of this
+pipeline looked fine at the start of every clip and fell apart towards the end.
 
-So 2.5 is a ceiling here, not a preference. **Extra resolution has to come from
-the bitrate, not from this number.**
-
-There is no need for more anyway. `--force-device-scale-factor` makes the game's
-own canvas back itself at the same ratio, so a 400 CSS-px canvas is genuinely
-1000 sharp pixels — and the sheet caps its rendered width at 400px for exactly
-this reason, since a tall desktop window would otherwise take it near 500 and
-start upscaling.
+So the clip is 800px from a 400px canvas, and any more sharpness has to come from
+the bitrate. There is no need for more anyway: `--force-device-scale-factor`
+makes the game's own canvas back itself at the same ratio, so a 400 CSS-px canvas
+is genuinely 800 sharp pixels against the 400px the sheet caps its render at.
 
 `DEVICE_SCALE` can be overridden from the environment so the table above can be
 reproduced. That is what it is for, not a dial to turn up.
@@ -215,7 +229,51 @@ throws away. The floor is set by `calculateCellSize()`, which clamps a cell to
 `CONFIG.CELL_SIZE_MAX` (100px), so a 4x4 reaches its full 400px once the viewport
 clears 440 wide and 500 tall.
 
-### 4. The canvas is 300x150 for a while after it exists
+### 4. Screencast stops delivering while the page is perfectly fine
+
+**Symptom:** the clip freezes for a fifth of a second, several times, always in
+the second half. Every measurement of the page says nothing is wrong.
+
+It stops being a mystery once the two are measured side by side over the same
+stroke:
+
+```
+page rAF:            187 frames over 3100ms = 60.3fps
+page rAF stalls:     none
+page long tasks:     none
+screencast stalls:   150ms @1.6s, 167ms @1.9s, 266ms @2.0s
+```
+
+The page paints every frame. `Page.startScreencast` simply stops handing frames
+over for 150–270ms at a time. It is reproducible to the millisecond across runs,
+and **none of the obvious levers move it**: not the device scale (identical at 1
+and at 2.5), not `everyNthFrame`, not acking synchronously before doing anything
+else, not streaming frames to disk instead of buffering them, not a larger Node
+young-generation heap, and not driving the pointer from inside the page instead
+of over CDP.
+
+**So do not try to reconstruct the missing time.** The encode holds a frame for
+the gap its timestamps report, and for a stall that is exactly the freeze you can
+see. The fix is to decide, per gap, which of two completely different things it
+was:
+
+| the page was still | screencast stalled |
+|---|---|
+| a lead-in, a beat between taps | 150–270ms of lost motion |
+| screencast correctly sends nothing | the page was painting the whole time |
+| hold the frame for the whole gap | hold it for as little as possible |
+
+Timing cannot tell them apart. **The pixels can.** `frameMotion()` decodes the
+clip to 32x32 greyscale in one ffmpeg pass and compares each frame with the one
+before it. Where they are identical the page really was still and the gap is
+honoured in full; where they differ, motion was lost and no reconstruction will
+bring it back, so the frame is held for `MAX_STALL_TICKS` (2, or 33ms) and the
+clip runs a hair fast across the stall rather than freezing.
+
+Lost motion is still lost — the clip is very slightly quicker than the recording
+across a stall. That is invisible. A quarter-second freeze is not.
+
+### 5. The canvas is 300x150 for a while after it exists
 
 **Symptom:** the crop is off, or an overlay lands in the wrong cell.
 
@@ -225,7 +283,7 @@ measured straight afterwards — the crop rectangle, the cell size the hint-area
 annotation is positioned from — is computed against the wrong geometry. The
 runner waits for `canvas.style.width` to be set instead.
 
-### 5. Cropping wider than the canvas puts a card inside a card
+### 6. Cropping wider than the canvas puts a card inside a card
 
 **Symptom:** the clip looks fine on its own and looks nested in the sheet.
 
@@ -241,7 +299,7 @@ rounding and shadow for the duration of the capture, so the corners of the crop
 are grid rather than page background. The rounding the viewer sees belongs to
 `.bottom-sheet-video-container`.
 
-### 6. HMR reloads the page mid-take
+### 7. HMR reloads the page mid-take
 
 **Symptom:** `page.evaluate: Execution context was destroyed, most likely because
 of a navigation`, part-way through a run that was working.
@@ -251,7 +309,7 @@ triggers a reload, which destroys the page under the scene being played. Do not
 edit `src/`, `style.css` or `index.html` while a recording is running. Editing
 `scripts/` or `docs/` is safe — neither is imported by the app.
 
-### 7. The win sheet covers the board
+### 8. The win sheet covers the board
 
 The last card wins, and the win sheet slides up over the canvas. The clip is the board,
 not the app chrome around it, so the runner hides `.bottom-sheet-overlay` for the
@@ -306,6 +364,20 @@ paints during it, so the clip ends on the last painted frame. That is the right
 behaviour for a player that holds its last frame, but it does mean a scene cannot
 buy a pause at the end by waiting; the pause has to come from something that
 paints, or from the sheet holding the frame.
+
+**The freeze test** is what catches trap 4, and neither the median nor the p95
+will. Decode the finished clip, count consecutive frames identical to their
+predecessor, and list the runs:
+
+```
+freezes >=3 frames: 0.00s x65  3.65s x25  4.37s x62
+```
+
+Every run should be explainable by the scene: the lead-in at the start, a beat
+the scene asked for, the hold at the end. A run in the middle of a stroke is a
+dropped-frame stall. Before trap 4 was fixed the same clip read
+`2.98s x9  3.20s x9  4.02s x8  4.17s x16` — four freezes of 130–270ms, none of
+which moved the median gap at all.
 
 **For the content rather than the pipeline**, decode to small grayscale frames
 and count how many differ from their predecessor within the busiest one-second

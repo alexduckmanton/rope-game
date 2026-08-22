@@ -27,9 +27,19 @@
  * recorded without one. That beat is also what makes the poster — always the
  * first frame — a readable starting position rather than something mid-stroke.
  *
- * One scene carries a `highlight`: the runner draws the 3x3 area a hint watches
- * behind the canvas. Nothing in the shipped game draws it, so it is an
- * annotation rather than a feature — see the comment on that scene.
+ * Two scenes carry a presentational overlay, and both are the runner's doing
+ * rather than the game's:
+ *
+ *   highlight  — the 3x3 area a hint watches, drawn behind the canvas. Nothing
+ *                in the shipped game draws it. See the comment on card 3.
+ *   maskCells  — covers a cell so its number does not show. Cards 1 and 2 use
+ *                it to clear the board of numbers nobody has explained yet.
+ *
+ * `maskCells` is not the same as planting a board with no hints, and the
+ * difference matters: a board with no hints is one where every constraint is
+ * trivially satisfied, so the moment the loop closes the game calls it a win
+ * and paints it green. Keeping the hints and hiding the numbers keeps the loop
+ * black, which is what a real board does.
  *
  * Two rules every stroke keeps, both for legibility rather than legality:
  *
@@ -69,8 +79,9 @@ const SEED_TWO_HINTS = 202603020;
  * The loop cards 1 and 2 share, drawn as one stroke.
  *
  * A staircase rather than a rectangle, because "any shape, any size" is the
- * claim the card makes. It crosses neither hint cell and leaves both reading 2,
- * so nothing turns green two cards before numbers are explained.
+ * claim the card makes. It crosses neither hint cell — which is what lets those
+ * two cells be masked on cards 1 and 2 without ever hiding the path — and
+ * leaves both hints reading 2, so the loop stays black.
  */
 const FREEHAND_LOOP = [
   [0, 0], [1, 0], [1, 1], [2, 1], [3, 1], [3, 2],
@@ -98,6 +109,9 @@ export const SCENES = [
     section: 'Drawing loops',
     captionKey: 'tutorial.draw',
     seed: SEED_TWO_HINTS,
+    // The gesture cards show a bare grid. Both hint cells are outside
+    // FREEHAND_LOOP, so nothing the stroke draws is ever behind a mask.
+    maskCells: [[3, 0], [0, 3]],
     steps: [
       { type: 'mark', name: 'start' },
       { type: 'draw', cells: FREEHAND_LOOP },
@@ -114,6 +128,7 @@ export const SCENES = [
     section: 'Erasing',
     captionKey: 'tutorial.erase',
     seed: SEED_TWO_HINTS,
+    maskCells: [[3, 0], [0, 3]],
     // Continues card 1's loop rather than starting a new one, so swiping forward
     // reads as one game rather than two disconnected demos. Two taps rather than
     // one: a single erase could be read as an undo, a run of them reads as a

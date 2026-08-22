@@ -1237,6 +1237,10 @@ button {
   /* The clips are cropped to the canvas, whose own background this is. Any
      other colour shows as a frame around the grid while the poster loads. */
   background-color: var(--color-bg-elevated);
+  /* The clip is a white board on a white sheet, so without this its edges are
+     invisible and the grid appears to float. The same token as the game's own
+     grid lines, so the frame reads as part of the board. */
+  border: 1px solid var(--color-border);
   overflow: hidden;
 }
 
