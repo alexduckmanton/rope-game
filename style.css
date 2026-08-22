@@ -1203,7 +1203,7 @@ button {
 /* ============================================================================
  * TUTORIAL SHEET
  *
- * Five square clips of the real game in a snapping carousel. The clips are
+ * Four square clips of the real game in a snapping carousel. The clips are
  * recorded cropped to the canvas alone, so the rounding and elevation here are
  * the only ones in the picture — see docs/recording-tutorial-videos.md.
  * ========================================================================= */
@@ -1222,12 +1222,19 @@ button {
 .bottom-sheet-video-container {
   position: relative;
   /* The clip is square, so its width sets the sheet's height. `88vh - 300px`
-     is what is left once the header, the copy, the dots and the button have
-     taken theirs — without it the sheet is the entire screen on a short phone
-     and there is no backdrop left to dismiss it with.
+     is a budget for everything else — the header, the copy, the dots and the
+     button — and without it the sheet is the entire screen on a short phone
+     with no backdrop left to dismiss it with. That matters more than it used
+     to: the sheet has no close icon, so a backdrop tap is one of only two ways
+     out.
 
-     400px is the game's own canvas size, and also as large as the clip stays
-     sharp: it is captured at 1000px, which the capture's frame rate caps (see
+     The 300px is deliberately larger than the chrome now needs. Dropping the
+     copy's fixed height freed 40px, and leaving the budget alone spends it on
+     backdrop rather than on a bigger clip. Reduce it only if the clip is the
+     thing that needs the room.
+
+     400px is the game's own canvas size, and as large as the clip stays sharp:
+     it is captured at 1200px, which is 3x (see
      docs/recording-tutorial-videos.md). Without the cap a tall desktop window
      renders it near 500px and starts upscaling. */
   width: min(calc(100% - 40px), calc(88vh - 300px), 400px);

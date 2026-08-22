@@ -17,7 +17,9 @@
  * Steps:
  *   draw  — one pointer gesture through a run of cells. Starting on the cell the
  *           path already ends at extends it, exactly as a player's second stroke
- *           would.
+ *           would. Takes `pauseAfter` (a beat once the stroke settles) and
+ *           `pace` (a multiplier on the runner's CELL_MS, for a stroke that
+ *           carries more to read than the rest — see card 3).
  *   tap   — press and release on one cell without moving, which erases it
  *   wait  — hold on the current state
  *   mark  — record a trim point

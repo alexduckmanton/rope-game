@@ -1596,6 +1596,12 @@ real game, so most changes mean re-recording rather than editing anything.
 2. **Change what a card shows**: edit the scene in `scripts/tutorial-scenes.mjs`,
    check it with `npm run boards:tutorial` (which prints what every hint reads
    after each cell), then `npm run record:tutorial -- <n>`.
+   A `draw` step can carry `pace` (a multiplier on `CELL_MS`, for a stroke where
+   something has to be read as it happens) and `pauseAfter`; a scene can carry
+   `settings` (one of the game's own, `settingsFor()` rejects anything else) and
+   `maskCells`. **A number's starting value is not free**: a hint whose 3x3 fits
+   entirely inside the grid always reads odd on a 4x4, so on Easy the middle
+   cells can only be 3, 5 or 7.
 3. **Change a card's words**: the `tutorial.*` keys in every dictionary. Adding or
    removing a card means adding or removing a key in all twelve, and
    `npm run check:i18n` will fail until they agree.

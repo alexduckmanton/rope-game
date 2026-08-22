@@ -398,8 +398,8 @@ Then decode one row of pixels per output frame, find the bar's leading edge, and
 histogram the differences. A healthy run is a single step value (plus its
 neighbour, from rounding) and no zeros.
 
-**What the runner prints per clip** — `8.9s, 561 frames, 27.9ms median gap,
-33.7ms p95`:
+**What the runner prints per clip** — `9.6s, 533 frames, 31.5ms median gap,
+37.6ms p95`:
 
 - *median gap* — the median interval between captured frames, **in real time,
   not clip time**. The budget it has to fit inside is therefore

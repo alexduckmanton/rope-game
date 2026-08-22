@@ -348,8 +348,7 @@ function showLessonSheet() {
   // Replay, at the right of the dots row rather than over the clip. It is the
   // only control that says a clip has an end, so it is present from the start
   // rather than appearing once one finishes — but nothing should sit on top of
-  // the board, and the sheet's own close button already owns the top-right
-  // corner.
+  // the board, which is the whole picture.
   const replay = document.createElement('button');
   replay.className = 'tutorial-replay-btn';
   replay.type = 'button';
