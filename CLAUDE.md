@@ -1273,7 +1273,9 @@ Cards 1, 2 and 4 run on **one puzzle** and 3 on another, so three quarters of th
 - Video element reuse - no DOM thrashing on section changes
 - Sections scrolled out of view **pause and rewind**, so swiping back never lands on a finished clip's last frame
 
-**Layout:** the clip is square and its width therefore sets the sheet's height, so it is capped at `min(100% - 40px, 88vh - 300px, 400px)`. Without the `88vh` term the sheet is the entire screen on a short phone (it measured 640px of a 640px viewport), leaving no backdrop to tap. The 400px is the game's own canvas size, and the clips are captured at 1200px so a 3x screen renders that cap without upscaling. `showCloseIcon` is set for the same reason as the height cap - on a small screen "Next" four times was otherwise the only way out.
+**Layout:** the clip is square and its width therefore sets the sheet's height, so it is capped at `min(100% - 40px, 88vh - 300px, 400px)`. Without the `88vh` term the sheet is the entire screen on a short phone (it measured 640px of a 640px viewport), leaving no backdrop to tap. The 400px is the game's own canvas size, and the clips are captured at 1200px so a 3x screen renders that cap without upscaling.
+
+**No close icon.** The sheet carries no X, so it closes on a backdrop tap or on the nav button, which reads "Got it" on the last card. The `88vh` height cap is what makes that safe - it is the guarantee that a backdrop exists to tap on a short phone, and removing it would leave the nav the only way out. `showCloseIcon` is still available on the bottom sheet component and the win sheet uses it.
 
 **Integration Points:**
 - Accessible via `showTutorialSheet()` from `home.js`, `homeMenu.js` and `game.js`

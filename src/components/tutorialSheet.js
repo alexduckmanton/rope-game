@@ -386,9 +386,6 @@ function showLessonSheet() {
     content,
     colorScheme: 'info',
     dismissLabel: null, // No default dismiss button - we use custom navigation
-    // On a short phone the sheet is the whole screen, leaving barely any
-    // backdrop to tap. Without this the only way out is Next, five times.
-    showCloseIcon: true,
     onClose: releaseResources
   });
 
