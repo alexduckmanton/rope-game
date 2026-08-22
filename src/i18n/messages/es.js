@@ -70,12 +70,11 @@ export default {
     other: '{n} días seguidos ({difficulty})',
   },
 
-  'tutorial.draw': 'Arrastra para dibujar un bucle: cualquier forma, cualquier tamaño.',
-  'tutorial.erase': 'Toca una casilla para borrarla.',
+  'tutorial.draw': 'Arrastra para dibujar un bucle de cualquier forma o tamaño.',
+  'tutorial.erase': 'Toca para borrar partes de tu bucle.',
   'tutorial.numbers':
-    'Los giros en las casillas junto a un número lo hacen bajar. Los que quedan lejos, no.',
-  'tutorial.zero': 'Un bucle cerrado no basta: todos los números tienen que llegar a cero.',
-  'tutorial.win': 'Déjalos todos a cero y el puzle es tuyo.',
+    'Cada vez que tu camino gira en las casillas sobre un número o a su alrededor, ese número baja.',
+  'tutorial.win': 'Dibuja un bucle que deje todos los números a cero para ganar.',
   'tutorial.next': 'Siguiente',
   'tutorial.gotIt': 'Entendido',
   'tutorial.replay': 'Repetir',

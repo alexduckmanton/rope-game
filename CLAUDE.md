@@ -395,7 +395,7 @@ rope-game/
 ├── public/
 │   ├── _redirects         # SPA routing for Netlify (serves index.html for all routes)
 │   ├── streak-flame.webp  # Animated Fluent fire emoji for the streak lines (75KB)
-│   └── videos/            # Tutorial clips, <scene>-<theme>.{mp4,webm,webp} (1.1MB, generated)
+│   └── videos/            # Tutorial clips, <scene>-<theme>.{mp4,webm,webp} (2.0MB, generated)
 ├── src/
 │   ├── main.js            # App entry point, initializes router and icons
 │   ├── router.js          # Client-side routing with History API
@@ -875,7 +875,7 @@ Switching is a **full page load**, not a router navigation: the strings are comp
 
 - `vite.config.js` aliases `@i18n-messages` to one dictionary and defines `__LOCALE__`, so each bundle carries exactly one language and no detection code.
 - A `transformIndexHtml` plugin substitutes `{{key}}` tokens in `index.html` — including `<title>`, the meta description and the OG tags. **A token with no matching message fails the build.**
-- Only the root build copies `public/`. Locale builds set `publicDir: false` and reference the shared icons, og image and ~1MB of tutorial videos absolutely from the domain root, so those are deployed once rather than twelve times. Fonts and JS *are* per-locale (different strings, different bundle), which is why `dist/` is ~12MB.
+- Only the root build copies `public/`. Locale builds set `publicDir: false` and reference the shared icons, og image and ~2MB of tutorial videos absolutely from the domain root, so those are deployed once rather than twelve times. Fonts and JS *are* per-locale (different strings, different bundle), which is why `dist/` is ~12MB.
 - `dist/_redirects` and `dist/sitemap.xml` are **generated** — do not edit them, and note `public/sitemap.xml` no longer exists.
 - **Two kinds of sitemap.** `dist/sitemap.xml` is the combined one, with every URL in every language and the `hreflang` annotations that are the whole point of it — that is what Google reads and what `robots.txt` points at. Alongside it, each non-root locale gets `dist/<path>/sitemap.xml` listing only its own four URLs with no alternates, for search engines that do not understand `hreflang` (see the Naver note under Known limitations). A URL appearing in two sitemaps is fine — they are discovery hints, not an exclusive index. The root locale is skipped, since its file would collide with the combined one.
 - These per-locale files survive the SPA rewrite because Netlify only applies a non-forced `200` rule when no real file exists at the path. Adding `!` to `/<path>/*` would break them, and `manifest.json` with them.
@@ -961,7 +961,7 @@ Monoton only ever renders the wordmark, which stays "Loopy" in every language in
 | `validation_error` | `difficulty`, `mode` | Closed loop that fails its hints |
 | `undo_used` / `solution_viewed` / `settings_opened` | `difficulty`, `mode` | |
 | `tutorial_opened` | `source` (`home`/`game`), `difficulty` | `difficulty` is `none` when opened from home |
-| `tutorial_section_viewed` | `section_index`, `section_name`, `method` | Five sections since the clips were re-cut. `section_name` is stable English and the three older names are unchanged, so it is the property to segment on; `section_index` shifted and is only comparable within a period |
+| `tutorial_section_viewed` | `section_index`, `section_name`, `method` | Four sections since the clips were re-cut. `section_name` is stable English and the three older names are unchanged, so it is the property to segment on; `section_index` shifted and is only comparable within a period |
 | `tutorial_completed` | — | |
 | `share_attempted` | `difficulty`, `completion_time` | Fires on share button click; the denominator is `game_completed` |
 | `share_completed` / `share_failed` | `difficulty`, `method` / `error_type` | |
@@ -1216,7 +1216,7 @@ This menu is the **only** place the support link appears. It used to also sit as
 
 ### Tutorial Bottom Sheet System
 
-**Architecture:** Self-contained carousel component providing an interactive walkthrough accessible from any view without navigation. Five sections, each a silent clip of the real game and one line of copy.
+**Architecture:** Self-contained carousel component providing an interactive walkthrough accessible from any view without navigation. Four sections, each a silent clip of the real game and one line of copy.
 
 **Key Design Decisions:**
 
@@ -1230,29 +1230,30 @@ This menu is the **only** place the support link appears. It used to also sit as
 - iOS-style onboarding pattern familiar to mobile users
 - Natural swipe gesture for progression through lessons
 - Scroll-snap ensures crisp section alignment
-- Paging dots track position and jump straight to a section. The visible dot is 8px inside a 44px button - the dots are the only way back to an earlier card
+- Paging dots track position and jump straight to a section - the only way back to an earlier card. 8px with an 8px gap so the row reads as one group; the 44px tap target comes from vertical padding, which does not push them apart
 
-**The five cards**, in the order a player meets the mechanics: the two gestures, then what the numbers mean, then the goal and the near-miss standing in front of it.
+**The four cards**, in the order a player meets the mechanics: the two gestures, then what the numbers mean, then the goal.
 
 | # | Analytics name | Teaches |
 |---|---|---|
 | 1 | `Drawing loops` | Drag to draw a loop, any shape or size |
-| 2 | `Erasing` | Tap a square to rub it out |
-| 3 | `Counting bends` | Bends beside a number count it down; bends further away do not |
-| 4 | `Zeroing numbers` | A closed loop with a number still non-zero does nothing |
-| 5 | `Win condition` | Fix it, every number reads zero, the loop goes green |
+| 2 | `Erasing` | Tap to erase parts of the loop |
+| 3 | `Counting bends` | Bends in the squares on or around a number count it down |
+| 4 | `Win condition` | A loop closes with one number still at 2 and nothing happens; fix it, both read zero, the loop goes green |
 
-Card 4 is the one that did not exist before, and it is the most important: a closed loop that fails its hints is Loopy's most common stuck state (it fires `validation_error`), and nothing else in the product explains it.
+Card 4 carries the near-miss rather than giving it a card of its own. A closed loop that fails its hints is Loopy's most common stuck state - it fires `validation_error` - and nothing else in the product explains it, but split across two cards the first ends on "nothing happened", which is a weak place to leave a viewer and a weak place to start one.
 
-Cards 1, 2, 4 and 5 run on **one puzzle** and 3 on another, so most of the tutorial is a single game developing rather than five unrelated boards. Card 3 needs a hint in the middle of the grid — the only way to show a bend that is plainly *outside* the area a number watches without it being off the grid.
+Cards 1, 2 and 4 run on **one puzzle** and 3 on another, so three quarters of the tutorial is a single game developing rather than four unrelated boards. Card 3 needs a hint in the middle of the grid — the only way to show a bend that is plainly *outside* the area a number watches without it being off the grid.
+
+**Card 3 carries the tutorial's one annotation.** The runner draws the 3x3 area the hint watches as a pulsing tint behind the canvas, because nothing in the shipped game draws it: `renderHintPulse()` in `renderer.js` draws exactly that and **has no callers** - it was dropped from the render at some point, and the pre-2026 clips, which still showed it, were the last place it appeared. That makes card 3 the one place a clip shows something a player will not see on their own board, and it is there because the card is unteachable without it. Restoring the pulse to the game would let the annotation go and the card get shorter.
 
 **Video-Based Content:**
-- Five clips, recorded by playing the real game - see `docs/recording-tutorial-videos.md`. Never author or hand-edit one; re-record instead
+- Four clips, recorded by playing the real game - see `docs/recording-tutorial-videos.md`. Never author or hand-edit one; re-record instead
 - **Light and dark variants of every clip.** Sources are swapped live on the `themeChanged` event, preserving playback position, so a theme flipping mid-clip does not restart the lesson
 - **Play once and hold the last frame**, rather than looping. A loop has no beginning, so a viewer arriving mid-cycle sees an effect with no cause - and the last frame of every clip is the state its lesson is about
 - A **progress bar** along the bottom edge of the clip and a **replay button** at the right of the dots row. A clip that stops has to say so, or a viewer waits for a loop that is never coming
 - The **poster is the clip's own first frame** (a webp), so the still and the start of playback are the same picture. This replaced a shimmering skeleton loader that cut hard to frame 1
-- **The mp4 is listed before the webm**, which is the reverse of the usual order. On line art this flat x264 beats VP9 outright — the webm is 8-30% larger on every clip — so mp4-first hands almost every browser the smaller file. The webm stays because a Chromium built without proprietary codecs cannot decode h.264 at all, and needs something to fall through to. Total 1.1MB for ten clips in two formats plus ten posters, against 984KB for the three single-theme clips it replaced — deployed once at the domain root, since locale builds reference `/videos/` absolutely rather than copying it twelve times
+- **The mp4 is listed before the webm**, which is the reverse of the usual order. On line art this flat x264 generally beats VP9, so mp4-first hands most browsers the smaller file; the exception is card 3, whose pulsing annotation is a large soft gradient that plays to VP9's strengths. The webm stays because a Chromium built without proprietary codecs cannot decode h.264 at all, and needs something to fall through to. Total 2.0MB for eight clips in two formats plus eight posters — but only the visible clip and the next are ever fetched, so swiping the whole tutorial costs about 465KB. Deployed once at the domain root, since locale builds reference `/videos/` absolutely rather than copying it twelve times
 
 **Technical Implementation:**
 
@@ -1268,7 +1269,7 @@ Cards 1, 2, 4 and 5 run on **one puzzle** and 3 on another, so most of the tutor
 - Video element reuse - no DOM thrashing on section changes
 - Sections scrolled out of view **pause and rewind**, so swiping back never lands on a finished clip's last frame
 
-**Layout:** the clip is square and its width therefore sets the sheet's height, so it is capped at `min(100% - 40px, 88vh - 300px)`. Without the second term the sheet is the entire screen on a short phone (it measured 640px of a 640px viewport), leaving no backdrop to tap. `showCloseIcon` is set for the same reason - on a small screen "Next" five times was otherwise the only way out.
+**Layout:** the clip is square and its width therefore sets the sheet's height, so it is capped at `min(100% - 40px, 88vh - 300px, 400px)`. Without the `88vh` term the sheet is the entire screen on a short phone (it measured 640px of a 640px viewport), leaving no backdrop to tap. The 400px is the game's own canvas size and also the point past which the clip starts upscaling: it is captured at 1000px, and the capture's frame rate caps that (see the recording doc). `showCloseIcon` is set for the same reason as the height cap - on a small screen "Next" four times was otherwise the only way out.
 
 **Integration Points:**
 - Accessible via `showTutorialSheet()` from `home.js`, `homeMenu.js` and `game.js`
@@ -1277,8 +1278,6 @@ Cards 1, 2, 4 and 5 run on **one puzzle** and 3 on another, so most of the tutor
 - Clips live in `public/videos/<scene>-<theme>.{mp4,webm,webp}`
 
 **Resource Cleanup:** observer disconnected, theme listener removed and the progress rAF cancelled on sheet close. Video elements remain cached in memory for instant reopening; on app reload they are rebuilt on first tutorial access.
-
-**A note on what card 3 can show.** Nothing in the shipped game marks the 3x3 area a number watches. `renderHintPulse()` in `renderer.js` draws exactly that highlight and **has no callers** - it was dropped from the render at some point, and the pre-2026 tutorial clips, which still showed it, were the last place it appeared. Card 3 therefore teaches the neighbourhood by contrast rather than by pointing at it: one bend two cells away that changes nothing, then three beside the number that count it down. Restoring the pulse would let that card be half as long and twice as clear.
 
 -----
 
@@ -1510,7 +1509,7 @@ These complement each other: backtracking for in-gesture corrections, undo for m
 - Home screen hamburger menu with slide-in sheet for secondary destinations
 - Design token system with CSS-as-source-of-truth architecture
 - Localisation into 12 languages, one build and one URL each, with no runtime language switching and no content flash. CJK and Hangul use system fonts, so they cost no extra bytes
-- Five-card tutorial whose clips are recorded from the real game by a scripted runner, in light and dark, at a verified 60fps
+- Four-card tutorial whose clips are recorded from the real game by a scripted runner, in light and dark, at a verified 60fps
 
 **🧪 Running Experiment**
 - Tricky hint placement, round 2 - see "Tricky hint placement experiment". Tests covering
@@ -1760,7 +1759,7 @@ npm run preview      # Preview production build
 # Tutorial clips (see docs/recording-tutorial-videos.md)
 npm run boards:tutorial            # Replay every scene offline, no browser
 npm run boards:tutorial -- search  # Find Easy seeds a new scene could run on
-npm run record:tutorial            # Record all five scenes, both themes (needs npm run dev)
+npm run record:tutorial            # Record all four scenes, both themes (needs npm run dev)
 npm run record:tutorial -- 3       # ...just one scene
 
 # Deployment (Netlify)

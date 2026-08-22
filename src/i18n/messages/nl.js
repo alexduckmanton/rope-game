@@ -70,11 +70,11 @@ export default {
     other: '{n} dagen op rij ({difficulty})',
   },
 
-  'tutorial.draw': 'Sleep om een lus te tekenen – elke vorm, elk formaat.',
-  'tutorial.erase': 'Tik op een vakje om het te wissen.',
-  'tutorial.numbers': 'Bochten in de vakjes rond een getal tellen het af. Bochten verderop niet.',
-  'tutorial.zero': 'Een gesloten lus is niet genoeg: elk getal moet op nul staan.',
-  'tutorial.win': 'Zet ze allemaal op nul en de puzzel is van jou.',
+  'tutorial.draw': 'Sleep om een lus van elke vorm of grootte te tekenen.',
+  'tutorial.erase': 'Tik om delen van je lus te wissen.',
+  'tutorial.numbers':
+    'Telkens als je pad een bocht maakt in de vakjes op of rond een getal, telt dat getal af.',
+  'tutorial.win': 'Teken een lus die elk getal op nul zet om te winnen.',
   'tutorial.next': 'Volgende',
   'tutorial.gotIt': 'Duidelijk',
   'tutorial.replay': 'Opnieuw afspelen',

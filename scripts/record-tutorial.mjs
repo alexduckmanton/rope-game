@@ -41,12 +41,26 @@ const BASE_URL = process.env.BASE_URL ?? 'http://localhost:5173';
  */
 const VIEWPORT = { width: 440, height: 560 };
 /**
- * A frame-rate setting, not a resolution one. Forced at launch rather than set
- * on the context — screencast ignores the latter and keeps returning CSS-pixel
- * frames. 2.5 gives a 1000px clip from a 400px canvas, which is 3x the ~330px
- * the sheet renders it at. See the doc before raising it.
+ * A frame-rate setting, not a resolution one, and 2.5 is the ceiling.
+ *
+ * The browser JPEG-encodes every screencast frame on the renderer, and past a
+ * certain frame size that work starves the animation being recorded. Measured
+ * against the busiest scene, capturing rather than idling:
+ *
+ *   scale 2    16.6ms median, 17.6ms p95
+ *   scale 2.5  16.6ms median, 18.9ms p95
+ *   scale 3    22.3ms median, 42.4ms p95   <- starved
+ *
+ * Extra resolution has to come from the bitrate instead, and there is no need
+ * for it anyway: `--force-device-scale-factor` makes the game's own canvas
+ * back itself at this ratio, so a 400px canvas is genuinely 1000 sharp pixels
+ * against the ~350px the sheet renders it at.
+ *
+ * Forced at launch rather than set on the context — screencast ignores the
+ * latter and keeps returning CSS-pixel frames. The env override exists so this
+ * table can be reproduced, not so the value can be raised.
  */
-const DEVICE_SCALE = 2.5;
+const DEVICE_SCALE = Number(process.env.DEVICE_SCALE ?? 2.5);
 const FPS = 60;
 
 const THEMES = ['light', 'dark'];
@@ -67,17 +81,30 @@ const THEMES = ['light', 'dark'];
  * the first frame — a readable starting position.
  * ========================================================================= */
 
-const CELL_MS = 260;
+/**
+ * Pointer samples per cell, and the only thing that sets a stroke's speed.
+ *
+ * `page.mouse.move` costs about 16.3ms on its own — it is bound to a frame —
+ * so back-to-back moves land one per 60Hz tick and 16 of them take ~260ms.
+ * **Do not sleep between them.** An earlier version paced the stroke with a
+ * timeout on top of that cost and got 8 samples per cell at a 50ms gap: the
+ * path advanced 20 times a second, which is exactly what "laggy" looked like.
+ */
+const STEPS_PER_CELL = 16;
+
 const STROKE_SETTLE_MS = 420;
 const LEAD_IN_MS = 900;
 
+/**
+ * How long the cursor takes to fade out, and the beat the runner then waits
+ * before it will record a trim mark. A clip that starts while the previous
+ * scene's cursor is still fading opens on a ghost.
+ */
+const CURSOR_FADE_MS = 260;
+
 /** Held after a tap resolves, so the gap it leaves has a beat to register */
 const BETWEEN_TAPS_MS = 700;
-const TAP_TIMING = { approach: 420, hold: 120, settle: 220 };
-
-/** Pointer samples per cell. Enough that the game's Bresenham never has to
- *  interpolate a jump of more than a fraction of a cell. */
-const STEPS_PER_CELL = 8;
+const TAP_TIMING = { approach: 340, hold: 130, settle: 220 };
 
 // --- page setup ------------------------------------------------------------
 
@@ -105,19 +132,45 @@ function initScript({ save, settings }) {
     style.textContent = `
       /* The canvas is the crop. Its own rounding and shadow belong to the app's
          layout, not to a clip that will sit inside the sheet's rounded box —
-         leaving them in puts a card inside a card. */
+         leaving them in puts a card inside a card.
+
+         The background moves to the container so the hint-area annotation can
+         sit behind the canvas: clearCanvas() uses clearRect, so the canvas is
+         genuinely transparent and the white is CSS. */
+      #play-view .game-container .canvas-container {
+        background-color: var(--color-bg-elevated);
+      }
       #play-view .game-container .canvas-container canvas {
         border-radius: 0 !important;
         box-shadow: none !important;
+        background-color: transparent !important;
         /* The canvas fades in over 300ms on load. Capture starts after that,
            but the transition also fires on a theme change, so pin it. */
         opacity: 1 !important;
         transition: none !important;
       }
-      /* The win sheet slides up over the canvas on card 5. The clip is the
-         board, not the app chrome around it, and the sheet would cover the
+      /* The win sheet slides up over the canvas on the last card. The clip is
+         the board, not the app chrome around it, and the sheet would cover the
          green loop that card exists to show. */
       .bottom-sheet-overlay { display: none !important; }
+
+      /* The 3x3 area a number watches. Nothing in the shipped game draws this —
+         renderHintPulse() in renderer.js does exactly it and has no callers — so
+         this is a tutorial annotation, matched to what that function would have
+         drawn: the solution-path blue, 20% at the peak, on a 2s cycle. It sits
+         under the canvas rather than over it, so grid lines, numbers and path
+         all stay on top, which is where renderHintPulse() put them. */
+      #capture-hint-area {
+        position: absolute;
+        z-index: 1;
+        pointer-events: none;
+        background-color: var(--color-solution-path);
+        animation: capture-hint-pulse 2s ease-in-out infinite;
+      }
+      @keyframes capture-hint-pulse {
+        0%, 100% { opacity: 0; }
+        50% { opacity: .2; }
+      }
 
       /* A fingertip, not a UI badge: a translucent disc under half a cell, its
          ring carrying most of the weight. A denser fill reads as a control
@@ -134,6 +187,7 @@ function initScript({ save, settings }) {
         border: 2.5px solid var(--capture-cursor-edge);
         background: var(--capture-cursor-fill);
         box-shadow: 0 2px 10px var(--capture-cursor-shadow);
+        transition: opacity 260ms linear;
       }
       #capture-ripple {
         z-index: 2147483646;
@@ -151,6 +205,74 @@ function initScript({ save, settings }) {
     const ripple = document.createElement('div');
     ripple.id = 'capture-ripple';
     document.body.append(ripple, cursor);
+
+    /**
+     * The cursor tracks the real pointer, in the page.
+     *
+     * The runner used to place it with a `page.evaluate` per sample, which
+     * doubled the CDP traffic on the hot path for no benefit — the pointer is
+     * already moving, and following it here costs nothing and can never lag
+     * behind the line being drawn.
+     */
+    let scale = 1;
+    let x = -200;
+    let y = -200;
+    const paint = () => {
+      cursor.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+    };
+    window.addEventListener(
+      'pointermove',
+      (event) => {
+        x = event.clientX;
+        y = event.clientY;
+        paint();
+      },
+      true
+    );
+
+    window.__capture = {
+      show: (visible) => {
+        cursor.style.opacity = visible ? '1' : '0';
+      },
+      /** Snap out of sight with no transition, for a clean trim point */
+      hide: () => {
+        cursor.style.transition = 'none';
+        cursor.style.opacity = '0';
+        void cursor.offsetWidth;
+        cursor.style.transition = 'opacity 260ms linear';
+      },
+      press: (pressed) => {
+        scale = pressed ? 0.8 : 1;
+        cursor.style.transition = pressed
+          ? 'transform 110ms ease-out, opacity 260ms linear'
+          : 'transform 260ms cubic-bezier(.33,.9,.35,1), opacity 260ms linear';
+        paint();
+        if (!pressed) return;
+        ripple.style.setProperty('--x', `${x}px`);
+        ripple.style.setProperty('--y', `${y}px`);
+        ripple.style.animation = 'none';
+        void ripple.offsetWidth;
+        ripple.style.animation = 'capture-ripple 520ms ease-out';
+      },
+      /** Draw the 3x3 area a hint watches, behind the canvas */
+      highlight: ({ row, col, gridSize }) => {
+        const canvas = document.getElementById('game-canvas');
+        const container = canvas.parentElement;
+        const cell = canvas.getBoundingClientRect().width / gridSize;
+        const minRow = Math.max(0, row - 1);
+        const minCol = Math.max(0, col - 1);
+        const rows = Math.min(gridSize - 1, row + 1) - minRow + 1;
+        const cols = Math.min(gridSize - 1, col + 1) - minCol + 1;
+
+        const area = document.createElement('div');
+        area.id = 'capture-hint-area';
+        area.style.left = `${minCol * cell}px`;
+        area.style.top = `${minRow * cell}px`;
+        area.style.width = `${cols * cell}px`;
+        area.style.height = `${rows * cell}px`;
+        container.appendChild(area);
+      },
+    };
   };
 
   if (document.readyState === 'loading') {
@@ -184,99 +306,70 @@ async function cellCentres(page) {
 }
 
 /**
- * `transition` is only ever set for a tap's approach. During a stroke the
- * cursor is placed on every pointer sample, and a transition would leave it
- * lagging behind the line it is supposed to be drawing.
+ * Move the real pointer along a line, one sample per frame.
+ *
+ * No sleep: `page.mouse.move` already costs about a frame, so back-to-back
+ * calls land at 60Hz. Adding a timeout on top is what made an earlier version
+ * advance the path 20 times a second. See STEPS_PER_CELL.
  */
-async function placeCursor(page, x, y, { show = true, transition = null, scale = 1 } = {}) {
-  await page.evaluate(
-    ({ x, y, show, transition, scale }) => {
-      const cursor = document.getElementById('capture-cursor');
-      cursor.style.transition = transition ?? 'none';
-      cursor.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
-      cursor.style.opacity = show ? '1' : '0';
-    },
-    { x, y, show, transition, scale }
-  );
+async function glide(page, from, to, steps) {
+  for (let step = 1; step <= steps; step += 1) {
+    const t = step / steps;
+    await page.mouse.move(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
+  }
 }
 
-async function ripple(page, x, y) {
-  await page.evaluate(
-    ({ x, y }) => {
-      const el = document.getElementById('capture-ripple');
-      el.style.setProperty('--x', `${x}px`);
-      el.style.setProperty('--y', `${y}px`);
-      el.style.animation = 'none';
-      void el.offsetWidth;
-      el.style.animation = 'capture-ripple 520ms ease-out';
-    },
-    { x, y }
-  );
+const capture = (page, method, arg) =>
+  page.evaluate(([name, value]) => window.__capture[name](value), [method, arg]);
+
+/** Bring the cursor in from below the target, so it reads as an approach */
+async function approach(page, target) {
+  await page.mouse.move(target.x, target.y + 56);
+  await capture(page, 'show', true);
+  await glide(page, { x: target.x, y: target.y + 56 }, target, 10);
 }
 
-/** One pointer gesture through a run of cells, cursor tracking the pointer */
+/** Fade the cursor out and wait for the fade to finish painting */
+async function withdraw(page) {
+  await capture(page, 'show', false);
+  await page.waitForTimeout(CURSOR_FADE_MS + 60);
+}
+
+/** One pointer gesture through a run of cells */
 async function drawStroke(page, centre, cells) {
   const first = centre(...cells[0]);
 
-  // Fade in below the first cell and travel to it, so the stroke starts from
-  // an approach rather than from a disc materialising mid-grid
-  await placeCursor(page, first.x, first.y + 56, { show: false });
-  await page.waitForTimeout(40);
-  await placeCursor(page, first.x, first.y, {
-    transition: 'transform 320ms cubic-bezier(.33,.9,.35,1), opacity 200ms linear',
-  });
-  await page.waitForTimeout(360);
-
-  await page.mouse.move(first.x, first.y);
+  await approach(page, first);
   await page.mouse.down();
   await page.waitForTimeout(120);
 
   let from = first;
   for (const [row, col] of cells.slice(1)) {
     const to = centre(row, col);
-    for (let step = 1; step <= STEPS_PER_CELL; step += 1) {
-      const t = step / STEPS_PER_CELL;
-      const x = from.x + (to.x - from.x) * t;
-      const y = from.y + (to.y - from.y) * t;
-      await page.mouse.move(x, y);
-      await placeCursor(page, x, y);
-      await page.waitForTimeout(CELL_MS / STEPS_PER_CELL);
-    }
+    await glide(page, from, to, STEPS_PER_CELL);
     from = to;
   }
 
   await page.mouse.up();
   await page.waitForTimeout(STROKE_SETTLE_MS);
-  await placeCursor(page, from.x, from.y, {
-    show: false,
-    transition: 'opacity 260ms linear',
-  });
+  await withdraw(page);
 }
 
 /** Press and release on one cell without moving, which erases it */
 async function tapCell(page, centre, row, col) {
-  const { x, y } = centre(row, col);
+  const target = centre(row, col);
 
-  await placeCursor(page, x, y + 56, { show: false });
-  await page.waitForTimeout(40);
-  await placeCursor(page, x, y, {
-    transition: 'transform 380ms cubic-bezier(.33,.9,.35,1), opacity 200ms linear',
-  });
+  await approach(page, target);
   await page.waitForTimeout(TAP_TIMING.approach);
 
-  await placeCursor(page, x, y, { transition: 'transform 110ms ease-out', scale: 0.8 });
-  await ripple(page, x, y);
+  await capture(page, 'press', true);
   await page.waitForTimeout(TAP_TIMING.hold);
-
-  await page.mouse.move(x, y);
   await page.mouse.down();
   await page.mouse.up();
   await page.waitForTimeout(TAP_TIMING.settle);
 
-  await placeCursor(page, x, y, {
-    show: false,
-    transition: 'transform 380ms cubic-bezier(.33,.9,.35,1), opacity 260ms linear',
-  });
+  await capture(page, 'press', false);
+  await withdraw(page);
   await page.waitForTimeout(BETWEEN_TAPS_MS);
 }
 
@@ -296,6 +389,12 @@ async function playScene(page, scene, marks) {
         await page.waitForTimeout(step.ms);
         break;
       case 'mark':
+        // Snap the cursor out of sight before the timestamp, never fade it.
+        // A scene whose setup ends in a gesture would otherwise be trimmed
+        // mid-fade, and the clip would open on the previous card's cursor
+        // dissolving in a corner.
+        await capture(page, 'hide');
+        await page.waitForTimeout(120);
         marks.set(step.name, Date.now());
         // Every clip opens on a still board for the same beat
         if (step.name === scene.trim.from) await page.waitForTimeout(LEAD_IN_MS);
@@ -355,10 +454,23 @@ async function record(browser, scene, theme) {
   page.on('pageerror', (e) => note(String(e)));
 
   await page.goto(`${BASE_URL}/play?difficulty=unlimited`);
-  await page.locator('#game-canvas').waitFor();
+  // Not just `waitFor()`: the element exists at its 300x150 default long before
+  // `setupCanvas()` sizes it, and anything measured in that window — the cell
+  // size the highlight is positioned from, the crop — comes out wrong.
+  await page.waitForFunction(() => {
+    const canvas = document.getElementById('game-canvas');
+    return canvas && canvas.style.width !== '';
+  });
   await applyCursorTheme(page, theme);
-  // Let the canvas finish its fade-in and the first hint pulse settle
+  // Let the canvas finish its fade-in before capture starts
   await page.waitForTimeout(1200);
+
+  if (scene.highlight) {
+    await page.evaluate(
+      (area) => window.__capture.highlight(area),
+      { ...scene.highlight, gridSize: GRID_SIZE }
+    );
+  }
 
   const crop = await page.evaluate((scale) => {
     const { x, y, width, height } = document.getElementById('game-canvas').getBoundingClientRect();
@@ -491,24 +603,24 @@ async function encode({ frames, crop, marks }, scene, theme) {
     '-vf', filter, '-fps_mode', 'cfr', '-r', String(FPS), '-c:v', 'ffv1', '-an', master,
   ]);
 
-  // Loopy's clips are flat colour and a few thin lines on a near-uniform ground,
-  // so both codecs go far looser than they could on photographic content before
-  // anything shows. Swept against the win clip, which is the busiest: VP9 44 and
-  // 52 were indistinguishable at 3x magnification, and h.264 only started ringing
-  // beside a curve at 38. These sit a step inside those.
+  // Hard black lines on a near-white ground are the worst case for a codec
+  // built for photographs: every edge is a step change, and ringing beside one
+  // is visible in a way it never is in a photo. These CRFs are much tighter
+  // than the content's low bitrate would suggest, and deliberately so — an
+  // earlier pass shipped 36/50, which measured small and looked mushy.
   //
-  // On this content x264 wins outright — the webm is 8-30% larger on every clip —
+  // On this content x264 wins outright — the webm is larger on every clip —
   // which is why the sheet lists the mp4 first and this one second. The webm is
   // not dead weight: a Chromium built without proprietary codecs cannot decode
   // h.264 at all, and is exactly what falls through to it.
   await ffmpeg([
-    '-i', master, '-c:v', 'libx264', '-crf', '36', '-preset', 'slow',
-    '-profile:v', 'main', '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+    '-i', master, '-c:v', 'libx264', '-crf', '26', '-preset', 'slow',
+    '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
     '-an', `${base}.mp4`,
   ]);
 
   await ffmpeg([
-    '-i', master, '-c:v', 'libvpx-vp9', '-crf', '50', '-b:v', '0',
+    '-i', master, '-c:v', 'libvpx-vp9', '-crf', '36', '-b:v', '0',
     '-row-mt', '1', '-pix_fmt', 'yuv420p', '-an', `${base}.webm`,
   ]);
 
@@ -528,8 +640,11 @@ async function encode({ frames, crop, marks }, scene, theme) {
     .filter((gap) => gap < 200)
     .sort((a, b) => a - b);
   const medianGap = gaps[Math.floor(gaps.length / 2)] ?? 0;
+  // The median hides a stutter that lasts a handful of frames, which is exactly
+  // the kind that shows on a loop closing. The 95th percentile does not.
+  const p95Gap = gaps[Math.floor(gaps.length * 0.95)] ?? 0;
 
-  return { duration, frames: clip.length, medianGap };
+  return { duration, frames: clip.length, medianGap, p95Gap };
 }
 
 // --- main ------------------------------------------------------------------
@@ -550,9 +665,12 @@ try {
   for (const scene of scenes) {
     for (const theme of THEMES) {
       process.stdout.write(`scene ${scene.id} (${scene.name}) ${theme} … `);
-      const capture = await record(browser, scene, theme);
-      const { duration, frames, medianGap } = await encode(capture, scene, theme);
-      console.log(`${duration.toFixed(1)}s, ${frames} frames, ${medianGap.toFixed(1)}ms median gap`);
+      const shot = await record(browser, scene, theme);
+      const { duration, frames, medianGap, p95Gap } = await encode(shot, scene, theme);
+      console.log(
+        `${duration.toFixed(1)}s, ${frames} frames, ` +
+        `${medianGap.toFixed(1)}ms median gap, ${p95Gap.toFixed(1)}ms p95`
+      );
     }
   }
 } finally {

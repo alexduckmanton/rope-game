@@ -73,13 +73,11 @@ export default {
     other: '{n} jours d’affilée ({difficulty})',
   },
 
-  'tutorial.draw':
-    'Faites glisser pour tracer une boucle – n’importe quelle forme, n’importe quelle taille.',
-  'tutorial.erase': 'Touchez une case pour l’effacer.',
+  'tutorial.draw': 'Faites glisser pour tracer une boucle de n’importe quelle forme ou taille.',
+  'tutorial.erase': 'Touchez pour effacer des parties de votre boucle.',
   'tutorial.numbers':
-    'Les virages dans les cases autour d’un nombre le font baisser. Ceux plus loin, non.',
-  'tutorial.zero': 'Une boucle fermée ne suffit pas : chaque nombre doit tomber à zéro.',
-  'tutorial.win': 'Mettez-les tous à zéro et la grille est à vous.',
+    'Chaque fois que votre tracé tourne dans les cases situées sur un nombre ou autour, ce nombre diminue.',
+  'tutorial.win': 'Tracez une boucle qui met tous les nombres à zéro pour gagner.',
   'tutorial.next': 'Suivant',
   'tutorial.gotIt': 'J’ai compris',
   'tutorial.replay': 'Revoir',

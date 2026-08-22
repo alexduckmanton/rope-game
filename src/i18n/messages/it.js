@@ -70,12 +70,11 @@ export default {
     other: '{n} giorni di fila ({difficulty})',
   },
 
-  'tutorial.draw': 'Trascina per disegnare un anello: qualsiasi forma, qualsiasi dimensione.',
-  'tutorial.erase': 'Tocca una casella per cancellarla.',
+  'tutorial.draw': 'Trascina per disegnare un anello di qualsiasi forma o dimensione.',
+  'tutorial.erase': 'Tocca per cancellare parti del tuo anello.',
   'tutorial.numbers':
-    'Le curve nelle caselle intorno a un numero lo fanno scendere. Quelle più lontane no.',
-  'tutorial.zero': 'Un anello chiuso non basta: ogni numero deve arrivare a zero.',
-  'tutorial.win': 'Portali tutti a zero e il puzzle è tuo.',
+    'Ogni volta che il tuo percorso curva nelle caselle su un numero o intorno a esso, quel numero diminuisce.',
+  'tutorial.win': 'Disegna un anello che porti ogni numero a zero per vincere.',
   'tutorial.next': 'Avanti',
   'tutorial.gotIt': 'Ho capito',
   'tutorial.replay': 'Rivedi',

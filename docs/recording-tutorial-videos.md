@@ -55,7 +55,7 @@ Boards were designed with `npm run boards:tutorial -- search`, which builds ever
 Easy daily puzzle across a year of seeds and reports which ones have a short loop
 that satisfies them. `npm run boards:tutorial` then replays each scene's strokes
 cell by cell and prints what every hint reads after each one, which is how the
-countdown in card 3 and the near-miss in card 4 were tuned without recording
+countdown in card 3 and the near-miss inside card 4 were tuned without recording
 anything.
 
 ### Running the game's modules outside a browser
@@ -75,14 +75,49 @@ that module gets the real generation code and does not have to think about it.
 exact for the gestures the scenes are allowed to use, and the scenes are
 restricted to keep it exact: no self-intersections, no drag-backtracking, and
 never drawing through a cell that already has two connections. The last of those
-is why card 5 erases a square before redrawing rather than bumping straight
-through the loop — `gameCore` decides which connection to break there, and a
+is why the last card erases a square before redrawing rather than bumping
+straight through the loop — `gameCore` decides which connection to break there, and a
 tutorial should not depend on which one it picks.
 
 Anything outside that set has to be verified by recording it. The runner's
 backstop is each scene's `expect.won`, asserted against the live game after the
-scene plays: it is the only game state the DOM exposes, and it is the whole
-difference between cards 4 and 5.
+scene plays: it is the only game state the DOM exposes, and it is what proves
+the last card really reaches the win rather than stopping a square short.
+
+### The one annotation
+
+Card 3 carries a `highlight` in its scene: the runner draws the 3x3 area the
+hint watches, as a pulsing tint behind the canvas.
+
+**Nothing in the shipped game draws this.** `renderHintPulse()` in `renderer.js`
+draws exactly it and has no callers — it was dropped from the render at some
+point, and the hand-recorded clips this pipeline replaced, which still showed
+it, were the last place it appeared. So this is a tutorial annotation, and the
+one place a clip shows something a player will not see on their own board.
+
+It is there because the card is unteachable without it: the lesson is *which*
+squares a number watches, and with no marker the clip can only imply the
+boundary by contrast and hope the viewer infers it.
+
+It goes *behind* the canvas rather than over it. `clearCanvas()` uses
+`clearRect`, so the canvas is genuinely transparent and its white comes from
+CSS; the runner moves that background to the container and slots the tint
+between the two. Grid lines, numbers and the path all stay on top, which is
+where `renderHintPulse()` put them. The colour, the 20% peak and the 2s cycle
+are copied from that function.
+
+If the pulse is ever restored to the game, delete the annotation and the scene
+gets shorter and clearer for free.
+
+### Trim marks and the cursor
+
+A scene's setup — everything before the `start` mark — is played at full speed
+and thrown away, but it leaves the cursor mid-fade. Trim there and the clip
+opens on the previous card's cursor dissolving in a corner, which is exactly
+what it looks like: a splice.
+
+The runner snaps the cursor out of sight with no transition at **every** mark,
+then waits two frames before taking the timestamp. A scene cannot opt out.
 
 ---
 
@@ -113,29 +148,66 @@ seconds of the old `tutorial-1`, **71% of frames were pixel-identical to their
 predecessor** — about 17fps of content in a 60fps container, on a clip whose
 entire subject was a line moving.
 
-### 2. The capture scale factor is a frame-rate setting
+### 2. A pointer move costs a frame, so pacing one with a timeout halves it
+
+**Symptom:** the drawing is legible but it judders, worst where the loop closes.
+
+`page.mouse.move` is not cheap and not asynchronous in the way it looks: it
+costs about **16.3ms** on its own, because the input event is bound to a frame.
+Pacing a stroke by sleeping between moves therefore adds to that cost rather
+than absorbing it. Measured, drawing one cell four ways:
+
+| | pointer events | median gap | wall |
+|---|---|---|---|
+| 8 moves + 32ms sleep | 8 | **50.0ms** | 396ms |
+| 16 moves + 16ms sleep | 16 | 17.6ms | 295ms |
+| `mouse.move(steps: 16)` | 16 | 16.7ms | 264ms |
+| **16 bare moves** | **16** | **16.6ms** | **245ms** |
+
+The first row is what shipped in the first pass of this pipeline: the path
+advanced twenty times a second inside a 60fps clip. Nothing in the capture or
+the encode was wrong — the page genuinely only moved twenty times.
+
+**Fix:** issue the moves back to back and let their own cost do the pacing.
+`STEPS_PER_CELL` then sets the speed as well as the smoothness: 16 samples at
+~16.3ms is ~260ms per cell.
+
+The same reasoning killed the old per-sample `page.evaluate` that positioned the
+cursor. The cursor now follows `pointermove` inside the page, which costs
+nothing and cannot lag behind the line it is supposed to be drawing.
+
+### 3. The capture scale factor is a frame-rate setting
 
 **Symptom:** animations record below 60fps for no obvious reason.
 
 The browser JPEG-encodes every screencast frame on the renderer. Past a certain
-frame size that work starves the animations being recorded. Counting the page's
-own `requestAnimationFrame` callbacks during capture, on the game view:
+frame size that work starves the animations being recorded.
 
-| | page frame rate |
-|---|---|
-| any scale, no screencast | 61.2–61.4fps |
-| scale 2 | 60.2fps |
-| **scale 2.5** | **60.7fps** |
-| scale 3 | 59.7fps |
-| scale 3.5 | 58.7fps |
+**Measure this while capturing a real scene, not on an idle board.** An idle
+game view holds 58.7fps even at scale 3.5, which reads as plenty of headroom and
+is not: the moment the board is being drawn on it falls apart. Against the
+busiest scene, end to end:
 
-Loopy degrades gently here rather than falling off a cliff — its page is one
-small canvas, not a grid of animated tiles — so `DEVICE_SCALE = 2.5` is chosen
-for output size rather than to stay under an edge. **Raising it buys nothing:**
-the canvas is 400 CSS px, so 2.5 already yields a 1000px clip against the ~350px
-the sheet renders it at, which covers a 3x screen with room to spare. Note the
-measurement above is of an idle board; an active drag costs more, and the median
-gap the runner prints per clip is the figure to trust.
+| | median gap | p95 gap |
+|---|---|---|
+| scale 2 | 16.6ms | 17.6ms |
+| **scale 2.5** | **16.6ms** | **18.9ms** |
+| scale 3 | 22.3ms | 42.4ms |
+
+So 2.5 is a ceiling here, not a preference. **Extra resolution has to come from
+the bitrate, not from this number.**
+
+There is no need for more anyway. `--force-device-scale-factor` makes the game's
+own canvas back itself at the same ratio, so a 400 CSS-px canvas is genuinely
+1000 sharp pixels — and the sheet caps its rendered width at 400px for exactly
+this reason, since a tall desktop window would otherwise take it near 500 and
+start upscaling.
+
+`DEVICE_SCALE` can be overridden from the environment so the table above can be
+reproduced. That is what it is for, not a dial to turn up.
+
+A Playwright context `deviceScaleFactor` does not work in its place: that only
+sharpens screenshots, and screencast keeps returning CSS-pixel frames.
 
 Keep `VIEWPORT` no larger than it needs to be, for the same reason: every pixel
 above what the crop keeps is one the browser encodes 60 times a second and then
@@ -143,11 +215,17 @@ throws away. The floor is set by `calculateCellSize()`, which clamps a cell to
 `CONFIG.CELL_SIZE_MAX` (100px), so a 4x4 reaches its full 400px once the viewport
 clears 440 wide and 500 tall.
 
-`--force-device-scale-factor` at launch is what makes screencast return
-device-resolution frames. A Playwright context `deviceScaleFactor` does not work:
-that only sharpens screenshots, and screencast keeps returning CSS-pixel frames.
+### 4. The canvas is 300x150 for a while after it exists
 
-### 3. Cropping wider than the canvas puts a card inside a card
+**Symptom:** the crop is off, or an overlay lands in the wrong cell.
+
+`#game-canvas` is in the DOM at its default 300x150 long before `setupCanvas()`
+gives it a size. `locator().waitFor()` resolves in that window, so anything
+measured straight afterwards — the crop rectangle, the cell size the hint-area
+annotation is positioned from — is computed against the wrong geometry. The
+runner waits for `canvas.style.width` to be set instead.
+
+### 5. Cropping wider than the canvas puts a card inside a card
 
 **Symptom:** the clip looks fine on its own and looks nested in the sheet.
 
@@ -163,7 +241,7 @@ rounding and shadow for the duration of the capture, so the corners of the crop
 are grid rather than page background. The rounding the viewer sees belongs to
 `.bottom-sheet-video-container`.
 
-### 4. HMR reloads the page mid-take
+### 6. HMR reloads the page mid-take
 
 **Symptom:** `page.evaluate: Execution context was destroyed, most likely because
 of a navigation`, part-way through a run that was working.
@@ -173,9 +251,9 @@ triggers a reload, which destroys the page under the scene being played. Do not
 edit `src/`, `style.css` or `index.html` while a recording is running. Editing
 `scripts/` or `docs/` is safe — neither is imported by the app.
 
-### 5. The win sheet covers the board
+### 7. The win sheet covers the board
 
-Card 5 wins, and the win sheet slides up over the canvas. The clip is the board,
+The last card wins, and the win sheet slides up over the canvas. The clip is the board,
 not the app chrome around it, so the runner hides `.bottom-sheet-overlay` for the
 duration of the capture. This is a crop decision, not a change to what is being
 demonstrated: the win itself — green path, green zeros — is exactly what the
@@ -209,11 +287,15 @@ Then decode one row of pixels per output frame, find the bar's leading edge, and
 histogram the differences. A healthy run is a single step value (plus its
 neighbour, from rounding) and no zeros.
 
-**What the runner prints per clip** — `5.8s, 173 frames, 17.0ms median gap`:
+**What the runner prints per clip** — `7.5s, 396 frames, 16.6ms median gap,
+18.9ms p95`:
 
 - *median gap* — the median interval between captured frames. It should sit near
-  16.7ms; under about 20ms means capture is keeping up. Every clip in the
-  shipping set is between 16.5 and 18.3ms.
+  16.7ms; under about 20ms means capture is keeping up.
+- *p95 gap* — and this is the one that catches a stutter. A hitch lasting a
+  handful of frames barely moves the median: at scale 3 the median rose to
+  22.3ms while the p95 went to 42.4ms, and it is the p95 that matches what the
+  clip looks like. Under about 20ms is healthy.
 - *frames* — the count kept after trimming.
 - *duration* — clip length, which is ticks ÷ 60 by construction.
 
@@ -272,41 +354,39 @@ filters that out of its console-error check.
 One crop-and-resample pass to a lossless FFV1 intermediate, so both encodes and
 the poster come from identical frames. Then H.264 and VP9 from it.
 
-Loopy's clips are flat colour and a few thin lines on a near-uniform ground, so
-both codecs go far looser than they could on photographic content before
-anything shows. Swept against the win clip, which is the busiest:
+Hard black lines on a near-white ground are the worst case for codecs designed
+for photographs: every edge is a step change, and ringing beside one is visible
+in a way it never is in a photo. **The bitrate has to be more generous than the
+content's apparent simplicity suggests.** An earlier pass shipped x264 crf 36 /
+VP9 crf 50, which measured small and looked mushy in the sheet. The shipping
+values are crf 26 and 36.
 
-| | size | verdict |
-|---|---|---|
-| VP9 crf 44 | 67KB | indistinguishable from 52 at 3x magnification |
-| **VP9 crf 50** | **~52KB** | shipped |
-| VP9 crf 52 | 48KB | still clean |
-| H.264 crf 30 | 68KB | |
-| **H.264 crf 36** | **~45KB** | shipped |
-| H.264 crf 38 | 42KB | faint ringing beside a curve |
+They are also, now, the only lever on sharpness left: the capture scale is
+pinned at 2.5 by the frame rate (trap 3), so quality above that comes from the
+encode or nowhere.
 
-**The mp4 is listed first in the sheet, and that is the unusual part.** On this
-content x264 wins outright: the webm came out 8–30% larger on every one of the
-ten clips, at matched quality. Source order decides what a browser downloads, so
-listing the mp4 first hands almost everyone the smaller file.
+**The mp4 is listed first in the sheet, which is the reverse of the usual
+order.** On this content x264 generally beats VP9, so listing the mp4 first
+hands most browsers the smaller file. The exception is the card with the pulsing
+annotation, where the large smooth gradient plays to VP9's strengths and the
+webm comes out ahead — worth knowing if the clips ever gain more soft-edged
+content, because the ordering would stop being the right default.
 
-The webm is not dead weight, and dropping it was tried and reverted. **A Chromium
-built without proprietary codecs cannot decode H.264 at all** — Playwright's
-bundled Chromium is one, and so are some Linux distribution builds. On an
-mp4-only set they get `DEMUXER_ERROR_NO_SUPPORTED_STREAMS` and a poster that
-never moves. The webm is what those fall through to.
-
-The whole set is 1.1MB — ten clips in two formats and ten posters, in two themes,
-against 984KB for the three single-theme, single-format clips it replaced.
-
-If a future change makes the clips busier — a fill, a gradient, an animated
-background — re-run the codec comparison before assuming the ordering still
-holds. It is a property of this content, not of the codecs.
+The webm is not dead weight, and dropping it was tried and reverted. **A
+Chromium built without proprietary codecs cannot decode H.264 at all** —
+Playwright's bundled Chromium is one, and so are some Linux distribution builds.
+On an mp4-only set they get `DEMUXER_ERROR_NO_SUPPORTED_STREAMS` and a poster
+that never moves.
 
 The poster is the clip's first frame. It stands in for the clip before it plays
 and again after it ends, so it has to match what pressing replay starts from —
 which is why the runner holds every scene on a settled board for `LEAD_IN_MS`
 before anything moves.
+
+The whole set is 2.0MB — four clips in two formats and four posters, in two
+themes. A player who opens the tutorial and swipes through it in one theme
+fetches about 465KB of that, because only the visible clip and the next one are
+ever loaded.
 
 ---
 
@@ -315,13 +395,16 @@ before anything moves.
 The constants at the top of `scripts/record-tutorial.mjs` decide whether a clip
 can be followed rather than merely watched:
 
-- `CELL_MS` — how long the pointer takes to cross one cell, and deliberately
-  slow. Loopy's whole input is one continuous drag; a stroke that crosses the
-  grid in half a second reads as a line appearing rather than as someone drawing
-  it, and the drawing is the point.
-- `STEPS_PER_CELL` — pointer samples per cell. Enough that the game's own
-  Bresenham never has to interpolate a jump of more than a fraction of a cell,
-  which is what keeps the recorded path identical to the scene's cell list.
+- `STEPS_PER_CELL` — pointer samples per cell, and the only thing that sets a
+  stroke's speed, because each sample costs a frame (trap 2). 16 gives one
+  sample per 60Hz tick and ~260ms per cell — deliberately slow. Loopy's whole
+  input is one continuous drag; a stroke that crosses the grid in half a second
+  reads as a line appearing rather than as someone drawing it, and the drawing
+  is the point. It also keeps the recorded path identical to the scene's cell
+  list, since the game's own Bresenham never has to bridge more than a fraction
+  of a cell.
+- `CURSOR_FADE_MS` — how long the cursor takes to disappear, and the beat the
+  runner waits after asking it to before doing anything else.
 - `LEAD_IN_MS` — every clip holds on its opening board before anything moves. The
   runner applies this at the `start` mark rather than each scene writing its own,
   so no scene can be recorded without one. It is also what makes the poster

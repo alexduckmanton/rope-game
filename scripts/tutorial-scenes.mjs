@@ -27,6 +27,10 @@
  * recorded without one. That beat is also what makes the poster — always the
  * first frame — a readable starting position rather than something mid-stroke.
  *
+ * One scene carries a `highlight`: the runner draws the 3x3 area a hint watches
+ * behind the canvas. Nothing in the shipped game draws it, so it is an
+ * annotation rather than a feature — see the comment on that scene.
+ *
  * Two rules every stroke keeps, both for legibility rather than legality:
  *
  * 1. **Never draw over a hint cell.** The path is drawn after the numbers, so a
@@ -37,8 +41,8 @@
  *    was not asked to do.
  *
  * `expect` is asserted against the live game after the scene plays. `won` is the
- * only state the DOM exposes, and it is the one that matters: it is the whole
- * difference between cards 4 and 5.
+ * only state the DOM exposes, and it is what proves the last card really reaches
+ * the win rather than stopping one square short of it.
  */
 
 /**
@@ -55,7 +59,7 @@ const SEED_ONE_HINT = 202602050;
  * A real Easy daily puzzle with hints in opposite corners, (3,0) and (0,3),
  * both reading 3.
  *
- * Cards 1, 2, 4 and 5 all run on it, so four fifths of the tutorial is one
+ * Cards 1, 2 and 4 all run on it, so three quarters of the tutorial is one
  * puzzle developing rather than four unrelated boards. Opposite corners also
  * mean a loop can reach into both hints' areas while never crossing either cell.
  */
@@ -77,8 +81,8 @@ const FREEHAND_LOOP = [
  * The 10-cell loop that closes but leaves the top-right hint reading 2.
  *
  * A ring with a hole at (1,1), which reads as a deliberate shape rather than a
- * blob, and it zeroes the bottom-left hint on the way round — one green number
- * beside one that is not is exactly what card 4 is for.
+ * blob, and it zeroes the bottom-left hint on the way round. One green number
+ * beside one that is not is the near-miss card 4 opens on.
  */
 const NEAR_MISS_LOOP = [
   [0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [3, 2], [3, 1], [2, 1], [2, 0], [1, 0], [0, 0],
@@ -132,16 +136,16 @@ export const SCENES = [
     section: 'Counting bends',
     captionKey: 'tutorial.numbers',
     seed: SEED_ONE_HINT,
-    // Two strokes, and the first one is the lesson. It bends at (3,0), two rows
-    // from the hint, and the number does not move — so the card can claim that
-    // distant bends do not count and then show it, before the second stroke
-    // bends three times beside the number and walks it down 3, 2, 1, 0.
-    //
-    // Nothing in the game marks the area a number watches: the pulsing 3x3
-    // highlight `renderer.js` still exports was dropped from the render at some
-    // point and has no caller. Contrast is the only teaching tool available,
-    // which is why this scene spends its first half on a bend that changes
-    // nothing.
+    // The only scene with an annotation: the 3x3 area the number watches, drawn
+    // by the runner because the game itself does not. `renderHintPulse()` in
+    // `renderer.js` draws exactly this and has no callers, so the highlight is
+    // a tutorial overlay rather than something a player will see on their own
+    // board. It is what makes the lesson legible: without it the card can only
+    // teach the neighbourhood by contrast and hope the viewer infers the edge.
+    highlight: { row: 1, col: 1 },
+    // Two strokes, and the first one is still doing work. It bends at (3,0),
+    // outside the highlight, and the number does not move; the second bends
+    // three times inside it and walks the number down 3, 2, 1, 0.
     steps: [
       { type: 'mark', name: 'start' },
       { type: 'draw', cells: [[3, 3], [3, 2], [3, 1], [3, 0], [2, 0]], pauseAfter: 700 },
@@ -156,43 +160,30 @@ export const SCENES = [
 
   {
     id: 4,
-    name: 'zero',
-    section: 'Zeroing numbers',
-    captionKey: 'tutorial.zero',
-    seed: SEED_TWO_HINTS,
-    // The loop closes, the bottom-left hint goes green on zero, the top-right
-    // one still reads 2 — and nothing happens. That is the state Loopy players
-    // most often get stuck in, and this is the only card that names it.
-    steps: [
-      { type: 'mark', name: 'start' },
-      { type: 'draw', cells: NEAR_MISS_LOOP },
-      { type: 'wait', ms: 1600 },
-      { type: 'mark', name: 'end' },
-    ],
-    trim: { from: 'start', to: 'end' },
-    expect: { cells: 10, won: false },
-  },
-
-  {
-    id: 5,
     name: 'win',
     section: 'Win condition',
     captionKey: 'tutorial.win',
     seed: SEED_TWO_HINTS,
-    // Picks up card 4's stuck loop and fixes it: rub out one square to open the
-    // loop, then redraw wide enough to put two bends in the corner hint's area.
+    // The whole win, in one card: a loop closes, the bottom-left hint goes green
+    // on zero, the top-right one still reads 2 — and nothing happens. Then one
+    // square is rubbed out, the loop is redrawn wider, and the second number
+    // reaches zero too.
     //
-    // Erasing first is what keeps the edit deterministic. Dragging straight
-    // through a cell that already has two connections leaves `gameCore` to
-    // choose which one to break, and which it chooses is not something a
+    // The near-miss is not a separate card because it is not a separate idea.
+    // Split across two, the first ends on "nothing happened", which is a weak
+    // place to leave a viewer and a weak place to start one.
+    //
+    // Erasing before redrawing is what keeps the edit deterministic. Dragging
+    // straight through a cell that already has two connections leaves `gameCore`
+    // to choose which one to break, and which it chooses is not something a
     // tutorial should depend on. It also puts card 2's lesson to work, which is
     // the argument for teaching erasing that early.
     steps: [
-      { type: 'draw', cells: NEAR_MISS_LOOP },
       { type: 'mark', name: 'start' },
+      { type: 'draw', cells: NEAR_MISS_LOOP, pauseAfter: 900 },
       { type: 'tap', row: 2, col: 2 },
       { type: 'draw', cells: [[1, 2], [1, 3], [2, 3], [2, 2], [3, 2]] },
-      { type: 'wait', ms: 2200 },
+      { type: 'wait', ms: 1800 },
       { type: 'mark', name: 'end' },
     ],
     trim: { from: 'start', to: 'end' },

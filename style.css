@@ -1224,8 +1224,13 @@ button {
   /* The clip is square, so its width sets the sheet's height. `88vh - 300px`
      is what is left once the header, the copy, the dots and the button have
      taken theirs — without it the sheet is the entire screen on a short phone
-     and there is no backdrop left to dismiss it with. */
-  width: min(calc(100% - 40px), calc(88vh - 300px));
+     and there is no backdrop left to dismiss it with.
+
+     400px is the game's own canvas size, and also as large as the clip stays
+     sharp: it is captured at 1000px, which the capture's frame rate caps (see
+     docs/recording-tutorial-videos.md). Without the cap a tall desktop window
+     renders it near 500px and starts upscaling. */
+  width: min(calc(100% - 40px), calc(88vh - 300px), 400px);
   aspect-ratio: 1 / 1;
   margin: 16px auto;
   border-radius: 12px;
@@ -1333,38 +1338,43 @@ button {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   padding: 8px 20px;
 }
 
-/* Individual paging dot. The visible dot is 8px, but the button around it is a
-   44px target — the dots are the only way back to an earlier card. */
+/* Individual paging dot. 8px with an 8px gap, so the row reads as one group
+   rather than a spread-out set of controls — the tap target is bought with
+   vertical padding instead of width, which would push the dots apart. */
 .tutorial-paging-dot {
-  width: 44px;
-  height: 44px;
-  padding: 0;
+  width: 8px;
+  height: 8px;
+  padding: 18px 0;
+  box-sizing: content-box;
   border: none;
   background: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: width 200ms ease;
 }
 
 .tutorial-paging-dot::after {
   content: '';
   display: block;
-  width: 8px;
+  width: 100%;
   height: 8px;
-  border-radius: 50%;
+  border-radius: 4px;
   background-color: var(--color-neutral-300);
-  transition: width 200ms ease, background-color 200ms ease;
+  transition: background-color 200ms ease;
+}
+
+.tutorial-paging-dot.active {
+  width: 24px;
 }
 
 .tutorial-paging-dot.active::after {
   background-color: var(--color-primary);
-  width: 24px;
-  border-radius: 4px;
 }
 
 .tutorial-nav {

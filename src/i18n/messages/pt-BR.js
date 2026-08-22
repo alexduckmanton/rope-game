@@ -73,12 +73,11 @@ export default {
     other: '{n} dias seguidos ({difficulty})',
   },
 
-  'tutorial.draw': 'Arraste para desenhar um laço — qualquer forma, qualquer tamanho.',
-  'tutorial.erase': 'Toque numa casa para apagá-la.',
+  'tutorial.draw': 'Arraste para desenhar um laço de qualquer forma ou tamanho.',
+  'tutorial.erase': 'Toque para apagar partes do seu laço.',
   'tutorial.numbers':
-    'Curvas nas casas ao redor de um número o fazem diminuir. As mais distantes, não.',
-  'tutorial.zero': 'Um laço fechado não basta: todo número precisa chegar a zero.',
-  'tutorial.win': 'Zere todos e o quebra-cabeça é seu.',
+    'Sempre que seu caminho faz uma curva nas casas sobre um número ou ao redor dele, esse número diminui.',
+  'tutorial.win': 'Desenhe um laço que zere todos os números para vencer.',
   'tutorial.next': 'Próximo',
   'tutorial.gotIt': 'Entendi',
   'tutorial.replay': 'Repetir',

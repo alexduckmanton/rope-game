@@ -2,7 +2,7 @@
  * Tutorial Bottom Sheet Component
  *
  * Self-contained tutorial that can be opened from anywhere in the app.
- * Five sections, each a silent clip of the real game and one line of copy.
+ * Four sections, each a silent clip of the real game and one line of copy.
  *
  * The clips are recorded by `scripts/record-tutorial.mjs` — see
  * `docs/recording-tutorial-videos.md`. Two things about them shape this file:
@@ -28,8 +28,8 @@ import {
 import { t } from '../i18n/index.js';
 
 // Tutorial sections, in the order a player meets the mechanics: the two
-// gestures, then what the numbers mean, then the goal and the near-miss that
-// stands in front of it.
+// gestures, then what the numbers mean, then the goal — with the near-miss that
+// stands in front of it folded into that last card rather than given its own.
 //
 // `body` is a message key resolved at render time. `name` is the analytics
 // label and deliberately stays English, so tutorial_section_viewed reports the
@@ -43,8 +43,7 @@ const LESSON_SECTIONS = [
   { clip: 1, bodyKey: 'tutorial.draw', name: 'Drawing loops' },
   { clip: 2, bodyKey: 'tutorial.erase', name: 'Erasing' },
   { clip: 3, bodyKey: 'tutorial.numbers', name: 'Counting bends' },
-  { clip: 4, bodyKey: 'tutorial.zero', name: 'Zeroing numbers' },
-  { clip: 5, bodyKey: 'tutorial.win', name: 'Win condition' }
+  { clip: 4, bodyKey: 'tutorial.win', name: 'Win condition' }
 ];
 
 /** A section counts as showing once half of it is in view */
@@ -53,10 +52,9 @@ const VIDEO_VISIBILITY_THRESHOLD = 0.5;
 /**
  * How many sections ahead of the visible one to fetch.
  *
- * The five clips together are about 700KB, and opening the sheet used to pull
- * all of them before the first one had played. One ahead is enough that a swipe
- * never waits, and means a player who reads card 1 and closes has downloaded
- * two clips rather than five.
+ * Opening the sheet used to pull every clip before the first one had played.
+ * One ahead is enough that a swipe never waits, and means a player who reads
+ * card 1 and closes has downloaded two clips rather than four.
  */
 const PRELOAD_AHEAD = 1;
 
