@@ -73,7 +73,7 @@ export default {
   'tutorial.draw': 'Sleep om een lus van elke vorm of grootte te tekenen.',
   'tutorial.erase': 'Tik om delen van je lus te wissen.',
   'tutorial.numbers': 'Getallen tellen af als je lus een bocht maakt in de vakjes ernaast.',
-  'tutorial.win': 'Om te winnen: teken een lus en zet elk getal op nul.',
+  'tutorial.win': 'Om te winnen: teken een lus die elk getal op nul zet.',
   'tutorial.next': 'Volgende',
   'tutorial.gotIt': 'Duidelijk',
   'tutorial.replay': 'Opnieuw afspelen',
