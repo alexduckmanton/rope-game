@@ -10,7 +10,7 @@
 import { initRouter } from './router.js';
 import { initIcons } from './icons.js';
 import { cleanupOldSaves, reconcileStreaks } from './persistence.js';
-import { initHintGenerationExperiment } from './experiment.js';
+import { initTrickyHintsExperiment } from './experiment.js';
 import { CONFIG } from './config.js';
 import tokens from './tokens.js';
 import { ACTIVE_LOCALE } from './i18n/index.js';
@@ -117,7 +117,7 @@ function init() {
   // on the home screen. By the time they pick a difficulty the PostHog response
   // has usually landed, so the first puzzle they open is generated from a real
   // assignment rather than the local fallback.
-  initHintGenerationExperiment();
+  initTrickyHintsExperiment();
 
   // Listen for theme changes and update meta tag
   window.addEventListener('themeChanged', updateThemeColor);

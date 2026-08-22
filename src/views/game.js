@@ -22,7 +22,7 @@ import { checkPartialStructuralWin, validateHints, computeStateKey, calculateSco
 import { t } from '../i18n/index.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
 import { generateHintCellsCovering, describePuzzle } from '../generation/hintPlacement.js';
-import { getHintGenerationAssignment, variantForSavedGame, isDenseVariant } from '../experiment.js';
+import { getTrickyHintsAssignment, variantForSavedGame, isTrickyCoveringVariant } from '../experiment.js';
 import {
   trackGameStarted,
   trackGameCompleted,
@@ -966,7 +966,25 @@ function render(triggerSave = true, animationMode = 'auto') {
  * Only available in unlimited mode (daily puzzles are fixed per day).
  */
 /**
- * Build a puzzle with whichever hint placement this player's arm calls for
+ * Hint placement this puzzle should be generated with
+ *
+ * Only Tricky consults the experiment arm. Easy and Diabolical were settled in
+ * round 1 and now use one fixed placement for every player, so an assignment
+ * changes nothing outside the 6x6 grid.
+ *
+ * @param {string} difficulty - Difficulty key
+ * @param {string} variant - Experiment arm
+ * @returns {Object} Placement config: strategy plus its parameters
+ */
+function placementFor(difficulty, variant) {
+  if (difficulty === 'medium' && isTrickyCoveringVariant(variant)) {
+    return CONFIG.DIFFICULTY.TRICKY_COVERING;
+  }
+  return CONFIG.DIFFICULTY.HINT_PLACEMENT[difficulty];
+}
+
+/**
+ * Build a puzzle with whichever hint placement this difficulty and arm call for
  *
  * Both arms consume the random source in the same order - solution first, hints
  * second - so on any given day the two arms share an identical solution loop
@@ -982,23 +1000,18 @@ function render(triggerSave = true, animationMode = 'auto') {
 function buildPuzzle(size, difficulty, randomFn, variant) {
   const solution = generateSolutionPath(size, randomFn);
 
-  // The dense placement needs to know what each candidate hint would read, so
-  // the turn map has to exist before hints are chosen rather than after
+  // The covering placement needs to know what each candidate hint would read,
+  // so the turn map has to exist before hints are chosen rather than after
   const turnMap = buildSolutionTurnMap(solution);
+  const placement = placementFor(difficulty, variant);
 
-  let hints;
-  let anchorMaxValue;
+  const hints = placement.strategy === 'covering'
+    ? generateHintCellsCovering(size, placement, turnMap, randomFn)
+    : generateHintCellsWithMinDistance(size, placement.count, placement.minDistance, randomFn);
 
-  if (isDenseVariant(variant)) {
-    const hintConfig = CONFIG.DIFFICULTY.HINT_CONFIG_DENSE[difficulty];
-    hints = generateHintCellsCovering(size, hintConfig, turnMap, randomFn);
-    anchorMaxValue = hintConfig.anchorMaxValue;
-  } else {
-    const hintConfig = CONFIG.DIFFICULTY.HINT_CONFIG[difficulty];
-    hints = generateHintCellsWithMinDistance(size, hintConfig.count, hintConfig.minDistance, randomFn);
-  }
-
-  return { solution, turnMap, hints, shape: describePuzzle(size, hints, turnMap, anchorMaxValue) };
+  // anchorMaxValue is the threshold anchor_hints is measured at, not just a
+  // generation input - both Tricky arms declare 2 so their figures compare
+  return { solution, turnMap, hints, shape: describePuzzle(size, hints, turnMap, placement.anchorMaxValue) };
 }
 
 function generateNewPuzzle() {
@@ -1009,7 +1022,7 @@ function generateNewPuzzle() {
 
   // A fresh puzzle always takes the player's current assignment, and pins it
   // (see captureGameState) so reloading this puzzle regenerates it identically
-  const assignment = getHintGenerationAssignment();
+  const assignment = getTrickyHintsAssignment();
   currentVariant = assignment.variant;
   currentVariantSource = assignment.source;
 
