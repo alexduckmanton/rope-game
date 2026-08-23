@@ -169,8 +169,7 @@ export const SCENES = [
     // Borders: Full is the game's own answer to that — `drawHintBorders()`
     // outlines each hint's 3x3 area in the hint's own colour, so the boundary
     // turns green with the number it belongs to. An earlier cut drew a pulsing
-    // blue rectangle behind the canvas instead, copied from `renderHintPulse()`
-    // in `renderer.js`, which has no callers: that put a thing on the card no
+    // blue rectangle behind the canvas instead: that put a thing on the card no
     // player would ever see on their own board. A real setting is strictly
     // better, and it is one tap away in the settings sheet if they want it.
     settings: { borderMode: 'full' },
