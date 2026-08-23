@@ -280,9 +280,6 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
     if (primaryBtn && handlePrimaryClick) {
       primaryBtn.removeEventListener('click', handlePrimaryClick);
     }
-    if (secondaryBtn && handleSecondaryClick) {
-      secondaryBtn.removeEventListener('click', handleSecondaryClick);
-    }
 
     // IMPORTANT: Restore HTMLElement content IMMEDIATELY (synchronously) so it's
     // available for the next initGame call. Only the overlay removal is delayed
