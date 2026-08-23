@@ -100,18 +100,3 @@ export function getPuzzleId(difficulty) {
   return `${year}-${month}-${day}-${difficulty}`;
 }
 
-/**
- * Format current date for display on home screen
- *
- * Returns date in format: "30 November 2025"
- *
- * @returns {string} Formatted date string
- */
-export function getFormattedDate() {
-  const now = new Date();
-  return now.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  });
-}

@@ -28,10 +28,6 @@ const COLOR_SCHEMES = {
     iconColor: semantic.successIcon,    // Rich amber/gold
     backgroundColor: semantic.successBg // Pale golden yellow
   },
-  partial: {
-    iconColor: semantic.partial,        // Rich green
-    backgroundColor: semantic.partialBg // Pale green
-  },
   error: {
     iconColor: semantic.error,          // Rich red
     backgroundColor: semantic.errorBg   // Pale red
@@ -52,7 +48,7 @@ const COLOR_SCHEMES = {
  * @param {string} options.title - Title displayed in the header
  * @param {HTMLElement|string} options.content - Content to display (HTMLElement or HTML string)
  * @param {string} [options.icon] - Optional Lucide icon name (e.g., 'settings', 'party-popper', 'circle-off')
- * @param {string} [options.colorScheme='neutral'] - Color scheme: 'neutral', 'success', 'partial', 'error', 'info', 'warning'
+ * @param {string} [options.colorScheme='neutral'] - Color scheme: 'neutral', 'success', 'error', 'info', 'warning'
  * @param {string|null} [options.dismissLabel] - Label for the dismiss button at bottom. Defaults to a localised "Close". Pass null to hide the dismiss button.
  * @param {string} [options.dismissVariant='secondary'] - Dismiss button variant: 'primary' or 'secondary'
  * @param {boolean} [options.showCloseIcon=false] - Show X icon button at top-right corner
@@ -61,14 +57,10 @@ const COLOR_SCHEMES = {
  * @param {string} [options.primaryButton.icon] - Optional Lucide icon name for the button
  * @param {string} [options.primaryButton.variant='primary'] - Button variant: 'primary', 'secondary', or 'destructive'
  * @param {Function} options.primaryButton.onClick - Click handler (receives button element as argument)
- * @param {Object} [options.secondaryButton] - Optional secondary button below dismiss (e.g., external links)
- * @param {string} options.secondaryButton.label - Button text
- * @param {string} [options.secondaryButton.icon] - Optional Lucide icon name for the button
- * @param {string} [options.secondaryButton.href] - URL to open in new tab on click
  * @param {Function} [options.onClose] - Optional callback when sheet is closed (via dismiss button or click-outside)
  * @returns {Object} - Object with show(), hide(), destroy() methods
  */
-export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = t('common.close'), dismissVariant = 'secondary', showCloseIcon = false, primaryButton, secondaryButton, onClose }) {
+export function createBottomSheet({ title, content, icon, colorScheme = 'neutral', dismissLabel = t('common.close'), dismissVariant = 'secondary', showCloseIcon = false, primaryButton, onClose }) {
   // Create overlay (backdrop + container)
   const overlay = document.createElement('div');
   overlay.className = 'bottom-sheet-overlay';
@@ -134,11 +126,10 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   let buttonsContainer;
   let primaryBtn = null;
   let dismissBtn = null;
-  let secondaryBtn = null;
 
   // Only create dismiss button if dismissLabel is provided (not null/undefined)
   const hasDismissButton = dismissLabel !== null && dismissLabel !== undefined;
-  const hasMultipleButtons = primaryButton || secondaryButton;
+  const hasMultipleButtons = Boolean(primaryButton);
 
   // Determine dismiss button class based on variant
   const dismissBtnClass = dismissVariant === 'primary'
@@ -181,18 +172,6 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
       dismissBtn.textContent = dismissLabel;
       buttonsContainer.appendChild(dismissBtn);
     }
-
-    // Create secondary button (e.g., external link)
-    if (secondaryButton) {
-      secondaryBtn = document.createElement('button');
-      secondaryBtn.className = 'bottom-sheet-btn bottom-sheet-btn-secondary';
-      if (secondaryButton.icon) {
-        secondaryBtn.innerHTML = `<i data-lucide="${secondaryButton.icon}"></i><span>${secondaryButton.label}</span>`;
-      } else {
-        secondaryBtn.textContent = secondaryButton.label;
-      }
-      buttonsContainer.appendChild(secondaryBtn);
-    }
   } else if (hasDismissButton) {
     // Single dismiss button (only if dismissLabel is provided)
     dismissBtn = document.createElement('button');
@@ -229,7 +208,6 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
     }
   };
   const handlePrimaryClick = primaryButton ? () => primaryButton.onClick(primaryBtn) : null;
-  const handleSecondaryClick = secondaryButton && secondaryButton.href ? () => window.open(secondaryButton.href, '_blank', 'noopener') : null;
 
   if (closeIconBtn) {
     closeIconBtn.addEventListener('click', handleCloseIconClick);
@@ -240,9 +218,6 @@ export function createBottomSheet({ title, content, icon, colorScheme = 'neutral
   overlay.addEventListener('click', handleOverlayClick);
   if (primaryBtn && handlePrimaryClick) {
     primaryBtn.addEventListener('click', handlePrimaryClick);
-  }
-  if (secondaryBtn && handleSecondaryClick) {
-    secondaryBtn.addEventListener('click', handleSecondaryClick);
   }
 
   /**

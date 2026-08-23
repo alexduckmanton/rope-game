@@ -379,57 +379,6 @@ export function getCellsAlongLine(x1, y1, x2, y2, cellSize, gridSize) {
 }
 
 /**
- * Find shortest path from one cell to another using BFS
- * Returns array of cell keys (not including start, but including end)
- *
- * @param {string} fromKey - Starting cell key (format: "row,col")
- * @param {string} toKey - Target cell key (format: "row,col")
- * @param {number} gridSize - Size of the grid for bounds checking
- * @returns {Array<string>|null} Array of cell keys forming path, or null if no path exists
- */
-export function findShortestPath(fromKey, toKey, gridSize) {
-  const { row: fromRow, col: fromCol } = parseCellKey(fromKey);
-  const { row: toRow, col: toCol } = parseCellKey(toKey);
-
-  // If adjacent, just return the target
-  if (isAdjacent(fromRow, fromCol, toRow, toCol)) {
-    return [toKey];
-  }
-
-  // BFS to find shortest path
-  const queue = [[fromKey, []]];
-  const visited = new Set([fromKey]);
-
-  while (queue.length > 0) {
-    const [current, path] = queue.shift();
-    const { row: r, col: c } = parseCellKey(current);
-
-    // Get adjacent cells
-    const neighbors = [
-      [r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]
-    ].filter(([nr, nc]) =>
-      nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize
-    );
-
-    for (const [nr, nc] of neighbors) {
-      const neighborKey = createCellKey(nr, nc);
-      if (visited.has(neighborKey)) continue;
-
-      // Check if this is the target
-      if (neighborKey === toKey) {
-        return [...path, neighborKey];
-      }
-
-      visited.add(neighborKey);
-      queue.push([neighborKey, [...path, neighborKey]]);
-    }
-  }
-
-  // No path found
-  return null;
-}
-
-/**
  * Check if the player has drawn a valid single closed loop
  * @param {Set} playerDrawnCells - Set of cell keys that have been drawn
  * @param {Map} playerConnections - Map of cell keys to their connected neighbors
@@ -515,19 +464,4 @@ export function checkPartialStructuralLoop(playerDrawnCells, playerConnections) 
   // If we visited all drawn cells, it's a single connected loop
   // If we didn't, there are multiple disconnected loops (invalid)
   return visited.size === playerDrawnCells.size;
-}
-
-/**
- * Show an alert message asynchronously with optional callback
- * Uses requestAnimationFrame + setTimeout to ensure render completes before alert
- * @param {string} message - The alert message to display
- * @param {Function} [callback] - Optional callback to run after alert is dismissed
- */
-export function showAlertAsync(message, callback) {
-  requestAnimationFrame(() => {
-    setTimeout(() => {
-      alert(message);
-      if (callback) callback();
-    }, 0);
-  });
 }

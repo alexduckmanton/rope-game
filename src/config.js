@@ -78,8 +78,6 @@ export const CONFIG = {
   // Hint system
   HINT: {
     FONT_SIZE_FACTOR: 0.75,      // Multiplier for cellSize to get font size
-    PULSE_DURATION: 2000,        // Full pulse cycle duration in milliseconds (1s fade in + 1s fade out)
-    PULSE_MAX_OPACITY: 0.2,      // Maximum opacity during pulse (20%)
   },
 
   // Border styling

@@ -49,32 +49,6 @@ export function validateHints(solutionTurnMap, playerTurnMap, hintCells, gridSiz
 }
 
 /**
- * Full win check: structural validity + hint validation
- * @param {Object} gameState - { playerDrawnCells, playerConnections }
- * @param {Array<{row: number, col: number}>} solutionPath - Solution path
- * @param {Set<string>} hintCells - Cells with hint numbers
- * @param {number} gridSize - Size of the grid
- * @param {Map<string, boolean>} [solutionTurnMap] - Optional pre-built solution turn map
- * @param {Map<string, boolean>} [playerTurnMap] - Optional pre-built player turn map
- * @returns {boolean} True if player has won
- */
-export function checkFullWin(gameState, solutionPath, hintCells, gridSize, solutionTurnMap = null, playerTurnMap = null) {
-  const { playerDrawnCells, playerConnections } = gameState;
-
-  // Check structural validity first
-  if (!checkStructuralWin(playerDrawnCells, playerConnections, gridSize)) {
-    return false;
-  }
-
-  // Build maps if not provided
-  const solMap = solutionTurnMap || buildSolutionTurnMap(solutionPath);
-  const playerMap = playerTurnMap || buildPlayerTurnMap(playerDrawnCells, playerConnections);
-
-  // Validate hints
-  return validateHints(solMap, playerMap, hintCells, gridSize);
-}
-
-/**
  * Check if player has drawn a valid closed loop (without requiring all cells)
  * @param {Set<string>} playerDrawnCells - Set of drawn cell keys
  * @param {Map<string, Set<string>>} playerConnections - Map of cell connections
@@ -82,17 +56,6 @@ export function checkFullWin(gameState, solutionPath, hintCells, gridSize, solut
  */
 export function checkPartialStructuralWin(playerDrawnCells, playerConnections) {
   return checkPartialStructuralLoop(playerDrawnCells, playerConnections);
-}
-
-/**
- * Check if all cells in the grid have been visited
- * @param {Set<string>} playerDrawnCells - Set of drawn cell keys
- * @param {number} gridSize - Size of the grid
- * @returns {boolean} True if all cells are visited
- */
-export function checkAllCellsVisited(playerDrawnCells, gridSize) {
-  const totalCells = gridSize * gridSize;
-  return playerDrawnCells.size === totalCells;
 }
 
 /**
@@ -131,42 +94,6 @@ export function computeStateKey(playerDrawnCells, playerConnections) {
   const connectionsStr = [...connectionPairs].sort().join(',');
 
   return `${cellsStr}|${connectionsStr}`;
-}
-
-/**
- * Determines if validation should run based on state changes and interaction state.
- * Validation only runs when:
- * - State has changed since last validation
- * - Game is not already won
- * - User is not currently dragging (deferred validation prevents modal interruptions)
- *
- * This helper encapsulates the "when to validate" logic shared between game and tutorial views,
- * while leaving the "what to validate" and "what to do when validated" logic in each view.
- *
- * @param {Object} params
- * @param {Set<string>} params.playerDrawnCells - Current drawn cells
- * @param {Map<string, Set<string>>} params.playerConnections - Current connections
- * @param {Object} params.gameCore - Game core instance (for isDragging state)
- * @param {boolean} params.hasWon - Whether game is already won
- * @param {string} params.lastValidatedStateKey - Last state that was validated
- * @returns {Object} { shouldValidate: boolean, currentStateKey: string, stateChanged: boolean }
- */
-export function checkShouldValidate({
-  playerDrawnCells,
-  playerConnections,
-  gameCore,
-  hasWon,
-  lastValidatedStateKey
-}) {
-  const currentStateKey = computeStateKey(playerDrawnCells, playerConnections);
-  const stateChanged = currentStateKey !== lastValidatedStateKey;
-  const isDragging = gameCore.state.isDragging;
-
-  return {
-    shouldValidate: stateChanged && !hasWon && !isDragging,
-    currentStateKey,
-    stateChanged
-  };
 }
 
 /**
