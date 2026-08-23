@@ -124,8 +124,6 @@
   --color-success-bg: var(--color-amber-100);
   --color-success-icon: var(--color-amber-500);      /* Success notification icon */
 
-  --color-partial: var(--color-green-500);           /* Partial completion icon */
-  --color-partial-bg: var(--color-green-100);        /* Partial completion background */
 
   /* Streak flame on the home screen */
   --color-streak: var(--color-amber-500);

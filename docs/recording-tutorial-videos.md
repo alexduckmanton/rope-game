@@ -26,9 +26,9 @@ game, so a change to the line weight, the hint colours, the corner radius or the
 grid lines dates every one of them. That is not hypothetical: the clips this
 pipeline replaced were recorded by hand at three different resolutions, and the
 oldest of them still showed a pulsing 3x3 highlight behind each hint that the
-game stopped rendering long ago. `renderHintPulse()` is still exported from
-`renderer.js` and has no callers, which is why card 3 shows the hint's area with
-the game's own Borders setting instead.
+game stopped rendering long ago. The function that drew it sat unused in
+`renderer.js` for a long time before being deleted, which is why card 3 shows the
+hint's area with the game's own Borders setting instead.
 
 ---
 
@@ -130,10 +130,9 @@ and a scene that wants a particular pair of numbers has to be designed around
 that before a seed is looked for.
 
 **An earlier cut drew a pulsing blue rectangle behind the canvas instead**,
-copied from `renderHintPulse()` in `renderer.js` — a function that draws exactly
-that and has no callers, having been dropped from the render at some point. That
-made card 3 the one place a clip showed something a player could never see on
-their own board. A real setting has none of that problem and is one tap away in
+copied from a since-deleted `renderer.js` helper that drew exactly that and had
+been dropped from the render long before. That made card 3 the one place a clip
+showed something a player could never see on their own board. A real setting has none of that problem and is one tap away in
 the settings sheet.
 
 `settingsFor()` in the runner merges the override over `CAPTURE_DEFAULTS` and
