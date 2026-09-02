@@ -26,7 +26,7 @@ is a single game developing rather than four unrelated boards.
 ## Commands
 
 ```bash
-npm run boards:tutorial            # replay every scene offline, no browser
+npm run boards:tutorial            # replay every scene in Node, no browser
 npm run boards:tutorial -- search  # find Easy seeds a new scene could run on
 npm run record:tutorial            # record all four scenes, both themes (needs npm run dev)
 npm run record:tutorial -- 3       # ...just one scene

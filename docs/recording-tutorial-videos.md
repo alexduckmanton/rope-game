@@ -8,7 +8,7 @@ how to prove a run came out right.
 npm run dev                      # in one terminal
 npm run record:tutorial          # every scene, both themes
 npm run record:tutorial -- 3 4   # just scenes 3 and 4
-npm run boards:tutorial          # replay every scene offline, no recording
+npm run boards:tutorial          # replay every scene in Node, no recording
 npm run boards:tutorial -- search  # find Easy seeds a new scene could run on
 ```
 

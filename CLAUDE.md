@@ -9,18 +9,19 @@ See `README.md` for the game rules, modes and file layout.
 npm run dev            # Vite dev server, English
 LOCALE=de npm run dev  # ...in another language
 npm run check:i18n     # diff every dictionary against en.js (also runs in build)
-npm run build          # all 12 locales + _redirects + sitemaps, into dist/
+npm run build          # all 12 locales + _redirects + sitemaps + workers, into dist/
 npm run build:single   # one locale only, for a quick check
 npm run preview        # serve the production build
 
-npm run boards:tutorial      # replay every tutorial scene offline, no browser
+npm run boards:tutorial      # replay every tutorial scene in Node, no browser
 npm run record:tutorial      # record the tutorial clips (needs npm run dev running)
 ```
 
 - `npm run dev` serves **one** language at the root. The locale paths (`/de/`) only exist
   in a real build, so the language switcher's targets 404 in dev.
-- The dev server does not process `_redirects`, so direct URL navigation only works through
-  in-app navigation. Use `npm run build && npm run preview` to test it properly.
+- The dev server does not process `_redirects`, and registers no service worker — it is
+  emitted by a build-only plugin, so dev would register a 404. Direct URL navigation and
+  anything offline need `npm run build && npm run preview`.
 - There is no test suite and no linter. Verify with a build, and with the app in a browser.
 
 ## Never
@@ -66,23 +67,15 @@ npm run record:tutorial      # record the tutorial clips (needs npm run dev runn
   `experiment.js` is used instead.
 - **PostHog silently drops events when `navigator.webdriver` is true.** Automated browser
   runs produce no analytics unless the flag is spoofed.
-- **`config.js` imports the i18n runtime**, which resolves a Vite-only alias, so any offline
-  harness needs `src/i18n/index.js` and `src/tokens.js` stubbed. `scripts/lib/` has stubs.
+- **`config.js` imports the i18n runtime**, which resolves a Vite-only alias, so any
+  Node-side harness needs `src/i18n/index.js` and `src/tokens.js` stubbed. `scripts/lib/`
+  has stubs. (Unrelated to the game's offline support — that is `.claude/rules/offline.md`.)
 - **The Chinese locale ordering in `LOCALES` is load-bearing.** `zh-Hant` must stay before
   `zh-Hans`, or Netlify's first-match redirect serves Simplified to Taiwan and Hong Kong.
 - **Saved daily puzzles rebuild their hints from the seed** but pin their experiment arm, so
   a config change reaches an in-progress daily puzzle while an arm change does not.
 - **`index.html` carries a non-conforming `<meta http-equiv="content-language">`** for
   Naver, which does not support `hreflang`. A validator will flag it; it is deliberate.
-- **Every service worker cache lookup passes `ignoreVary: true`.** Hosts send
-  `Vary: Accept-Encoding` and dev servers add `Vary: Origin`; without it a cached file
-  silently fails to match a later request for the same URL, and offline breaks with a full
-  cache. See `.claude/rules/offline.md`.
-- **A dynamic import that failed cannot be retried without reloading the page.** Chromium
-  memoises the failure in the module map, so a second `import()` of the same URL never
-  reaches the network. Both offline screens reload on `online` for this reason.
-- **`npm run dev` registers no service worker.** It is emitted by a build-only plugin, so
-  dev would register a 404. Offline behaviour needs `npm run build && npm run preview`.
 
 ## Where things are documented
 
@@ -90,13 +83,8 @@ Conventions load automatically from `.claude/rules/` when you touch a matching f
 `generation`, `rendering`, `interaction`, `persistence`, `i18n`, `ui-components`,
 `analytics`, `offline`.
 
-Procedures are skills — invoke or let them load when relevant:
-
-| Skill | For |
-|---|---|
-| `record-tutorial` | Changing tutorial cards, scenes or clips |
-| `add-language` | Adding a locale or a new script's font stack |
-| `tune-hints` | Verifying a `CONFIG.DIFFICULTY` change before shipping |
+Procedures are skills — `record-tutorial`, `add-language`, `tune-hints`. Invoke one or let
+it load when it is relevant; each describes its own trigger.
 
 Reference reading, when you need the *why* rather than the *how*:
 

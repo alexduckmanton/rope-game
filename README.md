@@ -20,7 +20,7 @@ LOCALE=de npm run dev  # ...in another language
 | `npm run build` | All 12 locales + `_redirects` + sitemaps, into `dist/` |
 | `npm run build:single` | One locale only, for a quick check (`LOCALE=xx` to choose) |
 | `npm run preview` | Serve the production build locally |
-| `npm run boards:tutorial` | Replay every tutorial scene offline, no browser |
+| `npm run boards:tutorial` | Replay every tutorial scene in Node, no browser |
 | `npm run record:tutorial` | Record the tutorial clips (needs `npm run dev` running) |
 
 Deployed on Netlify from `main`: build `npm run build`, publish `dist`.

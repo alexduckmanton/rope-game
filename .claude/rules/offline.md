@@ -3,6 +3,7 @@ paths:
   - "src/sw.js"
   - "src/serviceWorker.js"
   - "src/components/offlineNotice.js"
+  - "src/router.js"
   - "offline.html"
   - "vite.config.js"
 ---

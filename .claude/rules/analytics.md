@@ -80,4 +80,5 @@ PostHog attaches `$session_id` to every event, which is what makes "how many dif
 
 **Notes:**
 - Every call is wrapped in try/catch and no-ops when PostHog fails to initialize or is blocked, so analytics can never interrupt gameplay.
+- **Offline play produces delayed or missing analytics.** The game itself works without a network, but PostHog does not: `posthog-js` queues captures and retries them, so a session that regains connectivity arrives late, and one that never does is simply absent. Treat offline sessions as under-counted rather than assuming they did not happen. Nothing breaks either way — every call is already wrapped.
 - PostHog silently drops events from browsers reporting `navigator.webdriver === true`. This is intended bot filtering, but it means automated browser tests will never produce events unless the flag is spoofed.
