@@ -11,6 +11,7 @@ import { initRouter } from './router.js';
 import { initIcons } from './icons.js';
 import { cleanupOldSaves, reconcileStreaks } from './persistence.js';
 import { initTrickyHintsExperiment } from './experiment.js';
+import { registerServiceWorker } from './serviceWorker.js';
 import { CONFIG } from './config.js';
 import tokens from './tokens.js';
 import { ACTIVE_LOCALE } from './i18n/index.js';
@@ -175,6 +176,11 @@ function startApp() {
 
   // Initialize router and start the app
   initRouter();
+
+  // Register the offline worker last. Everything above it is what the player is
+  // waiting for; this is for their next visit, and it starts caching whatever
+  // this one fetches from here on.
+  registerServiceWorker();
 }
 
 // Phase 1: Initialize app structure when DOM is ready (but stylesheets may still be loading)

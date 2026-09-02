@@ -9,13 +9,13 @@ description: Verify a hint placement or generation config change before shipping
 `docs/experiments.md` was produced by running the real modules across 365 daily seeds, and
 that is the bar for any new one.
 
-## Why this is possible offline
+## Why this is possible without a browser
 
 Both placements are pure functions of a grid size, a config and a seeded random source.
 `generation/hintPlacement.js` deliberately imports only from `utils.js` for exactly this
 reason, so it runs in plain Node with no browser.
 
-`config.js` imports the i18n runtime, which resolves a Vite-only alias, so an offline
+`config.js` imports the i18n runtime, which resolves a Vite-only alias, so a Node-side
 harness needs `src/i18n/index.js` and `src/tokens.js` stubbed. `scripts/lib/stub-i18n.mjs`
 and `scripts/lib/stub-tokens.mjs` already exist for this; `scripts/lib/browserless-hooks.mjs`
 lets `src/` modules import in plain Node.

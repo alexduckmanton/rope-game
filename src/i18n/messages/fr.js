@@ -88,6 +88,8 @@ export default {
   'score.good': 'Bien',
   'score.okay': 'Correct',
 
+  'offline.title': 'Vous êtes hors ligne',
+
   'pwa.shortcutName': 'Loopy {difficulty}',
   'pwa.shortcutDescription': 'Le Loopy {difficulty} du jour ({size})',
 };

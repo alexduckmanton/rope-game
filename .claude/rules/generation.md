@@ -77,7 +77,8 @@ Both arms apply to daily puzzles (seeded random) and unlimited mode (true random
 - No server-side validation of times (trust-based until backend added)
 
 **Benefits:**
-- Works offline after initial page load
+- Needs no network to generate a puzzle, which is what makes offline play possible at all
+  (the service worker supplies the files; see `.claude/rules/offline.md`)
 - No backend infrastructure needed
 - Enables future social features (leaderboards, sharing)
 
@@ -117,7 +118,7 @@ meaningless. Easy and Diabolical are settled and safe to tune.
    `generation/hintPlacement.js` deliberately imports only from `utils.js` for this reason.
    Run a candidate config across a year of seeds and check coverage, redundancy, anchors and
    layout variety before trusting it - every number in this document was produced that way.
-   `config.js` imports the i18n runtime, which resolves a Vite-only alias, so an offline
+   `config.js` imports the i18n runtime, which resolves a Vite-only alias, so a Node-side
    harness needs `src/i18n/index.js` and `src/tokens.js` stubbed.
 
 -----

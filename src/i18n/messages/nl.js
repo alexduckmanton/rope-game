@@ -85,6 +85,8 @@ export default {
   'score.good': 'Goed',
   'score.okay': 'Oké',
 
+  'offline.title': 'Je bent offline',
+
   'pwa.shortcutName': 'Loopy {difficulty}',
   'pwa.shortcutDescription': 'De {difficulty} Loopy van vandaag ({size})',
 };

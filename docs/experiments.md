@@ -126,4 +126,4 @@ size, a config and a seeded random source, so they can be exercised outside a br
 `generation/hintPlacement.js` deliberately imports only from `utils.js` for this reason.
 Every number in this section was produced by running the real modules across 365 daily seeds.
 Note that `config.js` now imports the i18n runtime, which resolves a Vite-only alias, so an
-offline harness needs `src/i18n/index.js` and `src/tokens.js` stubbed.
+Node-side harness needs `src/i18n/index.js` and `src/tokens.js` stubbed.

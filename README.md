@@ -20,7 +20,7 @@ LOCALE=de npm run dev  # ...in another language
 | `npm run build` | All 12 locales + `_redirects` + sitemaps, into `dist/` |
 | `npm run build:single` | One locale only, for a quick check (`LOCALE=xx` to choose) |
 | `npm run preview` | Serve the production build locally |
-| `npm run boards:tutorial` | Replay every tutorial scene offline, no browser |
+| `npm run boards:tutorial` | Replay every tutorial scene in Node, no browser |
 | `npm run record:tutorial` | Record the tutorial clips (needs `npm run dev` running) |
 
 Deployed on Netlify from `main`: build `npm run build`, publish `dist`.
@@ -65,11 +65,27 @@ across languages.
 
 Daily puzzles are seeded `YYYYMMDD` + a difficulty offset (0/1/2), through a Mulberry32
 PRNG, so the same seed always produces an identical puzzle, hints and solution. No backend
-is involved, and the game works offline after the first load.
+is involved, which is what makes the offline story below as simple as it is.
 
 **Streaks.** Completing *any* of the three daily puzzles extends the overall streak, so a
 busy day costs the Diabolical puzzle rather than the whole streak. Per-difficulty streaks
 are also kept, surfaced only through tapping the home screen's streak line.
+
+## Offline
+
+There is no offline *mode* to turn on, and nothing to download first. A service worker
+stores each file the first time it is used, so playing one puzzle online is what makes that
+puzzle playable on a plane. Nothing is fetched ahead of time except the page shell and a
+2KB fallback screen.
+
+Reach a part of the game that was never downloaded while offline — the tutorial's video, a
+difficulty you have never opened — and you get a frownie face and one line. Everything else
+behaves exactly as it does online, because it always did: the puzzles are generated on the
+device and the results never left it.
+
+One worker per language, each caching its own bundle. New builds install quietly and take
+over once every tab is closed, so a deploy never interrupts a puzzle in progress. The
+details, and the two mistakes that break it silently, are in `.claude/rules/offline.md`.
 
 ## Interaction
 
@@ -101,14 +117,18 @@ Global, shared across all modes, stored in `loop-game:settings`.
 
 ```
 index.html          Single page, two view containers (home, play)
+offline.html        Cold-start offline fallback; self-contained, translated at build time
 style.css           Global styles, including the locale font stacks
 src/
   main.js           Entry point: router, icons, fonts, theme-color
   router.js         History API routing; strips/adds the locale prefix
+  sw.js             Service worker template; one is generated per locale at build time
+  serviceWorker.js  Registration
   views/            home.js, game.js
   game/             timer, share, validation, canvasSetup
   generation/       hintPlacement.js
-  components/       tutorialSheet, homeMenu, languageMenu, winStreakLine, streakFlame
+  components/       tutorialSheet, homeMenu, languageMenu, winStreakLine, streakFlame,
+                    offlineNotice
   i18n/             locales.js (the registry), index.js (runtime), messages/*.js
   tokens.css        Every colour, with dark mode overrides
 scripts/            Build, i18n check, and the tutorial recording runner

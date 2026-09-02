@@ -115,6 +115,11 @@ export default {
   'score.okay': 'Okay',
 
   // Installed PWA
+  // Offline fallback. Shown by the service worker when a page was never cached,
+  // and by the router when a view's chunk cannot be fetched. The frownie beside
+  // it is markup, not a message - it needs no translation.
+  'offline.title': "You're offline",
+
   'pwa.shortcutName': '{difficulty} Loopy',
   'pwa.shortcutDescription': "Today's {difficulty} Loopy ({size})",
 };

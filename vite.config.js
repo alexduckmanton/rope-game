@@ -1,5 +1,7 @@
 import { defineConfig } from 'vite'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createHash } from 'node:crypto'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { LOCALES, DEFAULT_LOCALE, getLocale, localeBasePath } from './src/i18n/locales.js'
 
@@ -29,7 +31,9 @@ function buildHreflangLinks() {
 }
 
 /**
- * Substitute build-time tokens in index.html
+ * Substitute build-time tokens in the HTML entries
+ *
+ * Both index.html and offline.html go through this.
  *
  * `{{message.key}}` comes from the locale dictionary; `{{@name}}` is one of the
  * computed values below. Doing this at build time rather than on load is the
@@ -64,7 +68,7 @@ function i18nHtmlPlugin({ messages, locale, isItch }) {
     name: 'loopy-i18n-html',
     transformIndexHtml: {
       order: 'pre',
-      handler(html) {
+      handler(html, ctx) {
         return html.replace(/\{\{([@\w.]+)\}\}/g, (match, token) => {
           if (token.startsWith('@')) {
             return computed[token] !== undefined ? computed[token] : match
@@ -73,7 +77,7 @@ function i18nHtmlPlugin({ messages, locale, isItch }) {
           const value = messages[token]
           if (typeof value !== 'string') {
             throw new Error(
-              `[i18n] index.html references "${token}", which is missing from ` +
+              `[i18n] ${ctx.path} references "${token}", which is missing from ` +
                 `src/i18n/messages/${locale.code}.js (or is a plural message, which markup cannot use)`
             )
           }
@@ -83,6 +87,80 @@ function i18nHtmlPlugin({ messages, locale, isItch }) {
           return value.replace(/"/g, '&quot;')
         })
       },
+    },
+  }
+}
+
+/**
+ * Generate this locale's service worker
+ *
+ * `src/sw.js` is a template rather than a module: it never enters the bundle,
+ * and the values it needs - its own base path, the current build's hashed
+ * filenames, the other locales' prefixes - only exist once the build has run.
+ * So it is read from disk at the end of the build, filled in, and written
+ * verbatim to `sw.js`.
+ *
+ * Written with a fixed name and no hash, because the browser fetches it by
+ * URL and compares it byte for byte against the copy it already has. The
+ * `__SW_VERSION__` stamp is what guarantees a byte difference when the build
+ * changes in a way the asset list alone would not show - a new `index.html`,
+ * say, or a replaced icon.
+ *
+ * A worker's scope is its own directory, so `dist/de/sw.js` controls `/de/`
+ * and nothing above it. That is exactly the boundary we want: one worker per
+ * language, each caching its own bundle.
+ *
+ * @param {Object} options
+ * @param {import('./src/i18n/locales.js').Locale} options.locale - The active locale
+ * @param {boolean} options.isItch - Whether this is the single-locale itch build
+ * @returns {import('vite').Plugin} Vite plugin
+ */
+function serviceWorkerPlugin({ locale, isItch }) {
+  const base = localeBasePath(locale.code)
+
+  return {
+    name: 'loopy-service-worker',
+    apply: 'build',
+    // writeBundle, not generateBundle: Vite drops the empty JS chunk it
+    // generates for a script-less HTML entry (offline.html) partway through
+    // generateBundle, and the asset list should not name a file that will not
+    // exist. By writeBundle the bundle is final.
+    writeBundle(options, bundle) {
+      // The itch build is a zip the player already has on disk, served from a
+      // path we do not control. There is nothing for a worker to cache and no
+      // origin to scope it to.
+      if (isItch) return
+
+      const names = Object.keys(bundle).sort()
+
+      // Hashed files, as the URLs they will be requested by. Not precached -
+      // the worker uses this only to evict the previous build's leftovers.
+      const assets = names.filter(name => name.startsWith('assets/')).map(name => `${base}${name}`)
+
+      // index.html carries the translated strings and the bundle references, so
+      // hashing it alongside the filenames catches changes that leave every
+      // hash untouched
+      const html = bundle['index.html']
+
+      const version = createHash('sha256')
+        .update(names.join('\n'))
+        .update(html && html.source ? String(html.source) : '')
+        .digest('hex')
+        .slice(0, 12)
+
+      // Only the root worker needs these - see the note on OTHER_LOCALES in
+      // src/sw.js
+      const otherLocales = LOCALES.map(entry => localeBasePath(entry.code)).filter(
+        prefix => prefix !== '/' && prefix !== base
+      )
+
+      const source = readFileSync(path.resolve(dirname, 'src/sw.js'), 'utf8')
+        .replace(/__SW_BASE__/g, base)
+        .replace(/__SW_VERSION__/g, version)
+        .replace(/__SW_ASSETS__/g, JSON.stringify(assets))
+        .replace(/__SW_OTHER_LOCALES__/g, JSON.stringify(otherLocales))
+
+      writeFileSync(path.join(options.dir, 'sw.js'), source)
     },
   }
 }
@@ -125,10 +203,27 @@ export default defineConfig(async () => {
       },
     },
 
-    define: {
-      __LOCALE__: JSON.stringify(locale.code),
+    build: {
+      rollupOptions: {
+        // offline.html is a second HTML entry rather than a file in public/, so
+        // it goes through the same token substitution index.html does and ships
+        // translated. It references nothing, so it adds no chunks. The itch
+        // build has no worker to serve it, so it does not carry it either.
+        input: isItch
+          ? path.resolve(dirname, 'index.html')
+          : {
+              index: path.resolve(dirname, 'index.html'),
+              offline: path.resolve(dirname, 'offline.html'),
+            },
+      },
     },
 
-    plugins: [i18nHtmlPlugin({ messages, locale, isItch })],
+    define: {
+      __LOCALE__: JSON.stringify(locale.code),
+      // Where the generated worker will live, or null when this build has none
+      __SW_PATH__: JSON.stringify(isItch ? null : `${localeBasePath(locale.code)}sw.js`),
+    },
+
+    plugins: [i18nHtmlPlugin({ messages, locale, isItch }), serviceWorkerPlugin({ locale, isItch })],
   }
 })

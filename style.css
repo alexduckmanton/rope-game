@@ -555,6 +555,35 @@ button {
 }
 
 /* ============================================================================
+ * OFFLINE VIEW
+ * ========================================================================= */
+
+/* Shown when a view's chunk cannot be fetched - see components/offlineNotice.js.
+ * Deliberately the same two elements, in the same proportions, as offline.html,
+ * so hitting either one reads as the same wall rather than as two bugs. */
+.offline-view {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.offline-face {
+  margin: 0 0 16px;
+  font-size: 64px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--color-text-disabled);
+}
+
+.offline-message {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+/* ============================================================================
  * HOME VIEW
  * ========================================================================= */
 

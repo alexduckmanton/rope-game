@@ -16,8 +16,9 @@ See `.claude/rules/i18n.md` for how the build and URL layout work.
    every key; keep `{placeholders}` intact.
 3. **Run `npm run check:i18n`.** It fails on missing keys, unknown keys, missing plural
    categories for that language, and unknown placeholders.
-4. **Run `npm run build`** — `_redirects`, `sitemap.xml`, the `hreflang` cluster and the
-   switcher all pick the new language up automatically.
+4. **Run `npm run build`** — `_redirects`, `sitemap.xml`, the `hreflang` cluster, the
+   switcher, and the locale's own `manifest.json`, `sw.js` and `offline.html` are all
+   generated for the new language automatically. There is nothing to register by hand.
 
 ## A language in a script with no font stack yet
 
