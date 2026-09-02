@@ -91,6 +91,8 @@ export default {
   'score.good': 'いい感じ',
   'score.okay': 'まずまず',
 
+  'offline.title': 'オフラインです',
+
   'pwa.shortcutName': 'Loopy {difficulty}',
   'pwa.shortcutDescription': '今日の Loopy {difficulty}（{size}）',
 };

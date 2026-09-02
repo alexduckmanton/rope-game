@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<!--
+  Offline fallback
+
+  Served by the service worker when a navigation cannot reach the network and
+  there is no cached shell for this language - which in practice means a device
+  that has never loaded this locale, since the shell is cached on the first
+  visit. Everything else offline is handled by the real app.
+
+  Self-contained on purpose: inline styles, one inline line of script, no
+  images, no webfont. It is precached at install, and anything it referenced
+  would have to be precached with it. The colours are copied from src/tokens.css
+  rather than imported for the same reason.
+
+  The double-braced names below are substituted at build time by the i18n
+  plugin in vite.config.js, exactly as in index.html - which is also why that
+  file's comment describes the syntax rather than showing it.
+-->
+<html lang="{{@htmlLang}}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#F3F4F6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#242424" media="(prefers-color-scheme: dark)">
+  <title>{{meta.title}}</title>
+  <style>
+    :root {
+      --offline-bg: #F3F4F6;
+      --offline-face: #C0C0C0;
+      --offline-text: #7F8C8D;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --offline-bg: #242424;
+        --offline-face: #525252;
+        --offline-text: #9CA3AF;
+      }
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      box-sizing: border-box;
+      background: var(--offline-bg);
+      color: var(--offline-text);
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      text-align: center;
+    }
+
+    .face {
+      margin: 0 0 16px;
+      font-size: 64px;
+      font-weight: 600;
+      line-height: 1;
+      color: var(--offline-face);
+    }
+
+    .message {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="face" aria-hidden="true">:(</p>
+    <p class="message">{{offline.title}}</p>
+  </main>
+  <!-- Reconnecting should not need a tap. The address bar still holds wherever
+       the player was going, so the reload takes them there. -->
+  <script>
+    addEventListener('online', function () { location.reload(); });
+  </script>
+</body>
+</html>

@@ -94,6 +94,8 @@ export default {
   'score.good': '좋음',
   'score.okay': '무난함',
 
+  'offline.title': '오프라인이에요',
+
   'pwa.shortcutName': 'Loopy {difficulty}',
   'pwa.shortcutDescription': '오늘의 Loopy {difficulty} ({size})',
 };

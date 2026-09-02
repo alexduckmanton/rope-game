@@ -92,6 +92,8 @@ export default {
   'score.good': '不錯',
   'score.okay': '還行',
 
+  'offline.title': '你目前離線',
+
   'pwa.shortcutName': 'Loopy {difficulty}',
   'pwa.shortcutDescription': '今日 Loopy {difficulty}（{size}）',
 };

@@ -14,6 +14,7 @@
 
 import { trackPageView } from './analytics.js';
 import { getDifficultyLabel } from './config.js';
+import { showOfflineNotice } from './components/offlineNotice.js';
 import { t, BASE_PATH } from './i18n/index.js';
 
 let currentViewId = null;
@@ -155,9 +156,25 @@ async function renderRoute() {
     trackPageView(withBase(newUrl));
 
     // Call view-specific initialization
-    const cleanup = await initView(route.viewId, params);
-    if (cleanup) {
-      currentCleanup = cleanup;
+    try {
+      const cleanup = await initView(route.viewId, params);
+      if (cleanup) {
+        currentCleanup = cleanup;
+      }
+    } catch (error) {
+      // Views are loaded on demand, so a route the player has never opened has
+      // no chunk on the device. Offline, that import is the thing that fails -
+      // before the view has rendered anything, and out of the service worker's
+      // reach, since no navigation ever happened.
+      console.warn(`[router] Could not load ${route.viewId}`, error);
+      showOfflineNotice();
+
+      // Forget where we are. Returning to this URL then re-renders instead of
+      // being short-circuited as unchanged - which matters because the notice
+      // reloads the page on `online`, and a route it had already recorded as
+      // current would render nothing at all.
+      currentUrl = null;
+      currentViewId = null;
     }
   }
 }
