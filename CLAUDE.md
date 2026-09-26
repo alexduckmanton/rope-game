@@ -37,9 +37,10 @@ npm run record:tutorial      # record the tutorial clips (needs npm run dev runn
 - **Never call `t('difficulty.…')` directly, and never capitalise a difficulty key to get a
   label.** Use `getDifficultyLabel()` / `getDifficultyLabelLower()` from `config.js`, or
   renaming will silently miss that surface.
-- **Never change `HINT_PLACEMENT.medium` or `TRICKY_COVERING`** while the placement
-  experiment is running — it moves a baseline mid-test. Easy and Diabolical are settled and
-  safe to tune. See `docs/experiments.md`.
+- **Never judge a game change on completion rate per start.** A few daily regulars dominate
+  start counts, and whichever side of a comparison they land on "wins". Count players. This
+  produced two false wins in the hint placement experiment, one of which shipped for five
+  weeks. See `docs/experiments.md`.
 - **Never raise `CONFIG.SCORING.HAMILTONIAN_BONUS_PERCENT` without also changing the win
   gate** in `views/game.js`. It is `0`, which is what makes `score === 100` mean "every hint
   reads zero". Raising it would silently require a Hamiltonian cycle to win, which is
@@ -63,8 +64,8 @@ npm run record:tutorial      # record the tutorial clips (needs npm run dev runn
 
 - **PostHog feature flags do not work.** The slim build the game ships excludes the flag
   *network code*, so `posthog.getFeatureFlag()` exists and returns `undefined` forever,
-  silently. Restoring flags costs ~38KB gzipped. Client-side randomisation in
-  `experiment.js` is used instead.
+  silently. Restoring flags costs ~38KB gzipped. An A/B test has to randomise
+  client-side and record its arm as an event property; `docs/experiments.md` has the recipe.
 - **PostHog silently drops events when `navigator.webdriver` is true.** Automated browser
   runs produce no analytics unless the flag is spoofed.
 - **`config.js` imports the i18n runtime**, which resolves a Vite-only alias, so any
@@ -72,8 +73,8 @@ npm run record:tutorial      # record the tutorial clips (needs npm run dev runn
   has stubs. (Unrelated to the game's offline support — that is `.claude/rules/offline.md`.)
 - **The Chinese locale ordering in `LOCALES` is load-bearing.** `zh-Hant` must stay before
   `zh-Hans`, or Netlify's first-match redirect serves Simplified to Taiwan and Hong Kong.
-- **Saved daily puzzles rebuild their hints from the seed** but pin their experiment arm, so
-  a config change reaches an in-progress daily puzzle while an arm change does not.
+- **Saved daily puzzles rebuild their hints from the seed**, so a `HINT_CONFIG` change
+  reaches an in-progress daily puzzle — the player's path stays and the hints move under it.
 - **`index.html` carries a non-conforming `<meta http-equiv="content-language">`** for
   Naver, which does not support `hreflang`. A validator will flag it; it is deliberate.
 
@@ -91,7 +92,7 @@ Reference reading, when you need the *why* rather than the *how*:
 | Document | Holds |
 |---|---|
 | `docs/design-decisions.md` | Scoring, the win condition, the magnitude colour system |
-| `docs/experiments.md` | Hint placement experiment — live round, settled results, teardown |
+| `docs/experiments.md` | The concluded hint placement experiment, and how to run the next one |
 | `docs/recording-tutorial-videos.md` | The recording runner in full |
 | `docs/growth-strategy.md` | The localisation and SEO thesis |
 

@@ -21,8 +21,7 @@ import { calculateCellSize as calculateCellSizeUtil } from '../game/canvasSetup.
 import { checkPartialStructuralWin, validateHints, computeStateKey, calculateScore } from '../game/validation.js';
 import { t } from '../i18n/index.js';
 import { showTutorialSheet } from '../components/tutorialSheet.js';
-import { generateHintCellsCovering, describePuzzle } from '../generation/hintPlacement.js';
-import { getTrickyHintsAssignment, variantForSavedGame, isTrickyCoveringVariant } from '../experiment.js';
+import { describePuzzle } from '../generation/puzzleShape.js';
 import {
   trackGameStarted,
   trackGameCompleted,
@@ -142,16 +141,9 @@ let undoHistory = [];
 // Score tracking
 let currentScore = null;  // { percentage: number, label: string } | null
 
-// Hint generation experiment - the arm this puzzle was actually generated with,
-// and where that assignment came from. Both ride along on every game event so
-// the experiment can be analysed on what was really played rather than on what
-// PostHog would report now (see experiment.js).
-let currentVariant = null;
-let currentVariantSource = null;
-
 // Measured shape of the current puzzle (hint count, coverage, redundancy...).
 // Sent with game_started / game_completed / game_abandoned so puzzle quality can
-// be correlated with completion independently of the experiment.
+// be correlated with completion.
 let currentPuzzleShape = null;
 
 // Whether the player has touched the current puzzle and not yet finished it.
@@ -159,18 +151,8 @@ let currentPuzzleShape = null;
 let hasUnfinishedProgress = false;
 
 /* ============================================================================
- * EXPERIMENT & ANALYTICS HELPERS
+ * ANALYTICS HELPERS
  * ========================================================================= */
-
-/**
- * The arm the current puzzle was generated with, shaped for analytics
- *
- * @returns {{variant: string, source: string}|null} Assignment, or null before a puzzle exists
- */
-function currentAssignment() {
-  if (!currentVariant) return null;
-  return { variant: currentVariant, source: currentVariantSource };
-}
 
 /**
  * Report a puzzle left unfinished, if there is one
@@ -205,8 +187,7 @@ function reportAbandonmentIfAny() {
     currentScore ? currentScore.percentage : 0,
     playerDrawnCells.size,
     hintsSatisfied,
-    currentPuzzleShape,
-    currentAssignment()
+    currentPuzzleShape
   );
 }
 
@@ -231,10 +212,7 @@ function captureGameState() {
     solutionPath,
     hintCells,
     hasWon,
-    hasViewedSolution,
-    // Pinned so a daily puzzle, whose hints are rebuilt from the seed on every
-    // load, can never be regenerated under a different arm mid-game
-    generatorVariant: currentVariant
+    hasViewedSolution
   };
 }
 
@@ -914,8 +892,7 @@ function render(triggerSave = true, animationMode = 'auto') {
         completionTimeSeconds,
         finalTime,
         scorePercentage,
-        currentPuzzleShape,
-        currentAssignment()
+        currentPuzzleShape
       );
 
       // Re-render path with win color (already green from visual validation, but ensures consistency)
@@ -957,83 +934,47 @@ function render(triggerSave = true, animationMode = 'auto') {
 }
 
 /**
+ * Build a puzzle: solution loop, hints, and its measured shape
+ *
+ * The solution is generated before the hints and both draw from the same
+ * random source, so a daily seed always produces the same puzzle.
+ *
+ * @param {number} size - Grid size
+ * @param {string} difficulty - Difficulty key for hint configuration
+ * @param {function(): number} randomFn - Seeded random (daily) or Math.random
+ * @returns {{solution: Array, turnMap: Map<string, boolean>, hints: Set<string>, shape: Object}} Puzzle
+ */
+function buildPuzzle(size, difficulty, randomFn) {
+  const solution = generateSolutionPath(size, randomFn);
+  const hintConfig = CONFIG.DIFFICULTY.HINT_CONFIG[difficulty];
+  const hints = generateHintCellsWithMinDistance(size, hintConfig.count, hintConfig.minDistance, randomFn);
+  const turnMap = buildSolutionTurnMap(solution);
+
+  return { solution, turnMap, hints, shape: describePuzzle(size, hints, turnMap) };
+}
+
+/**
  * Generate and start a new puzzle
  *
  * - Daily mode: Uses seeded random for consistent daily puzzles
  * - Unlimited mode: Uses true random for unique puzzles each time
  *
  * Clears any saved progress, resets game state, and starts a fresh timer.
- * Only available in unlimited mode (daily puzzles are fixed per day).
  */
-/**
- * Hint placement this puzzle should be generated with
- *
- * Only Tricky consults the experiment arm. Easy and Diabolical were settled in
- * round 1 and now use one fixed placement for every player, so an assignment
- * changes nothing outside the 6x6 grid.
- *
- * @param {string} difficulty - Difficulty key
- * @param {string} variant - Experiment arm
- * @returns {Object} Placement config: strategy plus its parameters
- */
-function placementFor(difficulty, variant) {
-  if (difficulty === 'medium' && isTrickyCoveringVariant(variant)) {
-    return CONFIG.DIFFICULTY.TRICKY_COVERING;
-  }
-  return CONFIG.DIFFICULTY.HINT_PLACEMENT[difficulty];
-}
-
-/**
- * Build a puzzle with whichever hint placement this difficulty and arm call for
- *
- * Both arms consume the random source in the same order - solution first, hints
- * second - so on any given day the two arms share an identical solution loop
- * and differ only in where the hints sit on it. That keeps the comparison to
- * the one thing being tested.
- *
- * @param {number} size - Grid size
- * @param {string} difficulty - Difficulty key for hint configuration
- * @param {function(): number} randomFn - Seeded random (daily) or Math.random
- * @param {string} variant - Experiment arm
- * @returns {{solution: Array, turnMap: Map<string, boolean>, hints: Set<string>, shape: Object}} Puzzle
- */
-function buildPuzzle(size, difficulty, randomFn, variant) {
-  const solution = generateSolutionPath(size, randomFn);
-
-  // The covering placement needs to know what each candidate hint would read,
-  // so the turn map has to exist before hints are chosen rather than after
-  const turnMap = buildSolutionTurnMap(solution);
-  const placement = placementFor(difficulty, variant);
-
-  const hints = placement.strategy === 'covering'
-    ? generateHintCellsCovering(size, placement, turnMap, randomFn)
-    : generateHintCellsWithMinDistance(size, placement.count, placement.minDistance, randomFn);
-
-  // anchorMaxValue is the threshold anchor_hints is measured at, not just a
-  // generation input - both Tricky arms declare 2 so their figures compare
-  return { solution, turnMap, hints, shape: describePuzzle(size, hints, turnMap, placement.anchorMaxValue) };
-}
-
 function generateNewPuzzle() {
   // Clear any saved progress when generating a new puzzle
   // (Important for unlimited mode when user clicks "New")
   clearGameState(currentPuzzleId, currentGameDifficulty, isUnlimitedMode);
   clearUndoHistory(); // New puzzle = fresh start
 
-  // A fresh puzzle always takes the player's current assignment, and pins it
-  // (see captureGameState) so reloading this puzzle regenerates it identically
-  const assignment = getTrickyHintsAssignment();
-  currentVariant = assignment.variant;
-  currentVariantSource = assignment.source;
-
   let puzzle;
   if (isDailyMode) {
     // Generate daily puzzle with seeded random
     const seed = getDailySeed(currentGameDifficulty);
-    puzzle = buildPuzzle(gridSize, currentGameDifficulty, createSeededRandom(seed), currentVariant);
+    puzzle = buildPuzzle(gridSize, currentGameDifficulty, createSeededRandom(seed));
   } else {
     // Unlimited mode - truly random puzzles
-    puzzle = buildPuzzle(gridSize, currentUnlimitedDifficulty, Math.random, currentVariant);
+    puzzle = buildPuzzle(gridSize, currentUnlimitedDifficulty, Math.random);
   }
 
   solutionPath = puzzle.solution;
@@ -1066,8 +1007,7 @@ function generateNewPuzzle() {
   trackGameStarted(
     currentGameDifficulty,
     isDailyMode ? 'daily' : 'unlimited',
-    currentPuzzleShape,
-    currentAssignment()
+    currentPuzzleShape
   );
 
   // A fresh puzzle is unfinished by definition, but nothing has been drawn yet,
@@ -1083,18 +1023,10 @@ function generateNewPuzzle() {
  * @param {Object|null} savedState - Saved game state, or null to skip restoration
  */
 function restorePuzzleData(savedState) {
-  // A daily save holds no puzzle data - the hints are rebuilt from the date
-  // seed every time - so the arm the save was created under has to be honoured
-  // here, or a player whose assignment changed between visits would find their
-  // half-finished puzzle rearranged around the path they had already drawn.
-  const assignment = variantForSavedGame(savedState?.generatorVariant);
-  currentVariant = assignment.variant;
-  currentVariantSource = assignment.source;
-
   if (isDailyMode) {
     // For daily puzzles, regenerate from seed (deterministic)
     const seed = getDailySeed(currentGameDifficulty);
-    const puzzle = buildPuzzle(gridSize, currentGameDifficulty, createSeededRandom(seed), currentVariant);
+    const puzzle = buildPuzzle(gridSize, currentGameDifficulty, createSeededRandom(seed));
     solutionPath = puzzle.solution;
     hintCells = puzzle.hints;
     currentPuzzleShape = puzzle.shape;

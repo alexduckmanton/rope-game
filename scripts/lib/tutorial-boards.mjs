@@ -26,7 +26,7 @@ const { CONFIG } = await import('../../src/config.js');
 
 export const GRID_SIZE = 4;
 
-const EASY = CONFIG.DIFFICULTY.HINT_PLACEMENT.easy;
+const EASY = CONFIG.DIFFICULTY.HINT_CONFIG.easy;
 
 /**
  * Build the real Easy puzzle a seed produces

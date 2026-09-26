@@ -3,12 +3,11 @@ paths:
   - "src/generator.js"
   - "src/generation/**"
   - "src/seededRandom.js"
-  - "src/experiment.js"
 ---
 
 # Puzzle generation
 
-How puzzles and their hints are built, and what is safe to tune. Round 2 of the hint placement experiment is running — see `docs/experiments.md` for the numbers behind the freeze below.
+How puzzles and their hints are built, and what is safe to tune. No experiment is running. A coverage-first hint placement was tested for seven weeks and removed; `docs/experiments.md` has the results and — more usefully — the rules for running the next test without fooling yourself.
 
 ### Puzzle Generation
 
@@ -22,35 +21,30 @@ Generates Hamiltonian cycles (paths visiting all cells exactly once forming a lo
 
 **Warnsdorff's Rule:** Always move to the neighbor with the fewest unvisited neighbors. This greedy strategy avoids dead ends by saving well-connected cells for later.
 
-**Hint Cell Selection:** each difficulty declares its own placement in
-`CONFIG.DIFFICULTY.HINT_PLACEMENT`. Two strategies exist.
+**Hint Cell Selection:** `generateHintCellsWithMinDistance()` in `renderer.js`, configured
+per difficulty by `CONFIG.DIFFICULTY.HINT_CONFIG`: easy 2/3, medium 5/2, hard 16/0
+(`count`/`minDistance`). It shuffles every grid cell with the seeded random function, then
+walks the shuffled pool taking any cell at least `minDistance` (Chebyshev) from every hint
+already taken, until `count` is reached. It knows nothing about the solution, so what each
+hint ends up *saying* is pure chance. If the spacing is too tight it returns fewer hints
+rather than failing - which is not a rare edge case on Easy: `minDistance` 3 is
+unsatisfiable from any interior cell of a 4x4, so Easy averages 1.73 hints and roughly a
+quarter of days ship a single hint. That is deliberate; see below.
 
-*`spaced`* - `generateHintCellsWithMinDistance()` in `renderer.js`. Shuffles every grid
-cell with the seeded random function, then walks the shuffled pool taking any cell at least
-`minDistance` (Chebyshev) from every hint already taken, until `count` is reached. It knows
-nothing about the solution, so what each hint ends up *saying* is pure chance. If the
-spacing is too tight it returns fewer hints rather than failing - which is not a rare edge
-case on Easy, see below. Used by **Easy** (2/3) and **Tricky control** (5/2).
+Applies to daily puzzles (seeded random) and unlimited mode (true random) alike.
 
-*`covering`* - `generateHintCellsCovering()` in `generation/hintPlacement.js`. Three stages:
+**Puzzle shape:** `describePuzzle()` in `generation/puzzleShape.js` measures every generated
+puzzle - hint count, coverage, redundancy, anchors (hints reading 0 or 1), expected turns -
+and the game attaches the result to every lifecycle event. It is how an unlucky day's puzzle
+is told apart from a mistuned difficulty.
 
-1. **Cover** - greedy maximum-coverage selection: repeatedly take the cell whose 3x3 area
-   covers the most still-uncovered cells, breaking ties with the seeded random function so
-   the covering set varies day to day instead of settling on a fixed lattice.
-2. **Fill** - spend any remaining budget at random, for overlap.
-3. **Anchor** - swap hints for ones reading `<= anchorMaxValue`, checking after each swap
-   that the grid is still fully covered. Any hint may be given up, including a covering one,
-   because on a tight grid the low-value positions often *are* the covering ones. The quota
-   is silently unmet when the grid cannot supply it.
+**Measured over 365 daily seeds**, which is what these defaults produce:
 
-Used by **Diabolical** (16 hints, shipped after round 1) and by the **Tricky covering arm**
-(`CONFIG.DIFFICULTY.TRICKY_COVERING`, 5 hints).
-
-`anchorMaxValue` is also the threshold `describePuzzle()` measures `anchor_hints` at, so any
-two arms being compared must declare the same value or the figures are meaningless. Tricky's
-control placement carries one purely for that reason.
-
-Both arms apply to daily puzzles (seeded random) and unlimited mode (true random) alike.
+| | hints | coverage | redundancy | anchors |
+|---|---|---|---|---|
+| Easy | 1.73 | 62.6% | 1.00 | 0.00 |
+| Tricky | 5 | 77.2% | 1.24 | 0.31 |
+| Diabolical | 16 | 88.9% | 2.13 | 2.29 |
 
 -----
 
@@ -84,42 +78,38 @@ Both arms apply to daily puzzles (seeded random) and unlimited mode (true random
 
 -----
 
-**Modify Hint Placement Configuration:**
+**Modify Hint Configuration:**
 
-**While the Tricky re-test is running, do not touch `HINT_PLACEMENT.medium` or
-`TRICKY_COVERING`.** Tuning either moves a baseline mid-test and makes the result
-meaningless. Easy and Diabolical are settled and safe to tune.
-
-1. **Per difficulty**: `CONFIG.DIFFICULTY.HINT_PLACEMENT` - each entry names a `strategy`
-   plus its parameters. `spaced` takes `count` and `minDistance`; `covering` takes `count`,
-   `lowValueAnchors` and `anchorMaxValue`.
-2. **`spaced` tuning**: `minDistance` trades redundancy for coverage - spacing hints out
-   spreads their areas so fewer cells go unconstrained, but the areas then overlap less and
-   cross-checking is lost. `minDistance: 1` is a no-op (Chebyshev >= 1 is any distinct cell).
-   On a 6x6 the spacing caps the achievable count at 9, on an 8x8 at 16 - asking for more
-   silently places fewer.
-3. **`covering` tuning**: raising `count` raises redundancy; coverage is already at or near
-   100% at the current counts. An `anchorMaxValue` quota the grid cannot supply is silently
-   unmet, so check the tables in "Tricky hint placement experiment" before raising one.
-4. **Hint count is not a free parameter.** Round 1's clearest lesson is that raising `count`
-   changes difficulty far more than placement does - Easy lost 23 points of completion to it.
-   Change count and placement in separate releases, or you cannot attribute the result.
-5. **`anchorMaxValue` is also a measurement threshold.** `describePuzzle()` counts
-   `anchor_hints` at whatever value the placement declares, so two configs being compared
-   must declare the same one.
+1. **Where**: `CONFIG.DIFFICULTY.HINT_CONFIG` - `count` and `minDistance` per difficulty.
+2. **`minDistance` trades redundancy for coverage** - spacing hints out spreads their areas
+   so fewer cells go unconstrained, but the areas then overlap less and cross-checking is
+   lost. `minDistance: 1` is a no-op (Chebyshev >= 1 is any distinct cell). On a 6x6 the
+   spacing caps the achievable count at 9, on an 8x8 at 16 - asking for more silently places
+   fewer.
+3. **Hint count is not a free parameter.** Raising `count` changes difficulty far more than
+   placement does - Easy lost 16 points of per-player completion going from 1.73 to 4 hints.
+   Change count and anything else in separate releases, or you cannot attribute the result.
+4. **Coverage is not the lever it looks like.** Guaranteeing full coverage on Tricky, at the
+   same hint count, did not raise completion. Do not re-run that idea without reading
+   `docs/experiments.md` first.
+5. **Easy's sparse hints are deliberate.** Players finish a 1-2 hint 4x4 far more often than
+   a fully covered one. Do not "fix" the 1.73.
 6. **Affects all modes**: new daily puzzles, restored daily puzzles, and new unlimited
    puzzles alike.
 7. **Saved unlimited puzzles** keep their original hint placement when restored (no
-   migration). **Saved daily puzzles** rebuild their hints from the seed, but pin their arm -
-   so a config change *does* reach an in-progress daily puzzle, while an arm change does not.
+   migration). **Saved daily puzzles** rebuild their hints from the seed, so a config change
+   reaches an in-progress daily puzzle - the player's drawn path stays, the hints move under
+   it. Ship generation changes knowing that.
 8. **Graceful degradation**: too-tight constraints place fewer hints rather than failing.
-9. **Verify before shipping**: both placements are pure functions of a grid size, a config
-   and a seeded random source, so they can be exercised outside a browser.
-   `generation/hintPlacement.js` deliberately imports only from `utils.js` for this reason.
-   Run a candidate config across a year of seeds and check coverage, redundancy, anchors and
-   layout variety before trusting it - every number in this document was produced that way.
-   `config.js` imports the i18n runtime, which resolves a Vite-only alias, so a Node-side
-   harness needs `src/i18n/index.js` and `src/tokens.js` stubbed.
+9. **Verify before shipping**: the generator is a pure function of a grid size, a config and
+   a seeded random source, so a candidate can be run across a year of seeds in Node and
+   checked with `describePuzzle()` before any player sees it. `config.js` imports the i18n
+   runtime, which resolves a Vite-only alias, so a Node-side harness needs
+   `src/i18n/index.js` and `src/tokens.js` stubbed (`scripts/lib/` has both). The
+   `tune-hints` skill walks through it.
+10. **Judge the result per player, not per start.** A handful of daily regulars dominate
+    start counts, and whichever side of a comparison they land on wins. This produced two
+    false "wins" in the hint placement experiment. See `docs/experiments.md`.
 
 -----
 
