@@ -18,8 +18,9 @@
 // forever, silently. Verified by diffing the dist builds: `module.js` contains
 // the `flags/?v=` endpoint, `module.slim.no-external.js` does not.
 //
-// So nothing in this app can read a flag or run a PostHog Experiment. The hint
-// generation experiment randomises client-side instead (see experiment.js).
+// So nothing in this app can read a flag or run a PostHog Experiment. An A/B
+// test has to randomise client-side and record the arm as an event property -
+// see "Hint placement experiments" in docs/experiments.md for how that went.
 // Restoring flags means moving to `module.no-external.js`, which costs about
 // +38KB gzipped - roughly doubling this game's JS payload.
 import posthog from 'posthog-js/dist/module.slim.no-external.js';
@@ -215,21 +216,11 @@ export function trackTutorialCompleted() {
  * "this difficulty is mistuned" from "that particular day's puzzle was unlucky"
  * - a distinction the difficulty label alone can never make.
  *
- * @param {Object|null} shape - From describePuzzle() in generation/hintPlacement.js
- * @param {{variant: string, source: string}|null} assignment - Experiment arm actually used
+ * @param {Object|null} shape - From describePuzzle() in generation/puzzleShape.js
  * @returns {Object} Event properties (empty when nothing is known)
  */
-function puzzleProperties(shape, assignment) {
+function puzzleProperties(shape) {
   const props = {};
-
-  if (assignment) {
-    // The arm this puzzle was generated with. This is the ONLY record of the
-    // assignment - the slim posthog build cannot read flags, so there is no
-    // $feature/... property to fall back on. Every analysis of the hint
-    // generation experiment reads this. See experiment.js.
-    props.generator_variant = assignment.variant;
-    props.variant_source = assignment.source;
-  }
 
   if (shape) {
     props.hint_count = shape.hintCount;
@@ -248,13 +239,12 @@ function puzzleProperties(shape, assignment) {
  * @param {string} difficulty - Difficulty level ('easy', 'medium', 'hard')
  * @param {string} mode - Game mode ('daily', 'unlimited')
  * @param {Object} [shape] - Measured puzzle shape from describePuzzle()
- * @param {{variant: string, source: string}} [assignment] - Experiment arm used
  */
-export function trackGameStarted(difficulty, mode, shape = null, assignment = null) {
+export function trackGameStarted(difficulty, mode, shape = null) {
   trackEvent('game_started', {
     difficulty,
     mode,
-    ...puzzleProperties(shape, assignment)
+    ...puzzleProperties(shape)
   });
 }
 
@@ -266,16 +256,15 @@ export function trackGameStarted(difficulty, mode, shape = null, assignment = nu
  * @param {string} completionTimeFormatted - Formatted time (e.g., "Easy • 2:34")
  * @param {number} score - Score percentage at completion
  * @param {Object} [shape] - Measured puzzle shape from describePuzzle()
- * @param {{variant: string, source: string}} [assignment] - Experiment arm used
  */
-export function trackGameCompleted(difficulty, mode, completionTimeSeconds, completionTimeFormatted, score, shape = null, assignment = null) {
+export function trackGameCompleted(difficulty, mode, completionTimeSeconds, completionTimeFormatted, score, shape = null) {
   trackEvent('game_completed', {
     difficulty,
     mode,
     completion_time_seconds: completionTimeSeconds,
     completion_time_formatted: completionTimeFormatted,
     score,
-    ...puzzleProperties(shape, assignment)
+    ...puzzleProperties(shape)
   });
 }
 
@@ -299,9 +288,8 @@ export function trackGameCompleted(difficulty, mode, completionTimeSeconds, comp
  * @param {number} cellsDrawn - Cells in the player's path at exit
  * @param {number} hintsSatisfied - Hints reading zero at exit
  * @param {Object} [shape] - Measured puzzle shape from describePuzzle()
- * @param {{variant: string, source: string}} [assignment] - Experiment arm used
  */
-export function trackGameAbandoned(difficulty, mode, elapsedSeconds, score, cellsDrawn, hintsSatisfied, shape = null, assignment = null) {
+export function trackGameAbandoned(difficulty, mode, elapsedSeconds, score, cellsDrawn, hintsSatisfied, shape = null) {
   trackEvent('game_abandoned', {
     difficulty,
     mode,
@@ -309,7 +297,7 @@ export function trackGameAbandoned(difficulty, mode, elapsedSeconds, score, cell
     score,
     cells_drawn: cellsDrawn,
     hints_satisfied: hintsSatisfied,
-    ...puzzleProperties(shape, assignment)
+    ...puzzleProperties(shape)
   });
 }
 

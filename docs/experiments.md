@@ -1,129 +1,136 @@
 # Experiments
 
-Live and settled experiments on puzzle generation. The freeze rule this implies for
-`CONFIG.DIFFICULTY` is repeated in `.claude/rules/generation.md`, which is what an agent
-editing that file actually loads.
+**No experiment is running.** Every difficulty uses the original `spaced` hint generator
+(`CONFIG.DIFFICULTY.HINT_CONFIG`) and is safe to tune - though read "Running the next
+experiment" below before trusting any result that says a change helped.
 
-#### Tricky hint placement experiment
+## Hint placement experiments (2026-08-06 to 2026-09-26) - concluded
 
-**Round 1 is finished. Round 2 is running, and it tests Tricky alone.**
+**Outcome: nothing shipped.** A coverage-first hint placement was tested against the
+original on all three difficulties over two rounds. Counted per player, it made Easy worse
+and Tricky and Diabolical no better. Every difficulty is back on the original generator and
+the alternative has been deleted (git history has it: `generateHintCellsCovering()` in the
+former `src/generation/hintPlacement.js`).
 
-##### Round 1 (2026-08-06 to 2026-08-22): what it settled
+The most important thing this experiment produced is not a result about hints. It is that
+**reading completion rate per game start, rather than per player, produced two confident
+"wins" that were not real** - one of which was shipped. See "The clustering error" below.
 
-The original hypothesis was that Tricky underperforms because its hints leave much of the
-grid unconstrained, and that guaranteeing coverage would fix it. Round 1 tested a `covering`
-placement against the shipped `spaced` one on all three difficulties at once, 50/50,
-251 players and 579 starts.
+### The idea
 
-| difficulty | spaced | covering | change | |
+Tricky completed at 37% against Diabolical's 53%, despite Diabolical being the bigger grid.
+The `spaced` generator knows nothing about the solution: it shuffles the cells and takes the
+first N that are far enough apart. On a 6x6 that leaves about 23% of cells outside every
+hint's 3x3 area, with no feedback for a player drawing there. The hypothesis was that
+guaranteeing every cell sits inside some hint area (`covering`) would make Tricky
+deducible, and so completable.
+
+### Results, counted per player
+
+Each player counted once - did they complete at least one puzzle at that difficulty. This is
+the measure to trust; the start-level figures that were originally reported are kept
+alongside so the error is visible.
+
+**Round 1** (2026-08-06 to 08-22) - `covering` on every difficulty, with Easy's hint count
+raised 2 -> 4 and Tricky's 5 -> 8. Diabolical kept 16.
+
+| difficulty | spaced | covering | per-player verdict | originally reported (per start) |
 |---|---|---|---|---|
-| Easy | 66.2% (160) | 43.3% (164) | **-23 pts** | p < 0.0001 |
-| Tricky | 34.4% (93) | 38.8% (67) | +4.4 pts | p = 0.57, null |
-| Diabolical | 25.0% (44) | 66.7% (51) | **+42 pts** | p < 0.0001 |
+| Easy | 54.8% (115) | 38.4% (125) | **worse, p ≈ 0.01** | 66.2% -> 43.3%, p < 0.0001 |
+| Tricky | 33.3% (51) | 25.6% (39) | no difference | 34.4% -> 38.8%, p = 0.57 |
+| Diabolical | 22.7% (22) | 23.5% (17) | **no difference** | 25.0% -> 66.7%, "p < 0.0001" |
 
-**The hypothesis was right; the implementation confounded it.** Two of the three arms raised
-the hint *count* at the same time as changing placement, so they tested two things at once:
+**Round 2** (2026-08-22 to 09-26) - Tricky only, `covering` at 5 hints, the same count as
+`spaced`, so placement was the only variable. Diabolical ran `covering` for everyone.
 
-| | hints | expected turns | avg win time |
+| | spaced | covering | |
 |---|---|---|---|
-| Easy spaced | 1.73 | 7.1 | 41s |
-| Easy covering | 4.00 | 21.9 | 74s |
-| Tricky spaced | 5 | 22.4 | 112s |
-| Tricky covering | 8 | 38.0 | 235s |
-| Diabolical spaced | 16 | 68.9 | 270s |
-| Diabolical covering | 16 | 64.8 | 298s |
+| Tricky, per player | 26.3% (167) | 21.6% (176) | p ≈ 0.31; 95% CI about -14 to +4 pts |
+| Tricky, per start | 38.1% (257) | 23.4% (269) | looked like p ≈ 0.0003 - see below |
+| Median win time per player | 110s | 132s | |
 
-Diabolical was the only arm that held its count fixed and changed placement alone - and it
-was the only clear win. Easy tripled its constraint load and lost badly; on a 4x4, sparse is
-a feature, not the bug it looked like. Tricky doubled its time-to-win for no completion gain.
+The round-2 interval excludes the +13 points the test was powered to find, so the
+conclusion is firm: **coverage does not make Tricky easier to finish.** It may make it
+slightly harder.
 
-**Shipped from round 1:** Easy keeps `spaced`, Diabolical takes `covering`. Both are now
-fixed for every player and no longer branch on any arm.
+### What stands
 
-**Caveats worth keeping.** Diabolical's samples are the smallest on the board (44 and 51),
-and its *control* arm ran at 25% against a 50% pre-experiment baseline (n=34, p≈0.02) - an
-unexplained shift. Randomisation still protects the comparison, since both arms drew from
-the same population, but treat +42 points as directionally solid and probably overstated.
-Localisation shipped mid-experiment and is *not* the explanation: it brought essentially no
-non-English traffic (1 player each for de/ja/fr/es).
+- **Easy's sparse hints are a feature.** On a 4x4, more hints means more constraint load
+  (7.1 -> 21.9 expected turns at 4 hints), not more help. This held per player.
+- **Hint count moves difficulty far more than placement does.** Change them in separate
+  releases or the result cannot be attributed.
+- **Coverage is not what makes a puzzle solvable.** The 23% of Tricky left unconstrained is
+  not why players give up on it.
+- **Retention was unaffected** in round 1 (day-1 return 4.5% vs 4.7%). At this traffic only
+  a regression of roughly a halving is detectable, so retention is a guardrail here, not a
+  measurement.
 
-**Retention was unaffected** - day-1 return 4.5% vs 4.7%, ever-returned 13.6% vs 9.8%
-(p = 0.35). At this traffic a retention regression is only detectable if it is roughly a
-halving (~191 players per arm); anything subtler will never resolve. It is a guardrail, not
-a measurement.
+### What is retracted
 
-##### Round 2 (from 2026-08-22): Tricky only
+- **The Diabolical "+42 point win".** One player in the covering arm produced 16 of its 34
+  wins. Per player it was 22.7% vs 23.5%. `covering` was shipped to every Diabolical player
+  on the strength of this from 2026-08-22 to 2026-09-26.
+- **"The hypothesis was right; the implementation confounded it."** The confound was real
+  (count and placement changed together), but the one clean-looking confirmation was the
+  artefact above. With count held fixed in round 2, placement did nothing.
+- **Round 1's "anchors 0.31 -> 1.82" for Tricky.** The arms were measured at different
+  thresholds. Measured consistently, `spaced` yields more low-value hints than `covering`.
 
-Tricky is the difficulty the whole effort was for, and it is still unanswered. Round 2 keeps
-the count at 5 - identical to control - so **placement is the only variable**, reproducing
-the isolation that made Diabolical's result readable.
+### Open question: Diabolical
 
-|                | `spaced` (control) | `covering` (variant) |
-|----------------|--------------------|----------------------|
-| hints          | 5                  | 5                    |
-| coverage       | 77.2%              | 97.8%                |
-| redundancy     | 1.24               | 1.16                 |
-| anchors        | 1.18               | 0.79                 |
-| expected turns | 20.6               | 23.9                 |
+Per-player Diabolical completion was about 23% in round 1 and about 9% in round 2, when
+every player had `covering`. Round 2 also roughly doubled daily traffic, so this may be a
+change in who was playing - but a harder puzzle is not ruled out. Now that Diabolical is
+back on `spaced`, comparing per-player completion for the weeks after 2026-09-26 against
+round 2 answers it cheaply, with no new code.
 
-Coverage is the only thing the variant buys. Redundancy and anchors both dip slightly - the
-same signature as Diabolical, where the win came with redundancy falling 2.13 -> 1.97. An
-anchor quota above 2 changes nothing: the 6x6 cannot supply more low-value positions without
-giving up a covering one, so the stage saturates at 0.79.
+### The clustering error
 
-> **Round 1 reported "anchors 0.31 -> 1.82" for Tricky. That comparison was invalid** - the
-> control arm was measured at `anchorMaxValue` 1 and the dense arm at 2. Measured
-> consistently at 2, `spaced` yields *more* low-value hints than `covering`, not fewer. Both
-> Tricky arms now declare the same threshold so the property is comparable.
+Completion rate per `game_started` treats every start as an independent trial. They are not.
+A small core of daily regulars plays every day, and a player who finishes nine Diabolical
+puzzles counts nine times. With a few hundred players, whichever arm the regulars happen to
+be randomised into wins.
 
-**Assignment is client-side, not a PostHog feature flag.** The slim posthog build the game
-ships has no flag network code at all (see the Analytics section), so `getFeatureFlag()`
-returns `undefined` forever. Rather than pay +38KB gzipped to restore flags, assignment is a
-50/50 coin flip in `experiment.js`, cached in `loop-game:experiment:tricky-hints`, resolved
-from cache first and never touching the network.
+It showed up clearly in round 2 on Diabolical, where **both arms received byte-identical
+puzzles** - same hint count, coverage, redundancy and turns - and completion per start still
+ran 38.9% vs 4.3%. Seven control players had produced 58 of the wins. Per player it was 10.4%
+vs 6.1%, which is noise. A difficulty with zero treatment effect had produced a z-score of
+about 5.
 
-- **The randomisation is sound.** Independent, even, sticky per browser.
-- **PostHog cannot compute the results.** Its Experiment object keys on flag exposure, of
-  which there is none. Experiment 405364 is kept only as a record of round 1's dates.
-- **The analysis reads `generator_variant`** off the game events. Round 2 uses new values,
-  `tricky-control` and `tricky-covering`, so the two rounds can never be conflated; the
-  property *names* are unchanged so existing insights keep working.
-- **Filter the analysis to `difficulty = 'medium'`.** The property records the player's arm
-  and is attached to every event, but on Easy and Diabolical the arm changes nothing.
-- **There is no remote kill switch.** Changing or stopping the split needs a deploy.
-- **A fresh storage key** re-randomises everyone rather than inheriting round 1, which would
-  carry round-1 exposure into round-2 behaviour.
+### Running the next experiment
 
-*Saves pin their arm.* A daily save holds no puzzle data - hints are rebuilt from the date
-seed on every load - so without pinning, a player whose assignment changed between visits
-would find their part-finished puzzle rearranged around the path they had already drawn.
-`variantForSavedGame()` makes the pinned arm win. Round 1's values fail the validity check
-deliberately, so a save written before this deploy falls through to a fresh assignment - a
-Tricky puzzle left in progress across the deploy will regenerate its hints once. Easy and
-Diabolical saves are unaffected, since neither branches any more.
+1. **The unit of analysis is the player.** Pre-register a per-player metric - completed at
+   least one, or the outcome of each player's first puzzle - and do the power calculation in
+   players, not starts. Report per-start figures only as a secondary read.
+2. **Keep a null baseline.** Leave some surface untouched by the treatment - a difficulty,
+   a segment - and read it with the same query. If the null shows a gap, the method is
+   producing noise, whatever the treated surface says.
+3. **Change one thing.** Count and placement moved together in round 1 and the result could
+   not be attributed.
+4. **Do not act on a peek.** Easy's null gap in round 2 swung 20 points before converging to
+   1, and a nominal p = 0.007 appeared on a zero-effect difficulty.
+5. **Measure every arm the same way.** `describePuzzle()` now uses one anchor threshold for
+   everything for this reason.
+6. **There are no feature flags.** The slim posthog build cannot read them. Randomise
+   client-side, cache the arm in localStorage, attach it to every game event as a property,
+   and pin it into saves - a daily save holds no puzzle data, so without pinning a player
+   whose arm changed would see their part-finished puzzle rearranged. PostHog's Experiment
+   object cannot compute results without flag exposure; analyse in SQL.
+7. **Verify generation offline first.** The generator is a pure function of a grid size, a
+   config and a seeded random source, so a candidate can be run across 365 daily seeds in
+   Node before any player sees it. `config.js` imports the i18n runtime, so a harness needs
+   `src/i18n/index.js` and `src/tokens.js` stubbed; `scripts/lib/` has stubs.
 
-Every game event carries `generator_variant` and `variant_source`, the latter one of `local`
-(coin flip in this browser) or `saved` (pinned by the save this puzzle was restored from).
-Note `saved` can never appear on `game_started` - a restored game does not fire it.
+### What was left behind
 
-**Teardown checklist**, once Tricky is called:
-
-1. Fold the winner into `CONFIG.DIFFICULTY.HINT_PLACEMENT.medium` and delete
-   `TRICKY_COVERING`. If `spaced` wins, `generateHintCellsCovering()` still has Diabolical as
-   a caller; if `covering` wins, `generateHintCellsWithMinDistance()` still has Easy.
-2. Delete `src/experiment.js`, its call in `main.js`, and `CONFIG.EXPERIMENT`.
-3. Remove `currentVariant` / `currentVariantSource` and the `placementFor()` branch in
-   `views/game.js`; keep `describePuzzle()` and the shape properties, which are useful
-   permanently.
-4. Drop `generatorVariant` from the save format in `persistence.js`. Old saves carrying it
-   are ignored harmlessly, so no migration is needed.
-5. Record the conclusion on PostHog experiment 405364. It holds no results - the numbers come
-   from the saved SQL insights on `generator_variant`.
-6. Leave both experiment keys in localStorage; they expire with nothing reading them.
-
-**Verify any config change before shipping it.** Both placements are pure functions of a grid
-size, a config and a seeded random source, so they can be exercised outside a browser -
-`generation/hintPlacement.js` deliberately imports only from `utils.js` for this reason.
-Every number in this section was produced by running the real modules across 365 daily seeds.
-Note that `config.js` now imports the i18n runtime, which resolves a Vite-only alias, so an
-Node-side harness needs `src/i18n/index.js` and `src/tokens.js` stubbed.
+- **Analytics**: `generator_variant` / `variant_source` on events from 2026-08-06 to
+  2026-09-26 - `control` / `dense` in round 1, `tricky-control` / `tricky-covering` in
+  round 2 - and the `generator_variant` person property. Nothing writes them now.
+- **localStorage**: `loop-game:experiment:hint-generation` and
+  `loop-game:experiment:tricky-hints`, which nothing reads. Saves may carry a
+  `generatorVariant` field, which is ignored.
+- **PostHog**: experiment 405364 and both hint placement dashboards, all marked concluded
+  with the per-player results.
+- **Deploy effect**: a Diabolical puzzle, or a Tricky puzzle in the covering arm, left in
+  progress across the revert regenerates its hints once. Easy and Tricky-control puzzles are
+  byte-identical before and after.

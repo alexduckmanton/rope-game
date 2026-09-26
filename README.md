@@ -126,7 +126,7 @@ src/
   serviceWorker.js  Registration
   views/            home.js, game.js
   game/             timer, share, validation, canvasSetup
-  generation/       hintPlacement.js
+  generation/       puzzleShape.js (measures every puzzle for analytics)
   components/       tutorialSheet, homeMenu, languageMenu, winStreakLine, streakFlame,
                     offlineNotice
   i18n/             locales.js (the registry), index.js (runtime), messages/*.js
@@ -142,7 +142,7 @@ Dark mode follows the system preference automatically; there is no toggle.
 - `CLAUDE.md` — instructions for agents working in this repo
 - `.claude/rules/` — conventions per area, loaded when that area is touched
 - `docs/design-decisions.md` — why scoring, the win condition and hint colour work as they do
-- `docs/experiments.md` — the hint placement experiment, live and settled
+- `docs/experiments.md` — the concluded hint placement experiment, and how to run the next one
 - `docs/recording-tutorial-videos.md` — how the tutorial clips are made
 - `docs/growth-strategy.md` — the localisation and SEO thesis
 - `ATTRIBUTION.md` — licences for third-party assets committed here

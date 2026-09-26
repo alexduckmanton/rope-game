@@ -1,7 +1,6 @@
 ---
 paths:
   - "src/persistence.js"
-  - "src/experiment.js"
   - "src/components/winStreakLine.js"
   - "src/components/streakFlame.js"
 ---
@@ -16,8 +15,9 @@ All state lives in localStorage — there is no backend. Keys are per **origin**
 - Unlimited mode: `loop-game:unlimited:medium` (one slot per difficulty)
 - Settings: `loop-game:settings` (global, shared across all modes)
 - Streaks: `loop-game:streak:easy` (per difficulty) and `loop-game:streak:overall`, each storing `{ current, best, lastDate }`
-- Tricky hint arm: `loop-game:experiment:tricky-hints`, storing `{ variant, source }`
-  (round 1's `loop-game:experiment:hint-generation` is orphaned - nothing reads it)
+- Orphaned, read by nothing: `loop-game:experiment:hint-generation` and
+  `loop-game:experiment:tricky-hints`, left by the concluded hint placement experiment.
+  Old saves may also carry a `generatorVariant` field, which is ignored
 
 All of these are keyed per **origin**, not per path, so they are shared across every language build: switching language keeps streaks, settings and part-finished puzzles intact.
 
@@ -40,7 +40,7 @@ Auto-saves game state to localStorage (client-side, no backend).
    - Unlimited: One slot per difficulty (e.g., `loop-game:unlimited:medium`). Switching difficulties saves current state, loads target difficulty state (or generates new if none exists).
    - Settings: Global singleton (`loop-game:settings`) shared across all modes.
 
-3. **State vs Settings**: Game state (player path, connections, timer, win status, and the hint generation arm the puzzle was built with) is per-puzzle. Unlimited mode includes puzzle data (solution path, hint cells) since it's not deterministic. Settings (hint mode, border mode, show solution, last unlimited difficulty) are global.
+3. **State vs Settings**: Game state (player path, connections, timer, win status) is per-puzzle. Unlimited mode includes puzzle data (solution path, hint cells) since it's not deterministic. Settings (hint mode, border mode, show solution, last unlimited difficulty) are global.
 
 4. **Data format**: Sets→Arrays, Maps→Objects (JSON-serializable), version field for migration, timestamp for debugging. Throttle returns `{ save, destroy }` for cleanup.
 

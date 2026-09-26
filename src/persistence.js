@@ -207,8 +207,7 @@ function serializeGameState(state) {
     solutionPath,
     hintCells,
     hasWon,
-    hasViewedSolution,
-    generatorVariant
+    hasViewedSolution
   } = state;
 
   // Convert Set to Array
@@ -233,12 +232,6 @@ function serializeGameState(state) {
     elapsedSeconds,
     hasWon: hasWon || false,
     hasViewedSolution: hasViewedSolution || false,
-    // Which hint generation arm built this puzzle. Daily saves hold no puzzle
-    // data - the hints come back from the date seed on every load - so without
-    // this a player whose experiment assignment changed between visits would
-    // find their part-finished puzzle rearranged. Absent on saves written
-    // before the experiment shipped, which fall back to the live assignment.
-    generatorVariant: generatorVariant || null,
     savedAt: Date.now()
   };
 
@@ -268,8 +261,7 @@ function deserializeGameState(saved) {
     solutionPath,
     hintCells,
     hasWon,
-    hasViewedSolution,
-    generatorVariant
+    hasViewedSolution
   } = saved;
 
   // Convert Array to Set
@@ -292,8 +284,7 @@ function deserializeGameState(saved) {
     playerConnections: deserializedConnections,
     elapsedSeconds,
     hasWon: hasWon || false,
-    hasViewedSolution: hasViewedSolution || false,
-    generatorVariant: generatorVariant || null
+    hasViewedSolution: hasViewedSolution || false
   };
 
   // For unlimited mode, restore the puzzle data

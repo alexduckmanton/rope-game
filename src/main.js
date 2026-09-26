@@ -10,7 +10,6 @@
 import { initRouter } from './router.js';
 import { initIcons } from './icons.js';
 import { cleanupOldSaves, reconcileStreaks } from './persistence.js';
-import { initTrickyHintsExperiment } from './experiment.js';
 import { registerServiceWorker } from './serviceWorker.js';
 import { CONFIG } from './config.js';
 import tokens from './tokens.js';
@@ -113,12 +112,6 @@ function init() {
   // Catch up any streak that was missed because the puzzle was completed on a
   // build without streak tracking
   reconcileStreaks();
-
-  // Resolve the hint generation experiment arm now, while the player is still
-  // on the home screen. By the time they pick a difficulty the PostHog response
-  // has usually landed, so the first puzzle they open is generated from a real
-  // assignment rather than the local fallback.
-  initTrickyHintsExperiment();
 
   // Listen for theme changes and update meta tag
   window.addEventListener('themeChanged', updateThemeColor);

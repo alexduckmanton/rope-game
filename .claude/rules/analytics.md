@@ -16,7 +16,7 @@ Every call is wrapped in try/catch and no-ops when PostHog is blocked, so analyt
 
 **Implementation:**
 - **Bundle**: Imports `posthog-js/dist/module.slim.no-external.js` — excludes autocapture, session replay, surveys and web vitals (all unused), roughly halving the added bundle size. No scripts are fetched from a CDN at runtime.
-- **No feature flags.** The slim build also excludes the feature-flag *network code*, not just extra payload: `posthog.getFeatureFlag()` exists and returns `undefined` forever, silently. Verified by diffing the dist builds — `module.js` contains the `flags/?v=` endpoint, `module.slim.no-external.js` does not. **Nothing in this app can read a flag or run a PostHog Experiment.** Restoring flags means moving to `module.no-external.js`, at roughly **+38KB gzipped** — close to doubling this game's JS payload, which was judged not worth it for traffic that is mostly one-visit referrals. The hint generation experiment randomises client-side instead; see below.
+- **No feature flags.** The slim build also excludes the feature-flag *network code*, not just extra payload: `posthog.getFeatureFlag()` exists and returns `undefined` forever, silently. Verified by diffing the dist builds — `module.js` contains the `flags/?v=` endpoint, `module.slim.no-external.js` does not. **Nothing in this app can read a flag or run a PostHog Experiment.** Restoring flags means moving to `module.no-external.js`, at roughly **+38KB gzipped** — close to doubling this game's JS payload, which was judged not worth it for traffic that is mostly one-visit referrals. An A/B test has to randomise client-side instead and record its arm as an event property — `docs/experiments.md` has the recipe and what went wrong last time.
 - **Initialization**: Happens on module load in `src/analytics.js`, before the router renders its first route, so the initial page view is never missed.
 - **SPA tracking**: `trackPageView(path, title)` sends `$pageview`; `router.js` calls it on every route change after setting `document.title`.
 - **Event helpers**: Named `trackX()` functions wrap `posthog.capture()` for every game event (see the event list below).
@@ -35,9 +35,9 @@ Every call is wrapped in try/catch and no-ops when PostHog is blocked, so analyt
 | Event | Key properties | Notes |
 |-------|----------------|-------|
 | `$pageview` | `$current_url`, `title`, `previous_page` | Powers DAU, new vs returning, and play frequency |
-| `game_started` | `difficulty`, `mode`, puzzle shape, arm | Fires only for a *fresh* puzzle, not when a saved game is restored, so it counts genuine starts |
-| `game_completed` | `difficulty`, `mode`, `completion_time_seconds`, `score`, puzzle shape, arm | `score` is the real value, not a hardcoded 100. `completion_type` was dropped with the End button - it was always `win` |
-| `game_abandoned` | `difficulty`, `mode`, `elapsed_seconds`, `score`, `cells_drawn`, `hints_satisfied`, puzzle shape, arm | Fires on navigation away or tab close with a touched, unfinished puzzle. Best effort - a force-quit delivers nothing, so treat it as a lower bound |
+| `game_started` | `difficulty`, `mode`, puzzle shape | Fires only for a *fresh* puzzle, not when a saved game is restored, so it counts genuine starts |
+| `game_completed` | `difficulty`, `mode`, `completion_time_seconds`, `score`, puzzle shape | `score` is the real value, not a hardcoded 100. `completion_type` was dropped with the End button - it was always `win` |
+| `game_abandoned` | `difficulty`, `mode`, `elapsed_seconds`, `score`, `cells_drawn`, `hints_satisfied`, puzzle shape | Fires on navigation away or tab close with a touched, unfinished puzzle. Best effort - a force-quit delivers nothing, so treat it as a lower bound |
 | `game_restarted` | `difficulty`, `mode` | Clear button |
 | `puzzle_generated` | `difficulty` | Unlimited mode only |
 | `validation_error` | `difficulty`, `mode` | Closed loop that fails its hints |
@@ -54,19 +54,17 @@ Every call is wrapped in try/catch and no-ops when PostHog is blocked, so analyt
 **Puzzle shape**, on every game lifecycle event: `hint_count`, `expected_turns_total`,
 `hint_coverage_percent`, `hint_redundancy`, `anchor_hints`, `solution_turns`. From
 `describePuzzle()`. This is what lets an unlucky day's puzzle be told apart from a mistuned
-difficulty - the difficulty label alone can never make that distinction. Useful well beyond
-the experiment, so it stays when the experiment goes.
+difficulty - the difficulty label alone can never make that distinction. From
+`generation/puzzleShape.js`; `anchor_hints` counts hints reading 0 or 1 on every difficulty.
 
-**Experiment arm**, on the same events: `generator_variant` and `variant_source`. Also
-written as person properties (`generator_variant`, `generator_variant_source`) so weekly
-retention cohorts can be split by arm - a retention curve is built from people, not events.
-These are the **only** record of the assignment: the slim posthog build cannot read flags,
-so there is no `$feature/...` property on anything.
+**Historical: experiment arm.** Events from 2026-08-06 to 2026-09-26 carry
+`generator_variant` and `variant_source` (`control`/`dense`, then
+`tricky-control`/`tricky-covering`), and persons carry a `generator_variant` property.
+Nothing writes them now. See `docs/experiments.md`.
 
-Values are versioned per experiment round - `control`/`dense` for round 1, then
-`tricky-control`/`tricky-covering` for round 2 - so a date filter is never the only thing
-separating two experiments. Round 2's arm only affects Tricky, so filter to
-`difficulty = 'medium'` before reading it as a treatment.
+**Count players, not events, when comparing groups.** A handful of daily regulars generate a
+large share of `game_started` and `game_completed`; a completion rate computed per event
+mostly measures which group they landed in. Aggregate to one row per person first.
 
 **Locale**, on *every* event: `locale`, the language the session was served. Also written as a person property, so retention cohorts can be split by language — a retention curve is built from people, not events. This is the only way to tell whether a translation is earning its keep, since each language is a separate build on a separate URL. Note the distinction from `language_selected`: `locale` is what a player *got*, `to_locale` is what they *asked for*.
 

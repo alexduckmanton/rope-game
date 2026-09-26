@@ -140,126 +140,41 @@ export const CONFIG = {
     // directly, so every surface stays in step.
     KEYS: ['easy', 'medium', 'hard', 'unlimited'],
 
-    // Hint placement per difficulty
+    // Hint generation per difficulty
     //
-    // Each difficulty names the placement that generates its hints:
+    // generateHintCellsWithMinDistance() in renderer.js shuffles every cell and
+    // takes the first `count` that are at least `minDistance` (Chebyshev) apart.
+    // It knows nothing about the solution, so what each hint reads is chance.
     //
-    //   'spaced'   - generateHintCellsWithMinDistance() in renderer.js. Shuffles
-    //                every cell and takes the first `count` that are at least
-    //                `minDistance` (Chebyshev) apart. Knows nothing about the
-    //                solution, so what each hint ends up reading is chance.
-    //   'covering' - generateHintCellsCovering() in generation/hintPlacement.js.
-    //                Greedy maximum-coverage selection, then overlap, then swaps
-    //                for low-value "anchor" hints.
+    // count:       hints to place
+    // minDistance: minimum Chebyshev gap between hints (0 = no constraint)
     //
-    // Round 1 of the hint placement experiment (2026-08-06 to 08-22, 579 starts)
-    // settled two of the three difficulties. Completion rate, spaced -> covering:
+    // Two quirks, both deliberate:
+    //   - Easy places 1.73 hints on average, not 2. minDistance 3 is
+    //     unsatisfiable from any interior cell of a 4x4, so roughly a quarter of
+    //     days ship a single-hint Easy. Players complete that far more often
+    //     than a fully covered 4x4 (54.8% vs 38.4% of players in the hint
+    //     placement experiment, p = 0.01) - on this grid, sparse is the feature.
+    //   - minDistance 1 would be a no-op (Chebyshev >= 1 is any distinct cell).
     //
-    //   Easy        66.2% -> 43.3%   (p < 0.0001)  spaced wins, kept
-    //   Tricky      34.4% -> 38.8%   (p = 0.57)    no effect, still testing
-    //   Diabolical  25.0% -> 66.7%   (p < 0.0001)  covering wins, shipped
-    //
-    // The driver is hint COUNT, not placement. Diabolical was the only arm that
-    // held its count fixed (16) and changed placement alone - and it was the only
-    // clear win. Easy quadrupled its hints (1.73 -> 4) and tripled its constraint
-    // load (7.1 -> 21.9 expected turns), which buried the placement benefit.
-    //
-    // count:           hints to place
-    // minDistance:     'spaced' only - minimum Chebyshev gap (0 = no constraint)
-    // lowValueAnchors: 'covering' only - anchors to guarantee, budget permitting
-    // anchorMaxValue:  turn count at or below which a hint counts as an anchor.
-    //                  Also the threshold describePuzzle() measures at, so both
-    //                  Tricky arms must declare the SAME value or their
-    //                  anchor_hints analytics are not comparable to each other.
-    HINT_PLACEMENT: {
-      // Kept exactly as it always was. Note it places 1.73 hints on average, not
-      // 2: minDistance 3 is unsatisfiable from any interior cell of a 4x4, so
-      // roughly a quarter of days ship a single-hint Easy. Round 1 measured
-      // players completing this far more often than a fully covered 4x4, so the
-      // quirk stays - on this grid, sparse is the feature.
+    // A coverage-first alternative was A/B tested on every difficulty from
+    // 2026-08-06 to 2026-09-26 and removed: counted per player, it made Easy
+    // worse and Tricky and Diabolical no better. Before tuning anything here,
+    // read "Hint placement experiments" in docs/experiments.md - especially
+    // the part about counting players rather than starts.
+    HINT_CONFIG: {
       easy: {
-        strategy: 'spaced',
-        count: 2,
-        minDistance: 3,
+        count: 2,         // 2 hints on 4x4 grid
+        minDistance: 3,   // Hints must be at least 3 cells apart
       },
-      // Control arm of the Tricky re-test. Do not tune while it runs.
       medium: {
-        strategy: 'spaced',
-        count: 5,
-        minDistance: 2,
-        anchorMaxValue: 2,   // measurement only - see note above
+        count: 5,         // 5 hints on 6x6 grid
+        minDistance: 2,   // Hints must be at least 2 cells apart
       },
-      // Shipped from round 1: the same 16 hints as before, placed to cover.
       hard: {
-        strategy: 'covering',
-        count: 16,
-        lowValueAnchors: 2,
-        anchorMaxValue: 1,
+        count: 16,        // 16 hints on 8x8 grid
+        minDistance: 0,   // No distance constraint
       },
-    },
-
-    // Challenger arm for the Tricky re-test (round 2)
-    //
-    // Round 1's Tricky arm changed placement AND raised the count 5 -> 8, which
-    // doubled time-to-win (112s -> 235s) for no completion gain. This holds the
-    // count at 5 so placement is the only thing differing from the control above
-    // - the same isolation that made Diabolical's result readable.
-    //
-    // Measured over 365 daily seeds, against medium's control:
-    //
-    //   |                | spaced (control) | covering (this) |
-    //   |----------------|------------------|-----------------|
-    //   | hints          | 5                | 5               |
-    //   | coverage       | 77.2%            | 97.8%           |
-    //   | redundancy     | 1.24             | 1.16            |
-    //   | anchors        | 1.18             | 0.79            |
-    //   | expected turns | 20.6             | 23.9            |
-    //
-    // **Coverage is the only thing this buys, and that is the point.** Redundancy
-    // dips slightly, as it did on Diabolical (2.13 -> 1.97): spreading hints to
-    // cover the grid necessarily overlaps them less. Anchors dip too. So this is a
-    // clean test of one property - does constraining every cell help? - rather
-    // than the three-way change round 1 shipped.
-    //
-    // Note the anchor figures are BOTH measured at threshold 2. Round 1 compared
-    // control anchors at threshold 1 (0.31) against the dense arm at threshold 2
-    // (1.82) and reported it as a 6x gain; measured consistently, spaced placement
-    // actually yields MORE low-value hints than covering does. That is why medium
-    // control carries an explicit anchorMaxValue above.
-    //
-    // A quota above 2 changes nothing - the 6x6 cannot supply more low-value
-    // positions without giving up a covering one, so the anchor stage saturates
-    // at 0.79 whether it is asked for 2, 3 or 4.
-    TRICKY_COVERING: {
-      strategy: 'covering',
-      count: 5,
-      lowValueAnchors: 2,
-      anchorMaxValue: 2,
-    },
-  },
-
-  // Tricky hint placement experiment (round 2)
-  //
-  // Round 1 tested covering placement on all three difficulties at once and
-  // confounded it with hint count. Easy and Diabolical are now settled and fixed
-  // for everyone; this arm applies to Tricky alone, so a player's assignment
-  // changes nothing outside the 6x6 grid.
-  //
-  // Variant values are deliberately distinct from round 1's 'control'/'dense' so
-  // the two rounds can never be conflated in analysis. The property names
-  // (generator_variant, variant_source) stay the same - only the values change.
-  //
-  // See "Tricky hint placement experiment" in CLAUDE.md for the teardown checklist.
-  EXPERIMENT: {
-    TRICKY_HINTS: {
-      CONTROL: 'tricky-control',
-      VARIANT: 'tricky-covering',
-      // Assignment is a coin flip cached in localStorage, NOT a PostHog feature
-      // flag - the slim posthog build we ship has no flag support at all. See the
-      // module comment in experiment.js. A fresh storage key re-randomises
-      // everyone rather than inheriting round 1's assignment, which would carry
-      // round-1 exposure through into round-2 behaviour.
-      STORAGE_KEY: 'loop-game:experiment:tricky-hints',
     },
   },
 
